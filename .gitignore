@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment Variables & Secrets
+.env
+.env.local
+
+# Pytest & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Storage dynamic DB & uploaded raw binaries
+storage/evidence_x.db
+storage/evidence/*
+!storage/evidence/.gitkeep
+storage/thumbnails/*
+!storage/thumbnails/.gitkeep
+storage/forensic/*
+!storage/forensic/.gitkeep
+storage/reports/*
+!storage/reports/.gitkeep
+storage/audit/*
+!storage/audit/.gitkeep

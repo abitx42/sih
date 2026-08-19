@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EVIDENCE-X : Digital Evidence Forensic Verification Platform</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="brand-container">
+      <div class="brand-logo">EX</div>
+      <div class="brand-info">
+        <h1>EVIDENCE-X</h1>
+        <p>SIH PS-27 • Forensic Verification Platform</p>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <button class="nav-item active" onclick="switchView('dashboard')">📊 Dashboard</button>
+      <button class="nav-item" onclick="switchView('cases')">📁 Cases</button>
+      <button class="nav-item" onclick="switchView('upload')">📤 Evidence Intake</button>
+      <button class="nav-item" onclick="switchView('lab')">🔬 Forensic Lab</button>
+      <button class="nav-item" onclick="switchView('custody')">⛓️ Chain of Custody</button>
+    </nav>
+
+    <div class="header-status">
+      <div class="status-dot"></div>
+      <span>Forensic Core Active</span>
+    </div>
+  </header>
+
+  <!-- Main Workspace Content -->
+  <main class="main-content">
+
+    <!-- 1. DASHBOARD VIEW -->
+    <section id="view-dashboard" class="view-section active">
+      <h2 class="section-title">Forensic Operations Dashboard</h2>
+      <p class="section-desc">Real-time overview of active investigations, digital evidence integrity status, and forensic risk assessments.</p>
+
+      <div class="grid-cards">
+        <div class="stat-card">
+          <div class="stat-header">Active Cases</div>
+          <div class="stat-value" id="stat-cases">0</div>
+          <div class="stat-footer">Under Active Investigation</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">Total Evidence Exhibits</div>
+          <div class="stat-value" id="stat-evidence">0</div>
+          <div class="stat-footer">Preserved & Fingerprinted</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">High Risk Anomaly Flags</div>
+          <div class="stat-value" id="stat-high-risk" style="color: var(--risk-high);">0</div>
+          <div class="stat-footer">Compounding Manipulation Indicators</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-header">Verified Authentic Exhibits</div>
+          <div class="stat-value" id="stat-low-risk" style="color: var(--risk-low);">0</div>
+          <div class="stat-footer">Sound Cryptographic Baseline</div>
+        </div>
+      </div>
+
+      <!-- Charts & Tables Panel -->
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Recent Digital Evidence Ingestions</h3>
+            <button class="btn btn-primary btn-sm" onclick="switchView('upload')">+ New Ingestion</button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="forensic-table">
+              <thead>
+                <tr>
+                  <th>Evidence ID</th>
+                  <th>File Name</th>
+                  <th>Modality</th>
+                  <th>SHA-256 Hash</th>
+                  <th>Forensic Risk</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-recent-table">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading evidence...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Risk Classification</h3>
+          </div>
+          <div style="height: 220px; display: flex; align-items: center; justify-content: center;">
+            <canvas id="riskChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Chain of Custody Stream -->
+      <div class="card-panel">
+        <div class="panel-header">
+          <h3>Live Chain of Custody Ledger Stream</h3>
+          <button class="btn btn-secondary btn-sm" onclick="switchView('custody')">View Full Ledger</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="forensic-table">
+            <thead>
+              <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Evidence ID</th>
+                <th>Action</th>
+                <th>Actor</th>
+                <th>Recorded Fingerprint</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-custody-table">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading custody ledger...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. EVIDENCE INTAKE / UPLOAD VIEW -->
+    <section id="view-upload" class="view-section">
+      <h2 class="section-title">Digital Evidence Intake & Ingestion</h2>
+      <p class="section-desc">Securely upload digital media. Automatically sanitizes payload, calculates cryptographic SHA-256/SHA-512 fingerprints, registers custody baseline, and runs forensic analysis.</p>
+
+      <div style="max-width: 800px; margin: 0 auto;">
+        <div class="card-panel">
+          <form id="evidence-upload-form" onsubmit="handleEvidenceUpload(event)">
+            <div class="dropzone" id="upload-dropzone" onclick="document.getElementById('file-input').click()">
+              <div class="dropzone-icon">📁</div>
+              <h3>Drag & Drop Digital Evidence or Click to Browse</h3>
+              <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+                Supported Formats: Images (JPG, PNG, WEBP), Videos (MP4, AVI, MOV), Audio (WAV, MP3), Documents (PDF, DOCX, XLSX), Archives (ZIP, TAR)
+              </p>
+              <input type="file" id="file-input" style="display: none;" onchange="handleFileSelected(event)">
+            </div>
+
+            <!-- Selected File Preview Card -->
+            <div id="selected-file-preview" style="display: none; background: var(--bg-card); padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem; border: 1px solid var(--border-color);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong id="preview-filename" style="color: #fff;">file.png</strong>
+                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;" id="preview-filesize">0 KB</div>
+                </div>
+                <div class="badge badge-modality" id="preview-modality">DETECTING</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Associated Case ID</label>
+                <select id="upload-case-id" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px;">
+                  <option value="CASE-2026-001">CASE-2026-001 - Operation CyberShield</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Ingesting Forensic Officer</label>
+                <input type="text" id="upload-actor" value="Insp. Rajesh Verma (Digital Forensics Unit)" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px;">
+              </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+              <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Evidence Context & Chain of Custody Notes</label>
+              <textarea id="upload-notes" rows="3" placeholder="Specify source device, seizure location, witness reference, or transfer details..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px; font-family: inherit; font-size: 0.88rem;"></textarea>
+            </div>
+
+            <button type="submit" id="btn-submit-upload" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem;">
+              🔒 Ingest Evidence & Run Forensic Pipeline
+            </button>
+          </form>
+
+          <!-- Upload Progress Loader -->
+          <div id="upload-progress-box" style="display: none; text-align: center; padding: 2rem;">
+            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Running Multi-Signal Forensic Verification...</div>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Calculating SHA-256 fingerprint, executing ELA/FFT analysis, inspecting provenance, and computing risk score.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. FORENSIC LAB / DEEP DIVE VIEW -->
+    <section id="view-lab" class="view-section">
+      <div class="lab-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+            <span class="badge badge-modality" id="lab-modality-badge">IMAGE</span>
+            <h2 id="lab-evidence-id" style="font-size: 1.4rem;">EV-2026-XXXXXX</h2>
+          </div>
+          <p id="lab-filename" style="color: var(--text-muted); font-size: 0.85rem;">filename.jpg</p>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn btn-secondary" onclick="reverifyIntegrity()">🛡️ Re-Verify Hash</button>
+          <button class="btn btn-primary" onclick="downloadForensicReport()">📄 Export Court Report (PDF)</button>
+        </div>
+      </div>
+
+      <!-- Top Summary Cards (Integrity, Provenance, Risk) -->
+      <div class="grid-cards">
+        <div class="stat-card">
+          <div class="stat-header">Cryptographic Integrity</div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
+            <div class="status-dot" id="lab-integrity-dot"></div>
+            <span id="lab-integrity-text" style="font-weight: 700; font-size: 1.1rem; color: var(--risk-low);">VERIFIED</span>
+          </div>
+          <div class="stat-footer hash-mono" id="lab-sha256-snippet">SHA-256: e3b0c442...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">C2PA / Provenance Status</div>
+          <div style="margin: 0.5rem 0;">
+            <span class="badge badge-medium" id="lab-provenance-badge">NOT AVAILABLE</span>
+          </div>
+          <div class="stat-footer" id="lab-provenance-detail">No C2PA Content Credentials attached</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">AI Manipulation Probability</div>
+          <div class="stat-value" id="lab-ai-score">0.0%</div>
+          <div class="stat-footer" id="lab-ai-model">Ensemble Detector</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">Composite Forensic Risk</div>
+          <div style="display: flex; align-items: baseline; gap: 0.5rem; margin: 0.4rem 0;">
+            <span class="stat-value" id="lab-risk-score" style="color: var(--risk-low);">0/100</span>
+            <span class="badge badge-low" id="lab-risk-badge">LOW RISK</span>
+          </div>
+          <div class="stat-footer">Multi-Signal Weighted Index</div>
+        </div>
+      </div>
+
+      <!-- Deep Dive Grid (Exhibits & Findings) -->
+      <div class="lab-grid">
+        <div>
+          <!-- Visual Exhibits Section -->
+          <div class="card-panel">
+            <div class="panel-header">
+              <h3>Forensic Exhibits & Signal Visualization</h3>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Error Level (ELA) • 2D FFT • Spectrogram</span>
+            </div>
+
+            <div class="exhibit-container" id="lab-exhibits-box">
+              <div class="exhibit-box">
+                <img id="exhibit-orig" src="" alt="Original Evidence">
+                <div class="exhibit-title">Exhibit 1: Original Ingested Media</div>
+              </div>
+              <div class="exhibit-box">
+                <img id="exhibit-forensic" src="" alt="Forensic Analysis Artifact">
+                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 2: Error Level Analysis (ELA)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Structured Findings Table -->
+          <div class="card-panel">
+            <div class="panel-header">
+              <h3>Explainable Forensic Findings</h3>
+              <span style="font-size: 0.8rem; color: var(--text-muted);" id="lab-findings-count">0 Signals Evaluated</span>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="forensic-table">
+                <thead>
+                  <tr>
+                    <th>Signal</th>
+                    <th>Category</th>
+                    <th>Severity</th>
+                    <th>Score</th>
+                    <th>Technical Forensic Explanation</th>
+                  </tr>
+                </thead>
+                <tbody id="lab-findings-table">
+                  <tr><td colspan="5" style="text-align: center; color: var(--text-dim);">No findings recorded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: Forensic Copilot & Investigation Assistant -->
+        <div>
+          <div class="card-panel">
+            <div class="panel-header">
+              <h3>🤖 Forensic Copilot Assistant</h3>
+              <span class="badge badge-modality">Qwen 3.6 / CoE Gateway</span>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+              <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem;">Executive Narrative</h4>
+              <p id="copilot-narrative" style="font-size: 0.85rem; line-height: 1.4; color: var(--text-main); background: var(--bg-card); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                Select an evidence exhibit to view forensic synthesis.
+              </p>
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+              <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem;">Investigator Recommendations</h4>
+              <div id="copilot-recommendations" style="font-size: 0.82rem; line-height: 1.4; color: #93c5fd; background: rgba(37, 99, 235, 0.08); padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                • Cryptographic baseline is intact.<br>• Document evidentiary logs in case file.
+              </div>
+            </div>
+
+            <!-- Interactive Copilot Chat Box -->
+            <div class="chat-container">
+              <div class="chat-messages" id="copilot-chat-messages">
+                <div class="chat-bubble assistant">
+                  Hello Investigator. I am your Forensic Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of voice cloning?", "What camera created this?").
+                </div>
+              </div>
+              <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
+                <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Forensic Copilot a question...">
+                <button type="submit" class="btn btn-primary btn-sm">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. CHAIN OF CUSTODY VIEW -->
+    <section id="view-custody" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+          <h2 class="section-title">Chain of Custody Immutable Ledger</h2>
+          <p class="section-desc" style="margin-bottom: 0;">Complete ISO/IEC 27037 compliant audit trail of all ingestion, analysis, hash verification, and report export events.</p>
+        </div>
+        <button class="btn btn-secondary" onclick="exportCustodyJSON()">📥 Export Custody JSON Ledger</button>
+      </div>
+
+      <div class="card-panel">
+        <div style="overflow-x: auto;">
+          <table class="forensic-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Timestamp (UTC)</th>
+                <th>Evidence ID</th>
+                <th>Action Taken</th>
+                <th>Investigator / System</th>
+                <th>Recorded SHA-256 Fingerprint</th>
+                <th>Event Details</th>
+              </tr>
+            </thead>
+            <tbody id="full-custody-table">
+              <tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Loading ledger...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. CASES VIEW -->
+    <section id="view-cases" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+          <h2 class="section-title">Case Management</h2>
+          <p class="section-desc" style="margin-bottom: 0;">Organize and group digital evidence exhibits by official investigation case numbers.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNewCaseModal()">+ Create New Case</button>
+      </div>
+
+      <div class="card-panel">
+        <div style="overflow-x: auto;">
+          <table class="forensic-table">
+            <thead>
+              <tr>
+                <th>Case Reference</th>
+                <th>Investigation Title</th>
+                <th>Lead Investigator</th>
+                <th>Creation Date</th>
+                <th>Evidence Exhibits</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="cases-table">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading cases...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
