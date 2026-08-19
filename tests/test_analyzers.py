@@ -1,3 +1,5 @@
+import io
+import wave
 import tempfile
 import numpy as np
 from PIL import Image
@@ -63,6 +65,36 @@ def test_video_analyzer_execution():
         finally:
             if temp_path.exists():
                 temp_path.unlink()
+
+def test_audio_analyzer_execution():
+    analyzer = AudioAnalyzer()
+    
+    # Generate simple test WAV
+    t = np.linspace(0, 1.0, 22050, endpoint=False)
+    sig = (0.5 * np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
+    
+    wav_io = io.BytesIO()
+    with wave.open(wav_io, 'wb') as wav_f:
+        wav_f.setnchannels(1)
+        wav_f.setsampwidth(2)
+        wav_f.setframerate(22050)
+        wav_f.writeframes(sig.tobytes())
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(wav_io.getvalue())
+        temp_path = Path(f.name)
+
+    try:
+        res = analyzer.analyze(temp_path, "EV-TEST-AUD")
+        assert res["model_status"] == "ANALYSIS UNAVAILABLE"
+        assert res["ai_manipulation_indicator"] is None
+        assert "forensic_anomaly_score" in res
+        assert "raw_metrics" in res
+        assert res["raw_metrics"]["sample_rate_hz"] == 22050
+        assert len(res["findings"]) >= 2
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 def test_document_analyzer_pdf():
     analyzer = DocumentAnalyzer()

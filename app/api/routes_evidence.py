@@ -372,6 +372,9 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
     elif artifact_type == "spectrogram":
         p = FORENSIC_DIR / f"spectrogram_{evidence_id}.png"
         media = "image/png"
+    elif artifact_type == "waveform":
+        p = FORENSIC_DIR / f"waveform_{evidence_id}.png"
+        media = "image/png"
     else:
         raise HTTPException(status_code=400, detail="Invalid artifact type.")
 

@@ -1,6 +1,7 @@
 import os
 import io
 import wave
+import tempfile
 import numpy as np
 from PIL import Image, ImageDraw
 from pathlib import Path
@@ -35,12 +36,11 @@ def create_demo_media():
     # 2. Manipulated/Edited Exhibit with Spliced Patch (High Risk)
     img_mod = Image.new("RGB", (640, 480), color=(80, 90, 110))
     draw_m = ImageDraw.Draw(img_mod)
-    # Insert high contrast block that will trigger ELA variance & high frequency FFT
     draw_m.rectangle([200, 150, 440, 330], fill=(255, 50, 50), outline=(255, 255, 0), width=4)
     draw_m.text((220, 220), "INPAINTED / SPLICED REGION", fill=(255, 255, 255))
     
     img_mod_bytes = io.BytesIO()
-    img_mod.save(img_mod_bytes, "JPEG", quality=70) # Low resave quality to amplify ELA delta
+    img_mod.save(img_mod_bytes, "JPEG", quality=70)
     
     res2 = client.post("/api/evidence/upload", files={
         "file": ("suspect_social_media_deepfake.jpg", img_mod_bytes.getvalue(), "image/jpeg")
@@ -51,15 +51,14 @@ def create_demo_media():
     })
     print("Created Manipulated Exhibit:", res2.json().get("evidence_id"))
 
-    # 3. Audio Recording (WAV)
+    # 3. Audio Recording (WAV with sharp spectral cuts and silence)
     sample_rate = 22050
     t = np.linspace(0, 3, int(sample_rate * 3), endpoint=False)
-    # Synthetic tone with frequency discontinuity
     tone1 = np.sin(2 * np.pi * 440 * t[:sample_rate])
-    tone2 = np.sin(2 * np.pi * 880 * t[sample_rate:sample_rate*2])
-    tone3 = np.sin(2 * np.pi * 220 * t[sample_rate*2:])
+    tone2 = np.zeros(int(sample_rate * 0.5))  # silence pause
+    tone3 = np.sin(2 * np.pi * 1200 * t[int(sample_rate*1.5):])
     audio_data = np.concatenate([tone1, tone2, tone3])
-    audio_scaled = (audio_data * 32767).astype(np.int16)
+    audio_scaled = (audio_data * 32767 * 0.8).astype(np.int16)
 
     wav_io = io.BytesIO()
     with wave.open(wav_io, 'wb') as wav_f:

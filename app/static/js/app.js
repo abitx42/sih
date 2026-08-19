@@ -305,11 +305,13 @@ function renderLabView(data) {
     const sampled = rawMetrics.sampled_frames_count || 0;
     const analysed = rawMetrics.ml_detector ? rawMetrics.ml_detector.analysed_frame_count : 0;
     document.getElementById("lab-ai-model").innerText = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames)`;
+  } else if (ev.modality === "AUDIO") {
+    document.getElementById("lab-ai-model").innerText = "Acoustic Signal Forensics (No Local ML Model)";
   } else {
     document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
   }
 
-  // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Noise)
+  // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Acoustic / Noise)
   const heuristicScore = res.forensic_anomaly_score !== undefined ? res.forensic_anomaly_score : 0;
   document.getElementById("lab-heuristic-score").innerText = `${heuristicScore}/100`;
 
@@ -334,9 +336,9 @@ function renderLabView(data) {
     forensicTitle.innerText = `Exhibit 2: Uniform Keyframe Sequence (${rawMetrics.sampled_frames_count || 0} Frames Decoded)`;
     forensicImg.style.display = "block";
   } else if (ev.modality === "AUDIO") {
-    origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Audio+Waveform+Track";
+    origImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/waveform`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/spectrogram`;
-    forensicTitle.innerText = "Exhibit 2: Audio Spectrogram & Splicing Map";
+    forensicTitle.innerText = `Exhibit 2: STFT Spectrogram & Splicing Analysis (${rawMetrics.sample_rate_hz || 0}Hz)`;
     forensicImg.style.display = "block";
   } else {
     origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Document+Stream";

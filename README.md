@@ -10,7 +10,7 @@ Traditional deepfake detectors output a binary `"Real or Fake"` verdict or an is
 EVIDENCE-X addresses the central investigative question:  
 > **"Can an investigator trust this digital file as forensic evidence?"**
 
-By combining **Cryptographic Bitstream Integrity (SHA-256)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Provenance**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Heuristic Signal Deconstruction (ELA 95%, 2D FFT, PRNU Noise)**, and an **Immutable Chain of Custody Ledger**, EVIDENCE-X provides courts and law enforcement with a defensible, multi-signal verification dossier.
+By combining **Cryptographic Bitstream Integrity (SHA-256)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Provenance**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Heuristic Signal Deconstruction (ELA 95%, 2D FFT, PRNU Noise, STFT Spectrogram, Waveform Envelope)**, and an **Immutable Chain of Custody Ledger**, EVIDENCE-X provides courts and law enforcement with a defensible, multi-signal verification dossier.
 
 ---
 
@@ -39,7 +39,7 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
       │   ┌─────────────┴─────────────┐   │
       │   │ Image: ELA, FFT, PRNU     │   │
       │   │ Video: OpenCV Real Frames │   │
-      │   │ Audio: Spectrogram, Voice │   │
+      │   │ Audio: Waveform, STFT     │   │
       │   │ Docs:  Incremental Update │   │
       │   └─────────────┬─────────────┘   │
       │                 │                 │
@@ -78,26 +78,33 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 
 2. **Real Video Forensics & Frame Aggregation**:
    - **True Frame Decoding**: Decodes real video streams using OpenCV (`opencv-python-headless`), sampling up to 16 uniformly distributed keyframes across the file duration.
-   - **Statistical Aggregation**: Reuses the local ViT classifier on real decoded frames and aggregates results using the **median** indicator and interquartile range (IQR) dispersion (avoiding outlier skew).
+   - **Statistical Aggregation**: Reuses the local ViT classifier on real decoded frames and aggregates results using the **median** indicator and interquartile range (IQR) dispersion.
    - **Threshold Safety**: Requires a minimum of 3 valid decoded frames with model predictions; otherwise returns `ANALYSIS INCONCLUSIVE` or `ANALYSIS UNAVAILABLE` with null AI indicator.
-   - **Supported Codecs & Limitations**: Native support for MP4 (H.264/AVC, MPEG-4), AVI, MOV, WebM. Proprietary, encrypted, or corrupted streams without readable video tracks gracefully yield `ANALYSIS UNAVAILABLE`.
+   - **Supported Codecs**: Native support for MP4 (H.264/AVC, MPEG-4), AVI, MOV, WebM.
 
-3. **Deterministic Multi-Signal Risk Engine**:
+3. **Scientifically Honest Audio Forensics**:
+   - **True Audio Decoding**: Native Python decoding for uncompressed PCM WAV (8/16/24/32-bit), with optional local FFmpeg fallback for compressed formats (MP3, M4A, OGG, FLAC).
+   - **Physical Acoustic Metrics**: Computes RMS energy variation, silence intervals, clipping ratio, spectral centroid, 85% spectral roll-off, high-frequency energy ratio (>4kHz), and STFT spectral flux step deltas (splice candidates).
+   - **Visual Artifacts**: Generates high-contrast waveform envelope (`waveform_*.png`) and STFT spectrogram (`spectrogram_*.png`) under `storage/forensic/`.
+   - **No Fictional Audio ML**: No fabricated vocoder neural networks or synthetic voice probabilities; outputs `model_status: "ANALYSIS UNAVAILABLE"` and `ai_manipulation_indicator: None`.
+   - **Audio Disclaimer**: *"Audio forensic signals are automated screening indicators, not proof of synthetic speech, editing, authenticity, or legal admissibility."*
+
+4. **Deterministic Multi-Signal Risk Engine**:
    - Scores 0 - 100 with 3-tier categorization:
      - 🟢 **LOW RISK (0 - 30)**: Sound cryptographic baseline, uniform noise, authentic provenance.
      - 🟡 **REVIEW REQUIRED (31 - 70)**: Inconclusive compression anomalies, unavailable ML analysis, or moderate synthesis signals requiring human inspection.
      - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators.
    - **Integrity Rule**: SHA-256 integrity is recorded strictly as file bitstream preservation; it does **not** artificially reduce AI manipulation risk or prove authenticity.
 
-4. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
+5. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
 
-5. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+6. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
 
-6. **Forensic Copilot (TCET CoE AI Gateway)**:
+7. **Forensic Copilot (TCET CoE AI Gateway)**:
    - Configured for `https://ai.tcetcercd.in/v1` with model `qwen3.6`.
    - Context-isolated assistant for executive narrative drafting, investigator recommendations, and interactive evidence Q&A (with deterministic offline fallback).
 
-7. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
+8. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
 
 ---
 
@@ -142,7 +149,7 @@ source venv/bin/activate
 PYTHONPATH=. pytest -v -m "not slow"
 ```
 
-To run all tests including slow real-model and video integration tests:
+To run all tests including slow integration tests:
 ```bash
 PYTHONPATH=. pytest -v
 ```

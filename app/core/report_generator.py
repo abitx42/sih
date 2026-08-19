@@ -277,6 +277,7 @@ class ForensicReportGenerator:
         # 7. Visual Forensic Exhibits
         ela_path = raw_metrics.get("ela_image_path")
         fft_path = raw_metrics.get("fft_image_path")
+        waveform_path = raw_metrics.get("waveform_path")
         spectrogram_path = raw_metrics.get("spectrogram_path")
 
         visual_exhibits = []
@@ -284,8 +285,10 @@ class ForensicReportGenerator:
             visual_exhibits.append(("Exhibit A: Error Level Analysis (ELA 95% Heatmap)", ela_path))
         if fft_path and os.path.exists(fft_path):
             visual_exhibits.append(("Exhibit B: 2D FFT Frequency Power Spectrum", fft_path))
+        if waveform_path and os.path.exists(waveform_path):
+            visual_exhibits.append(("Exhibit C: Audio Waveform Amplitude Envelope", waveform_path))
         if spectrogram_path and os.path.exists(spectrogram_path):
-            visual_exhibits.append(("Exhibit C: Audio Spectrogram & Splicing Analysis", spectrogram_path))
+            visual_exhibits.append(("Exhibit D: Audio STFT Spectrogram & Splicing Map", spectrogram_path))
 
         if visual_exhibits:
             story.append(Paragraph("5. Visual Forensic Exhibits", section_style))
@@ -293,7 +296,7 @@ class ForensicReportGenerator:
                 try:
                     story.append(Paragraph(f"<b>{title}</b>", body_style))
                     story.append(Spacer(1, 1.5))
-                    story.append(RLImage(img_p, width=220, height=130))
+                    story.append(RLImage(img_p, width=220, height=110))
                     story.append(Spacer(1, 3))
                 except Exception:
                     pass
@@ -335,7 +338,8 @@ class ForensicReportGenerator:
             "Forensic Verification Engine (SIH PS-27). Measurements and findings represent an objective, multi-signal "
             "forensic authenticity assessment. In compliance with NIST guidelines, automated AI manipulation indicators "
             "are statistical classification signals and must be corroborated by qualified forensic examiners and physical "
-            "corroborating evidence prior to formal submission in a court of law."
+            "corroborating evidence prior to formal submission in a court of law. Audio forensic signals are automated "
+            "screening indicators, not proof of synthetic speech, editing, authenticity, or legal admissibility."
         )
         story.append(Paragraph(disclaimer, ParagraphStyle('Disc', parent=styles['Normal'], fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
 
