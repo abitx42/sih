@@ -19,43 +19,43 @@ from app.config import STORAGE_DIR
 client = TestClient(app)
 
 def create_demo_media():
-    print("Generating demo digital evidence exhibits...")
+    print("Generating Truth Lens demo digital evidence exhibits...")
 
     # 1. Authentic Seized Photograph (Low Risk)
     img_auth = Image.new("RGB", (640, 480), color=(140, 180, 220))
     draw = ImageDraw.Draw(img_auth)
     draw.rectangle([50, 50, 590, 430], outline=(255, 255, 255), width=3)
-    draw.text((70, 70), "Exhibit A: Field Surveillance Baseline (Authentic)", fill=(255, 255, 255))
+    draw.text((70, 70), "Exhibit A: Field Surveillance Baseline [DEMO FIXTURE]", fill=(255, 255, 255))
     
     img_auth_bytes = io.BytesIO()
     img_auth.save(img_auth_bytes, "JPEG", quality=90)
     
     res1 = client.post("/api/evidence/upload", files={
-        "file": ("surveillance_cctv_frame_01.jpg", img_auth_bytes.getvalue(), "image/jpeg")
+        "file": ("demo_surveillance_cctv_frame_01.jpg", img_auth_bytes.getvalue(), "image/jpeg")
     }, data={
         "case_id": "CASE-2026-001",
         "uploaded_by": "Insp. Rajesh Verma (Digital Forensics Unit)",
-        "notes": "Original uncompressed frame captured from bank ATM perimeter camera."
+        "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Baseline frame captured from bank ATM perimeter camera."
     })
-    print("Created Authentic Exhibit:", res1.json().get("evidence_id"))
+    print("Created Authentic Exhibit (IMAGE):", res1.json().get("evidence_id"))
 
     # 2. Manipulated/Edited Exhibit with Spliced Patch (High Risk)
     img_mod = Image.new("RGB", (640, 480), color=(80, 90, 110))
     draw_m = ImageDraw.Draw(img_mod)
     draw_m.rectangle([200, 150, 440, 330], fill=(255, 50, 50), outline=(255, 255, 0), width=4)
-    draw_m.text((220, 220), "INPAINTED / SPLICED REGION", fill=(255, 255, 255))
+    draw_m.text((220, 220), "INPAINTED / SPLICED REGION [DEMO]", fill=(255, 255, 255))
     
     img_mod_bytes = io.BytesIO()
     img_mod.save(img_mod_bytes, "JPEG", quality=70)
     
     res2 = client.post("/api/evidence/upload", files={
-        "file": ("suspect_social_media_deepfake.jpg", img_mod_bytes.getvalue(), "image/jpeg")
+        "file": ("demo_suspect_social_media_deepfake.jpg", img_mod_bytes.getvalue(), "image/jpeg")
     }, data={
         "case_id": "CASE-2026-001",
         "uploaded_by": "Insp. Rajesh Verma (Digital Forensics Unit)",
-        "notes": "Viral social media post submitted as alleged proof of financial fraud."
+        "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Viral social media post submitted as alleged proof of financial fraud."
     })
-    print("Created Manipulated Exhibit:", res2.json().get("evidence_id"))
+    print("Created Manipulated Exhibit (IMAGE):", res2.json().get("evidence_id"))
 
     # 3. Audio Recording (WAV with sharp spectral cuts and silence)
     sample_rate = 22050
@@ -74,13 +74,13 @@ def create_demo_media():
         wav_f.writeframes(audio_scaled.tobytes())
 
     res3 = client.post("/api/evidence/upload", files={
-        "file": ("extortion_voicemail_call.wav", wav_io.getvalue(), "audio/wav")
+        "file": ("demo_extortion_voicemail_call.wav", wav_io.getvalue(), "audio/wav")
     }, data={
         "case_id": "CASE-2026-001",
         "uploaded_by": "Sub-Insp. Priya Nair (Audio Forensics Lab)",
-        "notes": "Voicemail recording recovered from complainant phone."
+        "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Voicemail recording recovered from complainant phone."
     })
-    print("Created Audio Exhibit:", res3.json().get("evidence_id"))
+    print("Created Audio Exhibit (AUDIO):", res3.json().get("evidence_id"))
 
     # 4. Multi-revision PDF document
     pdf_data = (
@@ -93,13 +93,58 @@ def create_demo_media():
         b"%%EOF\n"
     )
     res4 = client.post("/api/evidence/upload", files={
-        "file": ("contract_agreement_v2.pdf", pdf_data, "application/pdf")
+        "file": ("demo_contract_agreement_v2.pdf", pdf_data, "application/pdf")
     }, data={
         "case_id": "CASE-2026-001",
         "uploaded_by": "Insp. Rajesh Verma",
-        "notes": "Digitally signed procurement tender document."
+        "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Digitally signed procurement tender document."
     })
-    print("Created Document Exhibit:", res4.json().get("evidence_id"))
+    print("Created Document Exhibit (DOCUMENT):", res4.json().get("evidence_id"))
+
+    # 5. Forensic Archive Exhibit (ZIP)
+    import zipfile
+    zip_io = io.BytesIO()
+    with zipfile.ZipFile(zip_io, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("seized_device_manifest.txt", "Truth Lens Demo Extraction Manifest\nDevice: iPhone 13\nStatus: Seized\n")
+        zf.writestr("network_connection_log.csv", "timestamp,src_ip,dest_ip,port\n2026-08-19T10:00:00Z,192.168.1.100,10.0.0.1,443\n")
+    
+    res5 = client.post("/api/evidence/upload", files={
+        "file": ("demo_seized_usb_triage.zip", zip_io.getvalue(), "application/zip")
+    }, data={
+        "case_id": "CASE-2026-001",
+        "uploaded_by": "Lead Forensic Examiner",
+        "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Triage container extracted from seized hardware media."
+    })
+    print("Created Archive Exhibit (ARCHIVE):", res5.json().get("evidence_id"))
+
+    # 6. Surveillance Video Exhibit (MP4)
+    try:
+        import cv2
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_vid:
+            tmp_vid_path = tmp_vid.name
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(tmp_vid_path, fourcc, 10.0, (320, 240))
+        for frame_num in range(20):
+            frame = np.zeros((240, 320, 3), dtype=np.uint8)
+            cv2.putText(frame, f"CCTV CAM 04 - F:{frame_num} [DEMO]", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            out.write(frame)
+        out.release()
+
+        with open(tmp_vid_path, "rb") as f_vid:
+            vid_bytes = f_vid.read()
+        os.remove(tmp_vid_path)
+
+        res6 = client.post("/api/evidence/upload", files={
+            "file": ("demo_security_perimeter_cam.mp4", vid_bytes, "video/mp4")
+        }, data={
+            "case_id": "CASE-2026-001",
+            "uploaded_by": "Insp. Rajesh Verma",
+            "notes": "[DEMO FIXTURE - NOT REAL EVIDENCE] Digital video recorder stream segment."
+        })
+        print("Created Video Exhibit (VIDEO):", res6.json().get("evidence_id"))
+    except Exception as e:
+        print(f"Video exhibit creation skipped: {e}")
 
     print("Demo dataset seeded successfully!")
 
