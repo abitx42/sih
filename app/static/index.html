@@ -208,6 +208,34 @@
               </div>
             </div>
 
+            <!-- 3-Tier Analysis Mode Selector -->
+            <div style="margin-bottom: 1.25rem;">
+              <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Forensic Analysis Mode</label>
+              <div class="mode-selector-group">
+                <label class="mode-pill" id="pill-quick">
+                  <input type="radio" name="analysis_mode" value="QUICK_SCAN" onchange="updateAnalysisMode('QUICK_SCAN')">
+                  <span class="mode-pill-label">
+                    <span>⚡ <strong>Quick Scan</strong></span>
+                    <span class="mode-desc">Hash, EXIF & fast ViT heuristic (~1s)</span>
+                  </span>
+                </label>
+                <label class="mode-pill active" id="pill-full">
+                  <input type="radio" name="analysis_mode" value="FULL_ANALYSIS" checked onchange="updateAnalysisMode('FULL_ANALYSIS')">
+                  <span class="mode-pill-label">
+                    <span>🔬 <strong>Full Forensic Analysis</strong></span>
+                    <span class="mode-desc">Ensemble, 2D FFT, PRNU, Patch Localizer (Default)</span>
+                  </span>
+                </label>
+                <label class="mode-pill" id="pill-advanced">
+                  <input type="radio" name="analysis_mode" value="ADVANCED_INVESTIGATION" onchange="updateAnalysisMode('ADVANCED_INVESTIGATION')">
+                  <span class="mode-pill-label">
+                    <span>🧪 <strong>Advanced Investigation</strong></span>
+                    <span class="mode-desc">Deep patch grid, external check & full PDF dossier</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div style="margin-bottom: 1.5rem;">
               <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Evidence Context & Chain of Custody Notes</label>
               <textarea id="upload-notes" rows="2" placeholder="Specify source device, seizure location, witness reference, or transfer details..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px; font-family: inherit; font-size: 0.88rem;"></textarea>
@@ -224,9 +252,16 @@
               <div style="font-size: 1.05rem; font-weight: 700; color: #fff;" id="batch-progress-title">Forensic Assessment Queue</div>
               <span class="badge badge-status-analyzing" id="batch-progress-summary">Processing...</span>
             </div>
-            <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 1rem;">
-              Computing SHA-256 cryptographic baselines, executing multi-signal heuristics (ELA/FFT), evaluating local Vision Transformer ML models, and writing tamper-evident custody events.
-            </p>
+            
+            <!-- Live Multi-Specialist Pipeline Activity Tracker -->
+            <div class="pipeline-activity-tracker" id="pipeline-activity-tracker" style="margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                <span style="font-size: 0.78rem; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">⚙️ Multi-Specialist Pipeline Live Execution</span>
+                <span class="badge badge-modality" id="pipeline-active-mode-badge" style="font-size: 0.68rem;">FULL FORENSIC ANALYSIS</span>
+              </div>
+              <div class="pipeline-stages-grid" id="pipeline-stages-grid"></div>
+            </div>
+
             <div class="bulk-queue-container" id="bulk-queue-items"></div>
           </div>
         </div>
@@ -250,9 +285,44 @@
         </div>
       </div>
 
+      <!-- Signal Conflict Alert Banner (shown when specialists clash) -->
+      <div id="lab-conflict-banner" style="display: none; background: rgba(234, 179, 8, 0.12); border-left: 4px solid #eab308; padding: 0.85rem 1rem; margin-bottom: 1.25rem; border-radius: 6px;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: #eab308; font-weight: 700; font-size: 0.92rem; margin-bottom: 0.25rem;">
+          <span>⚠️</span> Conflicting Forensic Signals Detected
+        </div>
+        <div id="lab-conflict-text" style="font-size: 0.82rem; color: var(--text-main); line-height: 1.4;">
+          Independent specialists disagree. Vision model flagged synthetic patterns, but PRNU sensor noise and camera EXIF indicate authentic photographic capture.
+        </div>
+      </div>
+
       <!-- Visible Forensic Disclaimer Banner -->
       <div style="background: rgba(30, 41, 59, 0.7); border-left: 3px solid var(--accent-cyan); padding: 0.6rem 0.9rem; margin-bottom: 1rem; border-radius: 6px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
         ℹ️ <strong>Investigator Review Aid:</strong> Automated anomaly scores, model predictions, and risk ratings are automated screening indicators, not legal determinations or certified proof. All findings require independent qualified forensic and legal review.
+      </div>
+
+      <!-- Multi-Specialist Consensus Agreement Card -->
+      <div class="card-panel" id="lab-consensus-panel" style="margin-bottom: 1.5rem; display: none;">
+        <div class="panel-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+          <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>🧠</span> Multi-Specialist Forensic AI & Physical Ensemble
+          </h3>
+          <span class="badge badge-low" id="lab-consensus-badge">5 / 6 Specialists Agree</span>
+        </div>
+        
+        <!-- Agreement Meter Progress -->
+        <div style="margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.4rem;">
+            <span style="color: var(--text-muted);" id="lab-consensus-summary-text">Consensus Strength: Strong Consensus (83.3%)</span>
+            <span style="font-weight: 700; color: #fff;" id="lab-consensus-ratio-text">5 Manipulated • 1 Authentic</span>
+          </div>
+          <div class="agreement-meter-bar">
+            <div class="agreement-fill-manipulated" id="meter-fill-manipulated" style="width: 83.3%;"></div>
+            <div class="agreement-fill-authentic" id="meter-fill-authentic" style="width: 16.7%;"></div>
+          </div>
+        </div>
+
+        <!-- Specialist Cards Grid -->
+        <div class="specialists-grid" id="lab-specialists-grid"></div>
       </div>
 
       <!-- Top Summary Cards (Integrity, ML Model, Heuristic Anomaly, Composite Risk) -->

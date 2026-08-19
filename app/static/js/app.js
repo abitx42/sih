@@ -262,14 +262,84 @@ function renderSelectedFiles() {
   }).join("");
 }
 
+let selectedAnalysisMode = "FULL_ANALYSIS";
+
+function updateAnalysisMode(mode) {
+  selectedAnalysisMode = mode;
+  document.querySelectorAll('.mode-pill').forEach(pill => pill.classList.remove('active'));
+  if (mode === "QUICK_SCAN") {
+    const p = document.getElementById("pill-quick");
+    if (p) p.classList.add("active");
+  } else if (mode === "ADVANCED_INVESTIGATION") {
+    const p = document.getElementById("pill-advanced");
+    if (p) p.classList.add("active");
+  } else {
+    const p = document.getElementById("pill-full");
+    if (p) p.classList.add("active");
+  }
+  const badge = document.getElementById("pipeline-active-mode-badge");
+  if (badge) badge.innerText = mode.replace(/_/g, ' ');
+}
+
+async function updateLivePipelineStages(evidenceId) {
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/pipeline-progress`);
+    if (!res.ok) return;
+    const prog = await res.json();
+    const grid = document.getElementById("pipeline-stages-grid");
+    if (!grid) return;
+
+    const stages = prog.stages || {};
+    const stageKeys = [
+      { key: "INTEGRITY_BASELINE", label: "1. Integrity Baseline" },
+      { key: "METADATA_PROVENANCE", label: "2. Metadata & C2PA" },
+      { key: "AI_DETECTOR_ENSEMBLE", label: "3. Multi-AI Ensemble" },
+      { key: "PIXEL_FORENSICS", label: "4. ELA & Sensor Noise" },
+      { key: "LOCAL_REGION_ANALYSIS", label: "5. Patch Localizer" },
+      { key: "EXTERNAL_DETECTORS", label: "6. External Adapter" },
+      { key: "EVIDENCE_CORRELATION", label: "7. Signal Synthesis" }
+    ];
+
+    grid.innerHTML = stageKeys.map(s => {
+      const info = stages[s.key] || { status: "QUEUED", details: "Waiting..." };
+      let statusBadge = `<span class="badge" style="background: rgba(148,163,184,0.1); color: #94a3b8; font-size: 0.65rem;">○ QUEUED</span>`;
+      if (info.status === "COMPLETED") {
+        statusBadge = `<span class="badge badge-low" style="font-size: 0.65rem;">✓ COMPLETE</span>`;
+      } else if (info.status === "ANALYZING") {
+        statusBadge = `<span class="badge badge-status-analyzing" style="font-size: 0.65rem;">⟳ ANALYZING</span>`;
+      } else if (info.status === "SKIPPED") {
+        statusBadge = `<span class="badge" style="background: rgba(100,116,139,0.2); color: #64748b; font-size: 0.65rem;">— SKIPPED</span>`;
+      } else if (info.status === "FAILED") {
+        statusBadge = `<span class="badge badge-high" style="font-size: 0.65rem;">✕ FAILED</span>`;
+      }
+
+      return `
+        <div class="pipeline-stage-card">
+          <div class="stage-title">
+            <span>${escapeHTML(s.label)}</span>
+            ${statusBadge}
+          </div>
+          <div class="stage-details" title="${escapeHTML(info.details || '')}">${escapeHTML(info.details || 'Waiting for stage trigger')}</div>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    console.warn("Pipeline progress poll err:", e);
+  }
+}
+
 async function pollSingleEvidence(evidenceId, cardElem) {
   const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
     try {
+      // Update live stage progress
+      updateLivePipelineStages(evidenceId);
+
       const res = await fetch(`/api/evidence/${evidenceId}/status`);
       if (res.ok) {
         const data = await res.json();
         if (data.status === "COMPLETED" || data.pipeline_status === "COMPLETED") {
+          updateLivePipelineStages(evidenceId);
           cardElem.className = "bulk-queue-item completed";
           cardElem.querySelector(".status-col").innerHTML = `
             <span class="badge badge-low" style="background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">✓ COMPLETED</span>
@@ -280,6 +350,7 @@ async function pollSingleEvidence(evidenceId, cardElem) {
           return { success: true, evidenceId };
         }
         if (data.status === "FAILED" || data.pipeline_status === "FAILED") {
+          updateLivePipelineStages(evidenceId);
           cardElem.className = "bulk-queue-item failed";
           cardElem.querySelector(".status-col").innerHTML = `
             <span class="badge badge-high" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">✕ FAILED</span>
@@ -322,6 +393,7 @@ async function handleEvidenceUpload(e) {
   formData.append("case_id", caseId);
   formData.append("uploaded_by", actor);
   formData.append("notes", notes);
+  formData.append("analysis_mode", selectedAnalysisMode);
 
   const form = document.getElementById("evidence-upload-form");
   const progressBox = document.getElementById("upload-progress-box");
@@ -435,7 +507,76 @@ function renderLabView(data) {
   document.getElementById("lab-evidence-id").textContent = ev.evidence_id;
   document.getElementById("lab-filename").textContent = `${ev.original_filename} (${(ev.file_size_bytes / 1024).toFixed(1)} KB)`;
   document.getElementById("lab-modality-badge").textContent = ev.modality;
-  document.getElementById("lab-sha256-snippet").textContent = `SHA-256: ${ev.sha256_hash}`;
+  const shaSnippet = document.getElementById("lab-sha256-snippet");
+  if (shaSnippet) shaSnippet.textContent = `SHA-256: ${ev.sha256_hash}`;
+  // Conflict Alert Banner
+  const ensemble = res.ensemble_agreement || rawMetrics.ensemble_agreement;
+  const conflictBanner = document.getElementById("lab-conflict-banner");
+  const conflictText = document.getElementById("lab-conflict-text");
+  if (conflictBanner) {
+    if (ensemble && ensemble.has_signal_conflict) {
+      conflictBanner.style.display = "block";
+      if (conflictText && ensemble.conflict_description) {
+        conflictText.innerText = ensemble.conflict_description;
+      }
+    } else {
+      conflictBanner.style.display = "none";
+    }
+  }
+
+  // Multi-Specialist Consensus Agreement Card
+  const consensusPanel = document.getElementById("lab-consensus-panel");
+  if (consensusPanel) {
+    if (ensemble && Array.isArray(ensemble.specialist_breakdown) && ensemble.specialist_breakdown.length > 0) {
+      consensusPanel.style.display = "block";
+      const badgeEl = document.getElementById("lab-consensus-badge");
+      const sumTextEl = document.getElementById("lab-consensus-summary-text");
+      const ratioTextEl = document.getElementById("lab-consensus-ratio-text");
+      const meterManip = document.getElementById("meter-fill-manipulated");
+      const meterAuth = document.getElementById("meter-fill-authentic");
+      const gridEl = document.getElementById("lab-specialists-grid");
+
+      if (badgeEl) badgeEl.innerText = ensemble.consensus_label || "Consensus Evaluated";
+      if (sumTextEl) sumTextEl.innerText = `Consensus Strength: ${ensemble.consensus_verdict.replace(/_/g, ' ')} (${ensemble.agreement_percentage || 0}%)`;
+      if (ratioTextEl) ratioTextEl.innerText = `${ensemble.manipulated_signals_count || 0} Manipulated • ${ensemble.authentic_signals_count || 0} Authentic`;
+
+      const totalDecisive = (ensemble.manipulated_signals_count || 0) + (ensemble.authentic_signals_count || 0);
+      const manipPct = totalDecisive > 0 ? ((ensemble.manipulated_signals_count || 0) / totalDecisive) * 100 : 50;
+      const authPct = 100 - manipPct;
+
+      if (meterManip) meterManip.style.width = `${manipPct}%`;
+      if (meterAuth) meterAuth.style.width = `${authPct}%`;
+
+      if (gridEl) {
+        gridEl.innerHTML = ensemble.specialist_breakdown.map(s => {
+          const v = s.verdict || "N/A";
+          let vBadge = `<span class="badge badge-medium">${escapeHTML(v)}</span>`;
+          if (v === "MANIPULATED") vBadge = `<span class="badge badge-high">🔴 MANIPULATED</span>`;
+          else if (v === "AUTHENTIC") vBadge = `<span class="badge badge-low">🟢 AUTHENTIC</span>`;
+          else if (v === "SKIPPED") vBadge = `<span class="badge" style="background: rgba(100,116,139,0.2); color: #94a3b8;">⚪ SKIPPED</span>`;
+
+          const indVal = s.indicator !== null && s.indicator !== undefined ? `${(s.indicator * 100).toFixed(1)}%` : (s.score !== undefined ? `${s.score}/100` : (s.provenance_status || 'N/A'));
+
+          return `
+            <div class="specialist-card">
+              <div class="specialist-card-header">
+                <span class="specialist-card-title">${escapeHTML(s.name)}</span>
+                ${vBadge}
+              </div>
+              <div class="specialist-card-focus">🎯 ${escapeHTML(s.focus || '')}</div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+                <span>Score / Metric: <strong style="color: #fff;">${escapeHTML(String(indVal))}</strong></span>
+                <span>Latency: <strong style="color: var(--accent-cyan);">${s.latency_ms || 0}ms</strong></span>
+              </div>
+              <div class="specialist-card-details">${escapeHTML(s.details || '')}</div>
+            </div>
+          `;
+        }).join("");
+      }
+    } else {
+      consensusPanel.style.display = "none";
+    }
+  }
 
   // Composite Risk Score & Category
   const riskScore = res.forensic_risk_score !== undefined ? res.forensic_risk_score : 0;

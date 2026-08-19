@@ -18,6 +18,9 @@ class RiskEngine:
        - LIKELY_AI_ASSISTED_MANIPULATION: Photographic base with localized synthetic edit (e.g. AI eyewear, face swap, inpainting).
        - LIKELY_TRADITIONAL_MANIPULATION: Splicing / Photoshop / cloning without generative synthetic textures.
        - ANALYSIS_INCONCLUSIVE: Conflicting signals, low resolution, or missing reference baseline.
+    4. Multi-Specialist Consensus Principle:
+       - When independent physical and AI signals strongly conflict (e.g. ViT flags AI, but PRNU noise and EXIF confirm camera capture),
+         Truth Lens enforces REVIEW REQUIRED and ANALYSIS_INCONCLUSIVE.
     """
 
     @staticmethod
@@ -29,13 +32,17 @@ class RiskEngine:
         metadata_anomaly_score: float,
         provenance_status: str,
         findings: List[Dict[str, Any]],
-        final_risk_score: float
+        final_risk_score: float,
+        ensemble_agreement: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Determines the 5-tier forensic authenticity taxonomy based on correlated physical signals.
         """
         if integrity_status in ("MISMATCH", "CORRUPTED"):
             return "LIKELY_TRADITIONAL_MANIPULATION"
+
+        if ensemble_agreement and ensemble_agreement.get("has_signal_conflict"):
+            return "ANALYSIS_INCONCLUSIVE"
 
         has_localized_edit = any(
             f.get("category") == "LOCALIZED_MANIPULATION" and f.get("severity") in ("CRITICAL", "HIGH")
@@ -83,7 +90,8 @@ class RiskEngine:
         forensic_anomaly_score: float,  # 0.0 to 100.0 (from ELA, FFT, noise, patch localizer)
         metadata_anomaly_score: float,  # 0.0 to 100.0
         provenance_status: str,
-        findings: List[Dict[str, Any]]
+        findings: List[Dict[str, Any]],
+        ensemble_agreement: Optional[Dict[str, Any]] = None
     ) -> Tuple[float, str, float, Dict[str, Any]]:
         """
         Returns:
@@ -148,8 +156,15 @@ class RiskEngine:
 
         final_score = round(max(0.0, min(100.0, final_score)), 1)
 
+        # Check for signal conflict
+        has_conflict = bool(ensemble_agreement and ensemble_agreement.get("has_signal_conflict"))
+
         # Categorization logic
-        if not is_ml_available:
+        if has_conflict:
+            risk_category = "REVIEW REQUIRED"
+            final_score = max(40.0, min(60.0, final_score))
+            base_confidence = 0.68
+        elif not is_ml_available:
             if final_score >= 70.0 or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
                 risk_category = "HIGH RISK"
             else:
@@ -163,7 +178,12 @@ class RiskEngine:
                 risk_category = "REVIEW REQUIRED"
             else:
                 risk_category = "HIGH RISK"
-            base_confidence = 0.94 if len(findings) >= 3 else 0.88
+
+            # Boost confidence if multi-specialist consensus is strong
+            if ensemble_agreement and ensemble_agreement.get("consensus_verdict") in ("STRONG_MANIPULATION_CONSENSUS", "AUTHENTIC_BASELINE_CONSENSUS"):
+                base_confidence = 0.96
+            else:
+                base_confidence = 0.94 if len(findings) >= 3 else 0.88
 
         # 6. Evaluate 5-Tier Forensic Taxonomy
         forensic_taxonomy = RiskEngine.evaluate_taxonomy(
@@ -174,7 +194,8 @@ class RiskEngine:
             metadata_anomaly_score=metadata_anomaly_score,
             provenance_status=provenance_status,
             findings=findings,
-            final_risk_score=final_score
+            final_risk_score=final_score,
+            ensemble_agreement=ensemble_agreement
         )
 
         component_scores = {
@@ -184,7 +205,11 @@ class RiskEngine:
             "metadata_risk": round(meta_risk, 1),
             "provenance_risk": round(provenance_risk, 1),
             "model_status": model_status,
-            "forensic_taxonomy": forensic_taxonomy
+            "forensic_taxonomy": forensic_taxonomy,
+            "has_signal_conflict": has_conflict
         }
+
+        if ensemble_agreement:
+            component_scores["ensemble_agreement"] = ensemble_agreement
 
         return final_score, risk_category, base_confidence, component_scores

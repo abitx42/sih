@@ -195,58 +195,85 @@ class ForensicReportGenerator:
         story.append(t_hash)
         story.append(Spacer(1, 6))
 
-        # 4. Machine Learning Vision Model Assessment
-        story.append(Paragraph("2. Prototype Visual-Manipulation Indicator (Machine Learning Model)", section_style))
-        ml_model = forensic_result.get("ai_model_name", "dima806/deepfake_vs_real_image_detection")
-        ml_ver = forensic_result.get("ai_model_version") or "29e4cf9efc543845610045f6ba7e88e5cf9d9301"
-        ml_status = forensic_result.get("model_status", "AVAILABLE")
-        ml_indicator = forensic_result.get("ai_manipulation_indicator")
-        ml_conf = forensic_result.get("model_confidence")
+        # 4. Multi-Specialist Forensic AI Ensemble & Consensus Assessment
+        story.append(Paragraph("2. Multi-Specialist Forensic AI Ensemble & Consensus Assessment", section_style))
+        ensemble_data = raw_metrics.get("ensemble_agreement", {})
+        specialists_list = ensemble_data.get("specialist_breakdown", [])
 
-        indicator_str = f"{round(ml_indicator * 100, 1)}%" if ml_indicator is not None else ml_status
-        conf_str = f"{round(ml_conf * 100, 1)}%" if ml_conf is not None else "N/A"
-
-        raw_metrics = forensic_result.get("raw_metrics_json", {})
-        if isinstance(raw_metrics, str):
-            try:
-                raw_metrics = json.loads(raw_metrics)
-            except Exception:
-                raw_metrics = {}
-
-        ml_details = raw_metrics.get("ml_detector", {})
-        runtime_dev = ml_details.get("runtime_device", "cpu")
-        inference_ts = ml_details.get("inference_timestamp", forensic_result.get("analyzed_at", "N/A"))[:19]
-        label_map_str = json.dumps(ml_details.get("label_mapping", {0: "REAL", 1: "FAKE"}))
-
-        ml_table_data = [
-            [
-                Paragraph("<b>Model Architecture / Repo</b>", table_cell_bold),
-                Paragraph("<b>Revision (Commit)</b>", table_cell_bold),
-                Paragraph("<b>Model Status</b>", table_cell_bold),
-                Paragraph("<b>AI Indicator</b>", table_cell_bold),
-                Paragraph("<b>Confidence</b>", table_cell_bold),
-                Paragraph("<b>Device / Timestamp</b>", table_cell_bold)
-            ],
-            [
-                Paragraph(f"<font size='6.5'>{ml_model}</font>", table_cell),
-                Paragraph(f"<font size='5.5'>{ml_ver[:12]}...</font>", table_cell),
-                Paragraph(f"<b>{ml_status}</b>", table_cell_bold),
-                Paragraph(f"<b>{indicator_str}</b>", table_cell_bold),
-                Paragraph(conf_str, table_cell),
-                Paragraph(f"<font size='6'>{runtime_dev} • {inference_ts}</font>", table_cell)
+        if specialists_list:
+            ens_table_data = [
+                [
+                    Paragraph("<b>Forensic Specialist / Module</b>", table_cell_bold),
+                    Paragraph("<b>Focus & Scope</b>", table_cell_bold),
+                    Paragraph("<b>Verdict</b>", table_cell_bold),
+                    Paragraph("<b>Indicator / Score</b>", table_cell_bold),
+                    Paragraph("<b>Status & Notes</b>", table_cell_bold)
+                ]
             ]
-        ]
-        t_ml = Table(ml_table_data, colWidths=[150, 65, 95, 80, 50, 100])
-        t_ml.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
-        ]))
-        story.append(t_ml)
-        story.append(Spacer(1, 2))
-        story.append(Paragraph(f"<i>Label Mapping: {label_map_str} | Notice: The AI manipulation indicator is an automated statistical classification metric produced by the local vision model, not definitive legal proof of authenticity or manipulation.</i>", ParagraphStyle('MLDisc', parent=body_style, fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
+            for s in specialists_list:
+                v = s.get("verdict", "N/A")
+                if v == "MANIPULATED":
+                    v_color = "#dc2626"
+                elif v == "AUTHENTIC":
+                    v_color = "#16a34a"
+                elif v == "SKIPPED":
+                    v_color = "#64748b"
+                else:
+                    v_color = "#ca8a04"
+
+                ind_val = s.get("indicator")
+                ind_str = f"{ind_val * 100:.1f}%" if ind_val is not None else (f"{s.get('score', 0):.1f}/100" if "score" in s else s.get("provenance_status", "N/A"))
+
+                ens_table_data.append([
+                    Paragraph(f"<b>{s.get('name', 'Specialist')}</b>", table_cell),
+                    Paragraph(s.get("focus", ""), table_cell),
+                    Paragraph(f"<font color='{v_color}'><b>{v}</b></font>", table_cell),
+                    Paragraph(str(ind_str), table_cell),
+                    Paragraph(s.get("details", ""), table_cell)
+                ])
+
+            t_ens = Table(ens_table_data, colWidths=[130, 125, 75, 70, 140])
+            t_ens.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ]))
+            story.append(t_ens)
+            story.append(Spacer(1, 2))
+
+            consensus_lbl = ensemble_data.get("consensus_label", "Consensus Evaluated")
+            story.append(Paragraph(f"<b>Specialist Consensus:</b> {consensus_lbl} | Agreement Ratio: {ensemble_data.get('agreement_percentage', 0):.1f}%", ParagraphStyle('ConsensusHead', parent=body_style, fontName='Helvetica-Bold', textColor=colors.HexColor("#2563eb"))))
+            if ensemble_data.get("has_signal_conflict"):
+                story.append(Paragraph(f"<b>⚠️ Signal Conflict Note:</b> {ensemble_data.get('conflict_description')}", ParagraphStyle('ConflictHead', parent=body_style, fontName='Helvetica-Bold', textColor=colors.HexColor("#d97706"))))
+        else:
+            ml_model = forensic_result.get("ai_model_name", "dima806/deepfake_vs_real_image_detection")
+            ml_status = forensic_result.get("model_status", "AVAILABLE")
+            ml_indicator = forensic_result.get("ai_manipulation_indicator")
+            indicator_str = f"{round(ml_indicator * 100, 1)}%" if ml_indicator is not None else ml_status
+            ml_table_data = [
+                [
+                    Paragraph("<b>Model Architecture</b>", table_cell_bold),
+                    Paragraph("<b>Status</b>", table_cell_bold),
+                    Paragraph("<b>AI Indicator</b>", table_cell_bold)
+                ],
+                [
+                    Paragraph(ml_model, table_cell),
+                    Paragraph(ml_status, table_cell_bold),
+                    Paragraph(indicator_str, table_cell_bold)
+                ]
+            ]
+            t_ml = Table(ml_table_data, colWidths=[240, 150, 150])
+            t_ml.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ]))
+            story.append(t_ml)
+
         story.append(Spacer(1, 6))
 
         # 5. Multi-Signal "Why + Where + How" Evidence Correlation

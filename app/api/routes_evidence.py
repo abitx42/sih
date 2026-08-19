@@ -17,6 +17,10 @@ from app.core.risk_engine import RiskEngine
 from app.core.chain_of_custody import ChainOfCustodyLogger
 from app.core.copilot import ForensicCopilot
 from app.core.explainability import ForensicCorrelationBuilder
+from app.core.detector_ensemble import (
+    SpatialVisionSpecialist, FrequencyDomainSpecialist, SyntheticNoiseSpecialist,
+    LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, ExternalDetectorAdapter, EnsembleAgreementEngine
+)
 
 from app.analyzers.image_analyzer import ImageAnalyzer
 from app.analyzers.video_analyzer import VideoAnalyzer
@@ -27,7 +31,7 @@ from app.analyzers.archive_analyzer import ArchiveAnalyzer
 from app.models.schemas import (
     EvidenceBase, EvidenceListResponse, EvidenceDetailResponse,
     IntegrityVerificationRequest, IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse,
-    AIExplanationResponse, BulkUploadResponse, BulkUploadItemResponse
+    AIExplanationResponse, BulkUploadResponse, BulkUploadItemResponse, PipelineProgressResponse, EvidenceStatusResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -39,9 +43,40 @@ audio_analyzer = AudioAnalyzer()
 document_analyzer = DocumentAnalyzer()
 archive_analyzer = ArchiveAnalyzer()
 
+spatial_specialist = SpatialVisionSpecialist()
+frequency_specialist = FrequencyDomainSpecialist()
+synthetic_noise_specialist = SyntheticNoiseSpecialist()
+localized_patch_specialist = LocalizedPatchSpecialist()
+provenance_metadata_specialist = ProvenanceMetadataSpecialist()
+external_detector_adapter = ExternalDetectorAdapter()
+
+def _update_stage(evidence_id: str, stage_key: str, status: str, details: str, result_summary: Optional[Dict[str, Any]] = None):
+    now_ts = datetime.utcnow().isoformat() + "Z"
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT pipeline_stages_json FROM evidence WHERE evidence_id = ?", (evidence_id,))
+            row = cursor.fetchone()
+            stages = {}
+            if row and row.get("pipeline_stages_json"):
+                try:
+                    stages = json.loads(row["pipeline_stages_json"])
+                except Exception:
+                    pass
+            stages[stage_key] = {
+                "stage_key": stage_key,
+                "status": status,
+                "updated_at": now_ts,
+                "details": details,
+                "summary": result_summary
+            }
+            cursor.execute("UPDATE evidence SET pipeline_stages_json = ? WHERE evidence_id = ?", (json.dumps(stages), evidence_id))
+    except Exception as err:
+        logger.warning(f"Failed to update stage {stage_key} for {evidence_id}: {err}")
+
 def execute_forensic_pipeline(evidence_id: str):
     """
-    Executes the automated forensic verification pipeline for an evidence exhibit.
+    Executes the automated multi-specialist forensic verification pipeline for an evidence exhibit.
     Runs asynchronously via BackgroundTasks.
     """
     analysis_started_at = datetime.utcnow().isoformat() + "Z"
@@ -62,12 +97,19 @@ def execute_forensic_pipeline(evidence_id: str):
 
         file_path = EVIDENCE_DIR / evidence["stored_filename"]
         modality = evidence["modality"]
+        analysis_mode = evidence.get("analysis_mode", "FULL_ANALYSIS")
 
-        # 1. Provenance Inspection
+        # Stage 1: Cryptographic Integrity Baseline
+        _update_stage(evidence_id, "INTEGRITY_BASELINE", "COMPLETED", f"SHA-256 baseline computed ({evidence['sha256_hash'][:16]}...)")
+
+        # Stage 2: Metadata & Provenance Inspection
+        _update_stage(evidence_id, "METADATA_PROVENANCE", "ANALYZING", "Inspecting container metadata & C2PA manifest...")
         provenance_res = ProvenanceEngine.inspect_provenance(file_path)
         provenance_status = provenance_res.get("status", "NOT_AVAILABLE")
+        _update_stage(evidence_id, "METADATA_PROVENANCE", "COMPLETED", f"Provenance status: {provenance_status.replace('_', ' ')}")
 
-        # 2. Modality Forensic Analysis
+        # Stage 3: Modality Forensic Pipeline Execution
+        _update_stage(evidence_id, "AI_DETECTOR_ENSEMBLE", "ANALYZING", "Executing multi-specialist AI & frequency ensemble...")
         if modality == "IMAGE":
             analysis_res = image_analyzer.analyze(file_path, evidence_id)
         elif modality == "VIDEO":
@@ -82,6 +124,7 @@ def execute_forensic_pipeline(evidence_id: str):
         findings = analysis_res.get("findings", [])
         raw_metrics = analysis_res.get("raw_metrics", {})
         raw_metrics["provenance"] = provenance_res
+        raw_metrics["analysis_mode"] = analysis_mode
 
         # Extract model metadata strictly without heuristic fallback
         model_status = analysis_res.get("model_status", "ANALYSIS_UNAVAILABLE")
@@ -117,7 +160,72 @@ def execute_forensic_pipeline(evidence_id: str):
                 "created_at": datetime.utcnow().isoformat() + "Z"
             })
 
-        # 3. Calculate Deterministic Forensic Risk Score & 5-Tier Taxonomy
+        # Stage 4: Pixel Forensics (ELA & High-Pass Noise)
+        _update_stage(evidence_id, "PIXEL_FORENSICS", "COMPLETED", f"ELA 95% & Noise variance residual calculated ({forensic_anomaly_score:.1f}/100 anomaly)")
+
+        # Stage 5: Localized Region Analysis (Patch localizer)
+        localized_regions = raw_metrics.get("localized_regions", [])
+        if localized_regions:
+            _update_stage(evidence_id, "LOCAL_REGION_ANALYSIS", "COMPLETED", f"Localized ROI detected: {localized_regions[0].get('semantic_label', 'ROI')}")
+        else:
+            _update_stage(evidence_id, "LOCAL_REGION_ANALYSIS", "COMPLETED", "Uniform patch distribution across frame")
+
+        # Stage 6: External Independent Detectors (Copyleaks Adapter)
+        _update_stage(evidence_id, "EXTERNAL_DETECTORS", "ANALYZING", "Checking independent cloud detector adapter...")
+        if modality == "IMAGE" and analysis_mode in ("FULL_ANALYSIS", "ADVANCED_INVESTIGATION"):
+            ext_res = external_detector_adapter.analyze(str(file_path))
+        else:
+            ext_res = {
+                "name": "External Independent Detector (Copyleaks Adapter)",
+                "specialist_type": "EXTERNAL_DETECTOR",
+                "category": "EXTERNAL_API",
+                "status": "SKIPPED_FOR_MODE",
+                "verdict": "SKIPPED",
+                "details": f"Skipped in {analysis_mode} mode."
+            }
+        _update_stage(evidence_id, "EXTERNAL_DETECTORS", "COMPLETED" if ext_res.get("status") == "COMPLETED" else "SKIPPED", ext_res.get("details", ""))
+
+        # Stage 7: Build Specialist Ensemble & Agreement Engine
+        _update_stage(evidence_id, "EVIDENCE_CORRELATION", "ANALYZING", "Evaluating multi-specialist consensus & agreement matrix...")
+        specialists = []
+        if modality == "IMAGE":
+            specialists.append({
+                "name": "Spatial Vision Classifier (ViT)",
+                "specialist_type": "SPATIAL_VISION",
+                "category": "AI_MODEL",
+                "status": "COMPLETED" if model_status == "AVAILABLE" else model_status,
+                "verdict": "MANIPULATED" if (ai_indicator or 0) >= 0.65 else ("AUTHENTIC" if (ai_indicator or 0) <= 0.35 else "INCONCLUSIVE"),
+                "indicator": ai_indicator,
+                "confidence": model_confidence or 0.85,
+                "focus": "Global facial & spatial scene semantics",
+                "details": f"ViT prediction: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'}"
+            })
+            specialists.append(frequency_specialist.analyze(None, float(raw_metrics.get("fft_anomaly_score", 0.0)), float(raw_metrics.get("checkerboard_score", 0.0))))
+            specialists.append(synthetic_noise_specialist.analyze(None, float(raw_metrics.get("noise_anomaly_score", 0.0))))
+            specialists.append(localized_patch_specialist.analyze({
+                "max_patch_anomaly": raw_metrics.get("max_patch_anomaly", 0.0),
+                "localized_regions": localized_regions
+            }))
+            specialists.append(provenance_metadata_specialist.analyze(provenance_res, raw_metrics.get("metadata", {})))
+            specialists.append(ext_res)
+        else:
+            specialists.append({
+                "name": f"{modality.capitalize()} Forensic Specialist",
+                "specialist_type": f"{modality}_SPECIALIST",
+                "category": "PHYSICAL_SIGNAL",
+                "status": "COMPLETED",
+                "verdict": "MANIPULATED" if forensic_anomaly_score >= 55.0 else ("AUTHENTIC" if forensic_anomaly_score <= 35.0 else "INCONCLUSIVE"),
+                "indicator": forensic_anomaly_score / 100.0,
+                "confidence": 0.85,
+                "focus": f"{modality.capitalize()} structural & acoustic integrity",
+                "details": f"Forensic Anomaly Score: {forensic_anomaly_score:.1f}/100"
+            })
+            specialists.append(provenance_metadata_specialist.analyze(provenance_res, raw_metrics.get("metadata", {})))
+
+        ensemble_agreement = EnsembleAgreementEngine.evaluate_consensus(specialists)
+        raw_metrics["ensemble_agreement"] = ensemble_agreement
+
+        # 8. Calculate Deterministic Forensic Risk Score & 5-Tier Taxonomy
         risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(
             integrity_status="VERIFIED",
             ai_manipulation_indicator=ai_indicator,
@@ -125,13 +233,14 @@ def execute_forensic_pipeline(evidence_id: str):
             forensic_anomaly_score=forensic_anomaly_score,
             metadata_anomaly_score=float(analysis_res.get("metadata_anomaly_score", 0.0)),
             provenance_status=provenance_status,
-            findings=findings
+            findings=findings,
+            ensemble_agreement=ensemble_agreement
         )
         raw_metrics["risk_components"] = comp_scores
         forensic_taxonomy = comp_scores.get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
         raw_metrics["forensic_taxonomy"] = forensic_taxonomy
 
-        # 4. Generate Multi-Signal 'Why + Where + How' Correlation Matrix
+        # 9. Generate Multi-Signal 'Why + Where + How' Correlation Matrix
         correlation_matrix = ForensicCorrelationBuilder.build_correlation(
             evidence_id=evidence_id,
             forensic_taxonomy=forensic_taxonomy,
@@ -142,7 +251,7 @@ def execute_forensic_pipeline(evidence_id: str):
         )
         raw_metrics["correlation_summary"] = correlation_matrix
 
-        # 5. Generate Copilot Narrative Summary & Recommendations
+        # 10. Generate Copilot Narrative Summary & Recommendations
         narrative_res = ForensicCopilot.generate_narrative_and_recommendations(
             evidence_id=evidence_id,
             modality=modality,
@@ -153,7 +262,9 @@ def execute_forensic_pipeline(evidence_id: str):
             metrics=raw_metrics
         )
 
-        # 5. Persist Results & Findings to SQLite
+        _update_stage(evidence_id, "EVIDENCE_CORRELATION", "COMPLETED", f"Assessment complete: {forensic_taxonomy.replace('_', ' ')} ({risk_cat})")
+
+        # 11. Persist Results & Findings to SQLite
         result_id = f"RES-{uuid.uuid4().hex[:8].upper()}"
         analyzed_at = datetime.utcnow().isoformat() + "Z"
 
@@ -176,8 +287,8 @@ def execute_forensic_pipeline(evidence_id: str):
                 ai_model_version, model_confidence, model_status,
                 forensic_anomaly_score, forensic_risk_score, risk_category,
                 confidence_score, analyzed_at, raw_metrics_json,
-                summary_narrative, recommendations
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                summary_narrative, recommendations, ensemble_agreement_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 result_id, evidence_id, "VERIFIED", provenance_status,
                 ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
@@ -185,7 +296,8 @@ def execute_forensic_pipeline(evidence_id: str):
                 forensic_anomaly_score, risk_score, risk_cat,
                 confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
                 narrative_res.get("summary", ""),
-                narrative_res.get("recommendations", "")
+                narrative_res.get("recommendations", ""),
+                json.dumps(ensemble_agreement, default=_json_safe)
             ))
 
             cursor.execute("DELETE FROM findings WHERE evidence_id = ?", (evidence_id,))
@@ -204,20 +316,20 @@ def execute_forensic_pipeline(evidence_id: str):
             WHERE evidence_id = ?
             """, (analyzed_at, evidence_id))
 
-        # 6. Record Chain of Custody Events
+        # 12. Record Chain of Custody Events
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
             action="FORENSIC_ANALYSIS_COMPLETED",
             actor="Truth Lens Forensic Engine",
             recorded_sha256=evidence["sha256_hash"],
-            details=f"Modality ({modality}) automated multi-signal analysis executed. {len(findings)} findings logged. Model status: {model_status}."
+            details=f"Multi-specialist analysis executed ({analysis_mode}). {len(findings)} findings logged. Agreement: {ensemble_agreement['consensus_label']}."
         )
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
             action="RISK_ASSESSED",
             actor="Truth Lens Risk Engine",
             recorded_sha256=evidence["sha256_hash"],
-            details=f"Calculated Forensic Risk: {risk_score}/100 ({risk_cat}). AI manipulation indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'}."
+            details=f"Forensic Assessment: {forensic_taxonomy.replace('_', ' ')} (Score: {risk_score}/100 - {risk_cat})."
         )
 
     except Exception as e:
@@ -250,7 +362,8 @@ async def _ingest_single_file_payload(
     case_id: str,
     uploaded_by: str,
     notes: Optional[str],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    analysis_mode: str = "FULL_ANALYSIS"
 ) -> Dict[str, Any]:
     raw_name = file.filename or "evidence.bin"
     clean_filename = sanitize_filename(raw_name)
@@ -295,6 +408,16 @@ async def _ingest_single_file_payload(
     hashes = calculate_file_hashes(target_path)
     uploaded_at = datetime.utcnow().isoformat() + "Z"
 
+    initial_stages = {
+        "INTEGRITY_BASELINE": {"stage_key": "INTEGRITY_BASELINE", "status": "COMPLETED", "details": f"SHA-256 calculated ({hashes['sha256'][:16]}...)"},
+        "METADATA_PROVENANCE": {"stage_key": "METADATA_PROVENANCE", "status": "QUEUED", "details": "Queued for metadata extraction"},
+        "AI_DETECTOR_ENSEMBLE": {"stage_key": "AI_DETECTOR_ENSEMBLE", "status": "QUEUED", "details": "Queued for multi-specialist ensemble"},
+        "PIXEL_FORENSICS": {"stage_key": "PIXEL_FORENSICS", "status": "QUEUED", "details": "Queued for ELA & noise residual"},
+        "LOCAL_REGION_ANALYSIS": {"stage_key": "LOCAL_REGION_ANALYSIS", "status": "QUEUED", "details": "Queued for patch localizer"},
+        "EXTERNAL_DETECTORS": {"stage_key": "EXTERNAL_DETECTORS", "status": "QUEUED", "details": "Queued for external corroboration"},
+        "EVIDENCE_CORRELATION": {"stage_key": "EVIDENCE_CORRELATION", "status": "QUEUED", "details": "Queued for evidence synthesis"}
+    }
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT case_id FROM cases WHERE case_id = ?", (case_id,))
@@ -308,12 +431,14 @@ async def _ingest_single_file_payload(
         INSERT INTO evidence (
             evidence_id, case_id, original_filename, stored_filename, modality,
             mime_type, file_size_bytes, sha256_hash, sha512_hash, md5_hash,
-            uploaded_by, uploaded_at, status, pipeline_status, analysis_started_at, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            uploaded_by, uploaded_at, status, pipeline_status, analysis_started_at, notes,
+            analysis_mode, pipeline_stages_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             evidence_id, case_id, clean_filename, stored_filename, modality,
             mime_type, file_size, hashes["sha256"], hashes["sha512"], hashes["md5"],
-            uploaded_by, uploaded_at, "ANALYZING", "ANALYZING", uploaded_at, notes or ""
+            uploaded_by, uploaded_at, "ANALYZING", "ANALYZING", uploaded_at, notes or "",
+            analysis_mode, json.dumps(initial_stages)
         ))
 
     ChainOfCustodyLogger.record_event(
@@ -321,7 +446,7 @@ async def _ingest_single_file_payload(
         action="EVIDENCE_INGESTION",
         actor=uploaded_by,
         recorded_sha256=hashes["sha256"],
-        details=f"Original digital exhibit '{clean_filename}' ingested into {case_id}. Baseline SHA-256 fingerprint recorded."
+        details=f"Exhibit '{clean_filename}' ingested (Mode: {analysis_mode}) into {case_id}. Baseline SHA-256 fingerprint recorded."
     )
 
     # Dispatch pipeline in background task
@@ -336,7 +461,8 @@ async def _ingest_single_file_payload(
         "mime_type": mime_type,
         "file_size_bytes": file_size,
         "sha256_hash": hashes["sha256"],
-        "message": "Evidence ingested. Background forensic assessment pipeline in progress."
+        "analysis_mode": analysis_mode,
+        "message": "Evidence ingested. Background multi-specialist forensic pipeline in progress."
     }
 
 @router.post("/upload", status_code=202)
@@ -345,9 +471,10 @@ async def upload_evidence(
     file: UploadFile = File(...),
     case_id: str = Form("CASE-2026-001"),
     uploaded_by: str = Form("Digital Forensics Investigator"),
-    notes: Optional[str] = Form("")
+    notes: Optional[str] = Form(""),
+    analysis_mode: str = Form("FULL_ANALYSIS")
 ):
-    res = await _ingest_single_file_payload(file, case_id, uploaded_by, notes, background_tasks)
+    res = await _ingest_single_file_payload(file, case_id, uploaded_by, notes, background_tasks, analysis_mode)
     if res["status"] == "REJECTED":
         raise HTTPException(status_code=400, detail=res["error"])
     return {
@@ -359,6 +486,7 @@ async def upload_evidence(
         "file_size_bytes": res["file_size_bytes"],
         "sha256_hash": res["sha256_hash"],
         "status": "ANALYZING",
+        "analysis_mode": res.get("analysis_mode", analysis_mode),
         "message": res["message"]
     }
 
@@ -368,7 +496,8 @@ async def upload_bulk_evidence(
     files: List[UploadFile] = File(...),
     case_id: str = Form("CASE-2026-001"),
     uploaded_by: str = Form("Digital Forensics Investigator"),
-    notes: Optional[str] = Form("")
+    notes: Optional[str] = Form(""),
+    analysis_mode: str = Form("FULL_ANALYSIS")
 ):
     if not files:
         raise HTTPException(status_code=400, detail="No files provided for upload.")
@@ -380,7 +509,7 @@ async def upload_bulk_evidence(
     rejected = 0
 
     for f in files:
-        item_res = await _ingest_single_file_payload(f, case_id, uploaded_by, notes, background_tasks)
+        item_res = await _ingest_single_file_payload(f, case_id, uploaded_by, notes, background_tasks, analysis_mode)
         if item_res["status"] == "ACCEPTED":
             accepted += 1
             items.append(BulkUploadItemResponse(
@@ -406,16 +535,48 @@ async def upload_bulk_evidence(
         accepted_count=accepted,
         rejected_count=rejected,
         items=items,
-        message=f"Bulk upload processed: {accepted} file(s) accepted into background pipeline, {rejected} rejected."
+        message=f"Bulk upload processed ({analysis_mode}): {accepted} file(s) accepted into background pipeline, {rejected} rejected."
     )
 
-@router.get("/{evidence_id}/status")
+@router.get("/{evidence_id}/pipeline-progress", response_model=PipelineProgressResponse)
+def get_pipeline_progress(evidence_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT evidence_id, status, pipeline_status, analysis_mode, pipeline_stages_json, analyzed_at FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+        
+        stages = {}
+        if row.get("pipeline_stages_json"):
+            try:
+                stages = json.loads(row["pipeline_stages_json"])
+            except Exception:
+                pass
+        
+        current_stage = "COMPLETED" if row["status"] == "COMPLETED" else ("FAILED" if row["status"] == "FAILED" else "INITIALIZING")
+        for k, v in stages.items():
+            if v.get("status") == "ANALYZING":
+                current_stage = k
+                break
+
+        return {
+            "evidence_id": row["evidence_id"],
+            "status": row["status"],
+            "analysis_mode": row.get("analysis_mode", "FULL_ANALYSIS") or "FULL_ANALYSIS",
+            "pipeline_status": row.get("pipeline_status", row["status"]),
+            "current_stage": current_stage,
+            "stages": stages,
+            "analyzed_at": row.get("analyzed_at")
+        }
+
+@router.get("/{evidence_id}/status", response_model=EvidenceStatusResponse)
 def get_evidence_status(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
         SELECT evidence_id, status, pipeline_status, modality, original_filename, 
-               uploaded_at, analysis_started_at, analyzed_at, error_message 
+               uploaded_at, analysis_started_at, analyzed_at, error_message, analysis_mode, pipeline_stages_json 
         FROM evidence WHERE evidence_id = ?
         """, (evidence_id,))
         row = cursor.fetchone()
@@ -423,16 +584,25 @@ def get_evidence_status(evidence_id: str):
             raise HTTPException(status_code=404, detail="Evidence not found.")
         
         status_val = row["status"]
+        stages = {}
+        if row.get("pipeline_stages_json"):
+            try:
+                stages = json.loads(row["pipeline_stages_json"])
+            except Exception:
+                pass
+
         return {
             "evidence_id": row["evidence_id"],
             "status": status_val,
             "pipeline_status": row.get("pipeline_status", status_val),
+            "analysis_mode": row.get("analysis_mode", "FULL_ANALYSIS") or "FULL_ANALYSIS",
             "modality": row["modality"],
             "original_filename": row["original_filename"],
             "uploaded_at": row["uploaded_at"],
             "analysis_started_at": row.get("analysis_started_at"),
             "analyzed_at": row.get("analyzed_at"),
-            "error_message": row.get("error_message") if status_val == "FAILED" else None
+            "error_message": row.get("error_message") if status_val == "FAILED" else None,
+            "pipeline_stages": stages
         }
 
 @router.get("/{evidence_id}/frames")
@@ -502,6 +672,7 @@ def get_evidence_detail(evidence_id: str):
             except Exception:
                 forensic_result["raw_metrics_json"] = {}
             forensic_result["forensic_taxonomy"] = forensic_result["raw_metrics_json"].get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
+            forensic_result["ensemble_agreement"] = forensic_result["raw_metrics_json"].get("ensemble_agreement")
 
         # 4. Findings
         cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
@@ -624,33 +795,40 @@ def explain_evidence(evidence_id: str, actor: str = "Lead Forensic Examiner"):
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
-        res_row = cursor.fetchone()
-        forensic_result = {}
-        if res_row:
-            try:
-                res_row["raw_metrics_json"] = json.loads(res_row["raw_metrics_json"])
-            except Exception:
-                res_row["raw_metrics_json"] = {}
-            forensic_result = res_row
+        forensic_result = cursor.fetchone()
+        if not forensic_result:
+            raise HTTPException(status_code=400, detail="Forensic analysis has not completed for this evidence.")
 
         cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
         findings = cursor.fetchall()
 
-    explanation = ForensicCopilot.generate_structured_explanation(
+    try:
+        raw_metrics = json.loads(forensic_result["raw_metrics_json"])
+    except Exception:
+        raw_metrics = {}
+
+    explanation_data = ForensicCopilot.generate_structured_explanation(
         evidence_id=evidence_id,
-        evidence_data=evidence,
-        forensic_result=forensic_result,
-        findings=findings
+        evidence_data=dict(evidence),
+        forensic_result=dict(forensic_result),
+        findings=[dict(f) for f in findings]
     )
 
-    # Record explanation generation in chain of custody without storing any secret
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="AI_EXPLANATION_GENERATED",
         actor=actor,
         recorded_sha256=evidence["sha256_hash"],
-        details=f"AI forensic explanation generated. Source: {explanation.get('source', 'Unknown')}."
+        details=f"Forensic copilot explanation generated via {explanation_data.get('source', 'Local Deterministic Engine')}."
     )
 
-    return explanation
-
+    return AIExplanationResponse(
+        evidence_id=evidence_id,
+        investigator_summary=explanation_data.get("investigator_summary", ""),
+        technical_findings_requiring_review=explanation_data.get("technical_findings_requiring_review", []),
+        limitations=explanation_data.get("limitations", ""),
+        recommended_next_steps=explanation_data.get("recommended_next_steps", []),
+        disclaimer=explanation_data.get("disclaimer", ""),
+        source=explanation_data.get("source", "Local Deterministic Engine"),
+        timestamp=explanation_data.get("timestamp", datetime.utcnow().isoformat() + "Z")
+    )

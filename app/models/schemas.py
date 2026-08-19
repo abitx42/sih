@@ -83,6 +83,7 @@ class EvidenceBase(BaseModel):
     uploaded_at: str
     status: str
     pipeline_status: Optional[str] = "COMPLETED"
+    analysis_mode: Optional[str] = "FULL_ANALYSIS"
     analysis_started_at: Optional[str] = None
     analyzed_at: Optional[str] = None
     error_message: Optional[str] = None
@@ -92,12 +93,23 @@ class EvidenceStatusResponse(BaseModel):
     evidence_id: str
     status: str
     pipeline_status: str
+    analysis_mode: Optional[str] = "FULL_ANALYSIS"
     modality: str
     original_filename: str
     uploaded_at: str
     analysis_started_at: Optional[str] = None
     analyzed_at: Optional[str] = None
     error_message: Optional[str] = None
+    pipeline_stages: Optional[Dict[str, Any]] = None
+
+class PipelineProgressResponse(BaseModel):
+    evidence_id: str
+    status: str
+    analysis_mode: str
+    pipeline_status: str
+    current_stage: str
+    stages: Dict[str, Any]
+    analyzed_at: Optional[str] = None
 
 class EvidenceListResponse(BaseModel):
     items: List[EvidenceBase]
@@ -139,6 +151,7 @@ class ForensicResultResponse(BaseModel):
     summary_narrative: Optional[str]
     recommendations: Optional[str]
     findings: List[FindingSchema] = []
+    ensemble_agreement: Optional[Dict[str, Any]] = None
 
 # --- Complete Evidence Detail ---
 class EvidenceDetailResponse(BaseModel):

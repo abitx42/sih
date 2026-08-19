@@ -68,6 +68,16 @@ class Settings:
     LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "https://ai.tcetcercd.in/v1").strip().rstrip("/")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6")
+
+    # External Independent AI Detector Adapter Config (e.g., Copyleaks / Hive / Sensity)
+    # Honest contract: If key is not provided, detector reports NOT_CONFIGURED without fabricating results
+    COPYLEAKS_API_KEY: str = os.getenv("COPYLEAKS_API_KEY", "").strip()
+    COPYLEAKS_API_BASE_URL: str = os.getenv("COPYLEAKS_API_BASE_URL", "https://api.copyleaks.com/v3").strip().rstrip("/")
+
+    # 3-Tier Analysis Modes
+    ANALYSIS_MODE_QUICK: str = "QUICK_SCAN"
+    ANALYSIS_MODE_FULL: str = "FULL_ANALYSIS"
+    ANALYSIS_MODE_ADVANCED: str = "ADVANCED_INVESTIGATION"
     
     # Scoring Weights for Deterministic Risk Engine
     WEIGHT_AI_MANIPULATION: float = 0.40

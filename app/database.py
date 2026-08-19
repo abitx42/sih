@@ -80,6 +80,10 @@ def init_db():
             cursor.execute("ALTER TABLE evidence ADD COLUMN analyzed_at TEXT")
         if "error_message" not in ev_columns:
             cursor.execute("ALTER TABLE evidence ADD COLUMN error_message TEXT")
+        if "analysis_mode" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN analysis_mode TEXT DEFAULT 'FULL_ANALYSIS'")
+        if "pipeline_stages_json" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN pipeline_stages_json TEXT DEFAULT '{}'")
 
         # 3. Forensic Results Table
         cursor.execute("""
@@ -119,6 +123,8 @@ def init_db():
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN model_status TEXT DEFAULT 'AVAILABLE'")
         if "forensic_anomaly_score" not in columns:
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN forensic_anomaly_score REAL DEFAULT 0.0")
+        if "ensemble_agreement_json" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN ensemble_agreement_json TEXT DEFAULT '{}'")
 
         # 4. Findings Table
         cursor.execute("""

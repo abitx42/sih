@@ -85,10 +85,25 @@ class ForensicCorrelationBuilder:
 
         # 4. WHY: Forensic justification
         sig_count = sum(1 for f in findings if f.get("severity") in ("CRITICAL", "HIGH"))
-        why_conclusion = (
-            f"Taxonomy categorized as '{forensic_taxonomy.replace('_', ' ')}' based on correlation of {len(findings)} independent forensic signals "
-            f"({sig_count} elevated indicators, Forensic Anomaly Score: {metrics.get('forensic_anomaly_score', 0):.1f}/100, Composite Risk: {risk_score:.1f}/100)."
-        )
+        ensemble = metrics.get("ensemble_agreement") or {}
+        consensus_txt = ensemble.get("consensus_label", "")
+        conflict_txt = ensemble.get("conflict_description", "")
+
+        if conflict_txt:
+            why_conclusion = (
+                f"Taxonomy marked as 'ANALYSIS INCONCLUSIVE' due to signal conflict: {conflict_txt} "
+                f"(Evaluated {len(findings)} physical signals and {ensemble.get('total_specialists_evaluated', 0)} specialists)."
+            )
+        elif consensus_txt:
+            why_conclusion = (
+                f"Taxonomy categorized as '{forensic_taxonomy.replace('_', ' ')}' with {consensus_txt} "
+                f"across {len(findings)} independent forensic signals (Forensic Anomaly Score: {metrics.get('forensic_anomaly_score', 0):.1f}/100, Composite Risk: {risk_score:.1f}/100)."
+            )
+        else:
+            why_conclusion = (
+                f"Taxonomy categorized as '{forensic_taxonomy.replace('_', ' ')}' based on correlation of {len(findings)} independent forensic signals "
+                f"({sig_count} elevated indicators, Forensic Anomaly Score: {metrics.get('forensic_anomaly_score', 0):.1f}/100, Composite Risk: {risk_score:.1f}/100)."
+            )
 
         return {
             "evidence_id": evidence_id,
@@ -99,5 +114,7 @@ class ForensicCorrelationBuilder:
             "what_observations": what_items,
             "how_mechanism": how_mechanism,
             "why_conclusion": why_conclusion,
-            "signal_agreement_count": sig_count
+            "signal_agreement_count": sig_count,
+            "ensemble_consensus": ensemble.get("consensus_verdict"),
+            "agreement_percentage": ensemble.get("agreement_percentage")
         }
