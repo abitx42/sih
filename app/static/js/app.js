@@ -547,3 +547,57 @@ function openNewCaseModal() {
     loadCasesDropdown();
   });
 }
+
+// 8. Generate Structured AI Forensic Explanation
+async function generateAIExplanation() {
+  if (!currentEvidenceId) return;
+
+  const btn = document.getElementById("btn-ai-explain");
+  const container = document.getElementById("ai-explanation-container");
+  const origBtnText = btn ? btn.innerText : "⚡ Generate AI Explanation";
+
+  if (btn) {
+    btn.innerText = "⏳ Generating Synthesis...";
+    btn.disabled = true;
+  }
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/explain`, { method: "POST" });
+    if (!res.ok) {
+      alert("Failed to generate AI explanation. Please retry.");
+      return;
+    }
+    const data = await res.json();
+
+    document.getElementById("ai-expl-source-badge").innerText = data.source;
+    document.getElementById("ai-expl-summary").innerText = data.investigator_summary;
+    
+    const findingsDiv = document.getElementById("ai-expl-findings");
+    if (Array.isArray(data.technical_findings_requiring_review)) {
+      findingsDiv.innerHTML = data.technical_findings_requiring_review.map(f => `• ${f}`).join("<br>");
+    } else {
+      findingsDiv.innerText = data.technical_findings_requiring_review;
+    }
+
+    document.getElementById("ai-expl-limitations").innerText = data.limitations;
+
+    const stepsDiv = document.getElementById("ai-expl-steps");
+    if (Array.isArray(data.recommended_next_steps)) {
+      stepsDiv.innerHTML = data.recommended_next_steps.map(s => `• ${s}`).join("<br>");
+    } else {
+      stepsDiv.innerText = data.recommended_next_steps;
+    }
+
+    document.getElementById("ai-expl-disclaimer").innerText = data.disclaimer || "AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility.";
+
+    if (container) container.style.display = "block";
+  } catch (err) {
+    alert(`Error generating explanation: ${err}`);
+  } finally {
+    if (btn) {
+      btn.innerText = origBtnText;
+      btn.disabled = false;
+    }
+  }
+}
+

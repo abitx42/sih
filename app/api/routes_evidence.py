@@ -25,7 +25,8 @@ from app.analyzers.archive_analyzer import ArchiveAnalyzer
 
 from app.models.schemas import (
     EvidenceBase, EvidenceListResponse, EvidenceDetailResponse,
-    IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse
+    IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse,
+    AIExplanationResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -382,3 +383,44 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
         raise HTTPException(status_code=404, detail="Forensic artifact not available for this evidence.")
 
     return FileResponse(path=str(p), media_type=media)
+
+@router.post("/{evidence_id}/explain", response_model=AIExplanationResponse)
+def explain_evidence(evidence_id: str, actor: str = "Lead Forensic Examiner"):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        res_row = cursor.fetchone()
+        forensic_result = {}
+        if res_row:
+            try:
+                res_row["raw_metrics_json"] = json.loads(res_row["raw_metrics_json"])
+            except Exception:
+                res_row["raw_metrics_json"] = {}
+            forensic_result = res_row
+
+        cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
+        findings = cursor.fetchall()
+
+    explanation = ForensicCopilot.generate_structured_explanation(
+        evidence_id=evidence_id,
+        evidence_data=evidence,
+        forensic_result=forensic_result,
+        findings=findings
+    )
+
+    # Record explanation generation in chain of custody without storing any secret
+    ChainOfCustodyLogger.record_event(
+        evidence_id=evidence_id,
+        action="AI_EXPLANATION_GENERATED",
+        actor=actor,
+        recorded_sha256=evidence["sha256_hash"],
+        details=f"AI forensic explanation generated. Source: {explanation.get('source', 'Unknown')}."
+    )
+
+    return explanation
+

@@ -291,7 +291,33 @@
           <div class="card-panel">
             <div class="panel-header">
               <h3>🤖 Forensic Copilot Assistant</h3>
-              <span class="badge badge-modality">Qwen 3.6 / CoE Gateway</span>
+              <span class="badge badge-modality" id="copilot-source-badge">CoE Gateway (Qwen 3.6)</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Grounded Analysis & Investigator Q&A</span>
+              <button class="btn btn-secondary btn-sm" id="btn-ai-explain" onclick="generateAIExplanation()">⚡ Generate AI Explanation</button>
+            </div>
+
+            <div id="ai-explanation-container" style="display: none; margin-bottom: 1rem; background: rgba(15, 23, 42, 0.6); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <h4 style="font-size: 0.82rem; color: var(--accent-cyan); text-transform: uppercase;">Structured AI Forensic Synthesis</h4>
+                <span class="badge badge-modality" id="ai-expl-source-badge" style="font-size: 0.68rem;">CoE Gateway</span>
+              </div>
+              <div style="font-size: 0.83rem; line-height: 1.4; color: var(--text-main); margin-bottom: 0.6rem;" id="ai-expl-summary"></div>
+              
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Technical Findings Requiring Review:</div>
+              <div id="ai-expl-findings" style="font-size: 0.8rem; line-height: 1.35; color: #fca5a5; margin-bottom: 0.6rem;"></div>
+
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Physical Limitations:</div>
+              <div id="ai-expl-limitations" style="font-size: 0.78rem; line-height: 1.35; color: var(--text-dim); margin-bottom: 0.6rem;"></div>
+
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Recommended Next Steps:</div>
+              <div id="ai-expl-steps" style="font-size: 0.8rem; line-height: 1.35; color: #93c5fd; margin-bottom: 0.6rem;"></div>
+
+              <div style="font-size: 0.68rem; color: var(--text-dim); font-style: italic; border-top: 1px solid var(--border-color); pt: 0.4rem; margin-top: 0.4rem;" id="ai-expl-disclaimer">
+                AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility.
+              </div>
             </div>
 
             <div style="margin-bottom: 1rem;">

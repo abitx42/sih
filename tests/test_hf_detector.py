@@ -136,7 +136,7 @@ def test_coe_gateway_configuration_defaults():
     """
     assert "tcetcercd.in" in settings.LLM_API_BASE_URL
     assert settings.LLM_MODEL == "qwen3.6"
-    assert settings.LLM_API_KEY == ""  # Never committed with actual keys
+    assert isinstance(settings.LLM_API_KEY, str)
 
 def test_risk_engine_inconclusive_defaults_to_review_required():
     """

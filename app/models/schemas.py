@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
 
 # --- Cases ---
@@ -59,7 +59,7 @@ class ForensicResultResponse(BaseModel):
     provenance_status: str
     ai_manipulation_score: Optional[float] = None
     ai_manipulation_indicator: Optional[float] = None
-    ai_model_name: str
+    ai_model_name: Optional[str] = None
     ai_model_version: Optional[str] = None
     model_confidence: Optional[float] = None
     model_status: str = "AVAILABLE"
@@ -113,6 +113,16 @@ class CopilotQueryResponse(BaseModel):
     evidence_id: str
     question: str
     answer: str
+    source: str
+    timestamp: str
+
+class AIExplanationResponse(BaseModel):
+    evidence_id: str
+    investigator_summary: str
+    technical_findings_requiring_review: Union[List[str], str]
+    limitations: str
+    recommended_next_steps: Union[List[str], str]
+    disclaimer: str = "AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility."
     source: str
     timestamp: str
 

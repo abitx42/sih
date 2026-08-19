@@ -2,8 +2,23 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-STORAGE_DIR = BASE_DIR / "storage"
 
+# Read local .env if present without external dependencies
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    try:
+        with open(env_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip()
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+    except Exception:
+        pass
+
+STORAGE_DIR = BASE_DIR / "storage"
 EVIDENCE_DIR = STORAGE_DIR / "evidence"
 THUMBNAILS_DIR = STORAGE_DIR / "thumbnails"
 FORENSIC_DIR = STORAGE_DIR / "forensic"
@@ -43,8 +58,8 @@ class Settings:
     HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "29e4cf9efc543845610045f6ba7e88e5cf9d9301")
     HF_LOCAL_FILES_ONLY: bool = os.getenv("HF_LOCAL_FILES_ONLY", "False").lower() == "true"
 
-    # TCET CoE AI Gateway Configuration (Forensic Copilot)
-    LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "https://ai.tcetcercd.in/v1").strip()
+    # TCET CoE AI Gateway Configuration (Forensic Copilot Explanation Engine)
+    LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "https://ai.tcetcercd.in/v1").strip().rstrip("/")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6")
     
