@@ -184,11 +184,11 @@ function handleFileSelected(e) {
   filesize.innerText = `${(file.size / 1024).toFixed(1)} KB`;
 
   const ext = file.name.split('.').pop().toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'webp', 'bmp'].includes(ext)) modality.innerText = "IMAGE";
-  else if (['mp4', 'avi', 'mov', 'mkv'].includes(ext)) modality.innerText = "VIDEO";
-  else if (['wav', 'mp3', 'ogg'].includes(ext)) modality.innerText = "AUDIO";
-  else if (['pdf', 'docx', 'xlsx', 'pptx'].includes(ext)) modality.innerText = "DOCUMENT";
-  else if (['zip', 'tar', 'gz'].includes(ext)) modality.innerText = "ARCHIVE";
+  if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'].includes(ext)) modality.innerText = "IMAGE";
+  else if (['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) modality.innerText = "VIDEO";
+  else if (['wav', 'mp3', 'ogg', 'flac', 'm4a'].includes(ext)) modality.innerText = "AUDIO";
+  else if (['pdf', 'docx', 'xlsx', 'pptx', 'txt'].includes(ext)) modality.innerText = "DOCUMENT";
+  else if (['zip', 'tar', 'gz', '7z'].includes(ext)) modality.innerText = "ARCHIVE";
   else modality.innerText = "MEDIA";
 
   preview.style.display = "block";
@@ -257,6 +257,7 @@ function renderLabView(data) {
   const ev = data.evidence;
   const res = data.forensic_result || {};
   const findings = data.findings || [];
+  const rawMetrics = res.raw_metrics_json || {};
 
   document.getElementById("lab-evidence-id").innerText = ev.evidence_id;
   document.getElementById("lab-filename").innerText = `${ev.original_filename} (${(ev.file_size_bytes / 1024).toFixed(1)} KB)`;
@@ -286,27 +287,34 @@ function renderLabView(data) {
   // AI Manipulation Indicator (ML Vision Model)
   const aiScoreEl = document.getElementById("lab-ai-score");
   const modelStatus = res.model_status || "AVAILABLE";
-  const modelIndicator = res.ai_manipulation_indicator !== undefined && res.ai_manipulation_indicator !== null
-    ? res.ai_manipulation_indicator
-    : res.ai_manipulation_score;
+  const modelIndicator = res.ai_manipulation_indicator;
 
   if (modelStatus === "AVAILABLE" && modelIndicator !== null && modelIndicator !== undefined) {
     const aiPct = (modelIndicator * 100).toFixed(1);
     aiScoreEl.innerText = `${aiPct}%`;
     aiScoreEl.style.color = aiPct > 70 ? "var(--risk-high)" : (aiPct > 35 ? "var(--risk-medium)" : "var(--risk-low)");
+  } else if (modelStatus === "ANALYSIS INCONCLUSIVE") {
+    aiScoreEl.innerText = "INCONCLUSIVE";
+    aiScoreEl.style.color = "var(--risk-medium)";
   } else {
     aiScoreEl.innerText = "UNAVAILABLE";
     aiScoreEl.style.color = "var(--text-dim)";
   }
-  document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
+  
+  if (ev.modality === "VIDEO") {
+    const sampled = rawMetrics.sampled_frames_count || 0;
+    const analysed = rawMetrics.ml_detector ? rawMetrics.ml_detector.analysed_frame_count : 0;
+    document.getElementById("lab-ai-model").innerText = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames)`;
+  } else {
+    document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
+  }
 
-  // Heuristic Forensic Anomaly Score (ELA / FFT / Noise)
+  // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Noise)
   const heuristicScore = res.forensic_anomaly_score !== undefined ? res.forensic_anomaly_score : 0;
   document.getElementById("lab-heuristic-score").innerText = `${heuristicScore}/100`;
 
   // Provenance
   const provStatus = res.provenance_status || "NOT_AVAILABLE";
-  const rawMetrics = res.raw_metrics_json || {};
   const provDetails = rawMetrics.provenance ? rawMetrics.provenance.details : "No C2PA manifest attached.";
   document.getElementById("lab-provenance-detail").innerText = `Provenance: ${provStatus.replace('_', ' ')} • ${provDetails.substring(0, 45)}...`;
 
@@ -319,6 +327,11 @@ function renderLabView(data) {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
     forensicTitle.innerText = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
+    forensicImg.style.display = "block";
+  } else if (ev.modality === "VIDEO") {
+    origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Video+Stream+Exhibit";
+    forensicImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Uniform+Frame+Sampling+Stream";
+    forensicTitle.innerText = `Exhibit 2: Uniform Keyframe Sequence (${rawMetrics.sampled_frames_count || 0} Frames Decoded)`;
     forensicImg.style.display = "block";
   } else if (ev.modality === "AUDIO") {
     origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Audio+Waveform+Track";

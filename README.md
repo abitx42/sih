@@ -38,7 +38,7 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
       │                 │                 │
       │   ┌─────────────┴─────────────┐   │
       │   │ Image: ELA, FFT, PRNU     │   │
-      │   │ Video: Flicker, Keyframes │   │
+      │   │ Video: OpenCV Real Frames │   │
       │   │ Audio: Spectrogram, Voice │   │
       │   │ Docs:  Incremental Update │   │
       │   └─────────────┬─────────────┘   │
@@ -72,26 +72,32 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 ## ⚡ Key Features & Reliability Principles
 
 1. **Independent Heuristic & ML Signal Separation**:
-   - **Forensic Anomaly Score (0-100)**: Derived from physical compression artifacts (ELA 95%), 2D FFT periodic frequency spikes, PRNU sensor noise inconsistency, and EXIF modification records.
+   - **Forensic Anomaly Score (0-100)**: Derived from physical compression artifacts (ELA 95%), 2D FFT periodic frequency spikes, PRNU sensor noise inconsistency, and container modification records.
    - **Local ML Vision Model**: `dima806/deepfake_vs_real_image_detection` running in-process via PyTorch.
    - **Honest Failure Handling**: If the model is offline or uninstalled, the system outputs `model_status: "ANALYSIS UNAVAILABLE"`. If class labels cannot be mapped, it returns `model_status: "ANALYSIS INCONCLUSIVE"`. **Zero made-up or hallucinated scores.**
 
-2. **Deterministic Multi-Signal Risk Engine**:
+2. **Real Video Forensics & Frame Aggregation**:
+   - **True Frame Decoding**: Decodes real video streams using OpenCV (`opencv-python-headless`), sampling up to 16 uniformly distributed keyframes across the file duration.
+   - **Statistical Aggregation**: Reuses the local ViT classifier on real decoded frames and aggregates results using the **median** indicator and interquartile range (IQR) dispersion (avoiding outlier skew).
+   - **Threshold Safety**: Requires a minimum of 3 valid decoded frames with model predictions; otherwise returns `ANALYSIS INCONCLUSIVE` or `ANALYSIS UNAVAILABLE` with null AI indicator.
+   - **Supported Codecs & Limitations**: Native support for MP4 (H.264/AVC, MPEG-4), AVI, MOV, WebM. Proprietary, encrypted, or corrupted streams without readable video tracks gracefully yield `ANALYSIS UNAVAILABLE`.
+
+3. **Deterministic Multi-Signal Risk Engine**:
    - Scores 0 - 100 with 3-tier categorization:
      - 🟢 **LOW RISK (0 - 30)**: Sound cryptographic baseline, uniform noise, authentic provenance.
      - 🟡 **REVIEW REQUIRED (31 - 70)**: Inconclusive compression anomalies, unavailable ML analysis, or moderate synthesis signals requiring human inspection.
-     - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators (e.g., ELA boundary discrepancy + high AI indicator + editing software headers).
+     - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators.
    - **Integrity Rule**: SHA-256 integrity is recorded strictly as file bitstream preservation; it does **not** artificially reduce AI manipulation risk or prove authenticity.
 
-3. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
+4. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
 
-4. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+5. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
 
-5. **Forensic Copilot (TCET CoE AI Gateway)**:
+6. **Forensic Copilot (TCET CoE AI Gateway)**:
    - Configured for `https://ai.tcetcercd.in/v1` with model `qwen3.6`.
    - Context-isolated assistant for executive narrative drafting, investigator recommendations, and interactive evidence Q&A (with deterministic offline fallback).
 
-6. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
+7. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
 
 ---
 
@@ -130,13 +136,13 @@ Open your browser at: **`http://localhost:8000`**
 ## 🧪 Testing & CI Workflow
 
 ### Local Test Execution
-Run the full test suite excluding slow tests:
+Run the full non-slow test suite:
 ```bash
 source venv/bin/activate
 PYTHONPATH=. pytest -v -m "not slow"
 ```
 
-To run all tests including slow real-model integration tests:
+To run all tests including slow real-model and video integration tests:
 ```bash
 PYTHONPATH=. pytest -v
 ```

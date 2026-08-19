@@ -71,11 +71,9 @@ def execute_forensic_pipeline(evidence_id: str):
     raw_metrics = analysis_res.get("raw_metrics", {})
     raw_metrics["provenance"] = provenance_res
 
-    # Extract model metadata
+    # Extract model metadata strictly without heuristic fallback
     model_status = analysis_res.get("model_status", "AVAILABLE")
     ai_indicator = analysis_res.get("ai_manipulation_indicator")
-    if ai_indicator is None and "ai_manipulation_score" in analysis_res:
-        ai_indicator = analysis_res.get("ai_manipulation_score")
     model_confidence = analysis_res.get("model_confidence")
     ai_model_name = analysis_res.get("ai_model_name", "EVIDENCE-X Ensemble")
     ai_model_version = analysis_res.get("ai_model_version", "1.0")
