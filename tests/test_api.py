@@ -83,3 +83,18 @@ def test_evidence_upload_and_flow():
     report_res = client.get(f"/api/reports/{evidence_id}/download")
     assert report_res.status_code == 200
     assert report_res.headers["content-type"] == "application/pdf"
+
+    # Status endpoint check
+    status_res = client.get(f"/api/evidence/{evidence_id}/status")
+    assert status_res.status_code == 200
+    assert status_res.json()["evidence_id"] == evidence_id
+    assert "pipeline_status" in status_res.json()
+
+    # Raw file download check
+    file_res = client.get(f"/api/evidence/{evidence_id}/file")
+    assert file_res.status_code == 200
+
+    # Forensic artifact check
+    ela_res = client.get(f"/api/evidence/{evidence_id}/forensic-artifact/ela")
+    assert ela_res.status_code == 200
+    assert "image/jpeg" in ela_res.headers["content-type"]

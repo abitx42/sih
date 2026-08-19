@@ -47,6 +47,8 @@ class RiskEngine:
         # 4. Provenance Component
         if provenance_status == "VERIFIED":
             provenance_risk = 5.0
+        elif "DETECTED" in provenance_status:
+            provenance_risk = 15.0
         elif provenance_status == "INVALID":
             provenance_risk = 85.0
         elif provenance_status == "NOT_VERIFIED":

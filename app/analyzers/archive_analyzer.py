@@ -90,8 +90,12 @@ class ArchiveAnalyzer(BaseAnalyzer):
             ))
 
         return {
-            "ai_manipulation_score": 0.05,
-            "ai_model_name": "EVIDENCE-X Archive Integrity Scanner",
+            "ai_model_name": None,
+            "ai_model_version": None,
+            "ai_manipulation_indicator": None,
+            "model_confidence": None,
+            "model_status": "ANALYSIS UNAVAILABLE",
+            "forensic_anomaly_score": signal_score,
             "signal_anomalies_score": signal_score,
             "metadata_anomaly_score": 10.0,
             "findings": findings,

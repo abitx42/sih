@@ -8,6 +8,7 @@ from PIL import Image
 from app.analyzers.base_analyzer import BaseAnalyzer
 from app.analyzers.hf_image_detector import HFImageDetector
 from app.core.explainability import FindingBuilder
+from app.config import FORENSIC_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,16 @@ class VideoAnalyzer(BaseAnalyzer):
 
         sampled_count = len(decoded_frames)
         raw_metrics["sampled_frames_count"] = sampled_count
+
+        if sampled_count > 0:
+            try:
+                keyframe_idx = sampled_count // 2
+                keyframe_img = decoded_frames[keyframe_idx]
+                video_frame_path = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
+                keyframe_img.save(video_frame_path, "JPEG", quality=90)
+                raw_metrics["video_frame_path"] = str(video_frame_path)
+            except Exception as e:
+                logger.warning(f"Failed to save video keyframe exhibit: {e}")
 
         # If no frames could be decoded, return ANALYSIS UNAVAILABLE with zero made-up scores
         if sampled_count == 0:

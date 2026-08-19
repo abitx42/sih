@@ -60,11 +60,18 @@ def init_db():
             uploaded_by TEXT NOT NULL,
             uploaded_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'INGESTED',
+            pipeline_status TEXT NOT NULL DEFAULT 'PENDING',
             notes TEXT,
             FOREIGN KEY (case_id) REFERENCES cases (case_id) ON DELETE CASCADE
         )
         """)
         
+        # Migration helper: ensure new columns exist if table was created previously
+        cursor.execute("PRAGMA table_info(evidence)")
+        ev_columns = [col["name"] for col in cursor.fetchall()]
+        if "pipeline_status" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN pipeline_status TEXT DEFAULT 'COMPLETED'")
+
         # 3. Forensic Results Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS forensic_results (

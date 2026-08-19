@@ -106,9 +106,67 @@ def test_document_analyzer_pdf():
 
     try:
         res = analyzer.analyze(temp_path, "EV-TEST-002")
-        assert "ai_manipulation_score" in res
+        assert res["model_status"] == "ANALYSIS UNAVAILABLE"
+        assert res["ai_manipulation_indicator"] is None
+        assert "forensic_anomaly_score" in res
         assert "findings" in res
         assert res["raw_metrics"]["eof_markers_count"] == 1
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+def test_document_analyzer_ooxml_macro_detection():
+    import zipfile
+    analyzer = DocumentAnalyzer()
+    
+    with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+        with zipfile.ZipFile(f.name, "w") as zf:
+            zf.writestr("[Content_Types].xml", "<Types></Types>")
+            zf.writestr("word/vbaProject.bin", b"VBA MACRO PAYLOAD")
+        temp_path = Path(f.name)
+
+    try:
+        res = analyzer.analyze(temp_path, "EV-TEST-DOCX")
+        assert res["model_status"] == "ANALYSIS UNAVAILABLE"
+        assert res["raw_metrics"]["has_macros"] is True
+        assert any(f["signal_name"] == "Embedded VBA Macro Project Detected" for f in res["findings"])
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+def test_archive_analyzer_execution():
+    import zipfile
+    from app.analyzers.archive_analyzer import ArchiveAnalyzer
+    analyzer = ArchiveAnalyzer()
+
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+        with zipfile.ZipFile(f.name, "w") as zf:
+            zf.writestr("safe_document.txt", "Forensic analysis evidence text.")
+            zf.writestr("script.ps1", "Write-Host 'Test';")
+        temp_path = Path(f.name)
+
+    try:
+        res = analyzer.analyze(temp_path, "EV-TEST-ZIP")
+        assert res["model_status"] == "ANALYSIS UNAVAILABLE"
+        assert res["ai_manipulation_indicator"] is None
+        assert "forensic_anomaly_score" in res
+        assert len(res["findings"]) >= 1
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+def test_provenance_engine_c2pa_detection():
+    from app.core.provenance_engine import ProvenanceEngine
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+        f.write(b"\xff\xd8\xff\xe1\x00\x18c2pa.claim_generator Adobe Photoshop 2024\x00\x00")
+        temp_path = Path(f.name)
+
+    try:
+        res = ProvenanceEngine.inspect_provenance(temp_path)
+        assert res["manifest_found"] is True
+        assert "DETECTED" in res["status"]
+        assert "Photoshop" in res["signer"]
     finally:
         if temp_path.exists():
             temp_path.unlink()

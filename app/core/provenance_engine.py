@@ -36,23 +36,23 @@ class ProvenanceEngine:
         has_truepic = (b"truepic" in sample_bytes.lower())
 
         if has_c2pa_jumbf or has_adobe_cred or has_truepic:
-            # Found C2PA / Content Credentials manifest
+            # Found C2PA / Content Credentials manifest atom
             # Attempt to extract claim generator string if present
             generator = "C2PA Compatible Signer"
-            match = re.search(rb'c2pa\.claim_generator[^\x00-\x1f]{0,10}([a-zA-Z0-9 _\-\.\/]{3,50})', sample_bytes)
+            match = re.search(rb'c2pa\.claim_generator[\s:=]*([a-zA-Z0-9 _\-\.\/]{3,50})', sample_bytes)
             if match:
                 try:
-                    generator = match.group(1).decode("utf-8", errors="ignore")
+                    generator = match.group(1).decode("utf-8", errors="ignore").strip()
                 except Exception:
                     pass
 
             return {
-                "status": "VERIFIED",
-                "details": f"Cryptographic C2PA Content Credential manifest detected. Claim generator: {generator}",
+                "status": "DETECTED (UNVERIFIED MANIFEST)",
+                "details": f"C2PA Content Credential manifest atom detected in bitstream (claim generator: {generator}). Note: Container structure detected; cryptographic X.509 signature verification is omitted.",
                 "manifest_found": True,
                 "signer": generator,
                 "tool": "C2PA / Content Credentials Standard",
-                "assertions": ["Author identity signature present", "Edit history chain preserved"]
+                "assertions": ["C2PA/JUMBF metadata atom detected in bitstream", "Cryptographic signature validation omitted (requires external trust store)"]
             }
         
         # Check standard EXIF / Software tags if any

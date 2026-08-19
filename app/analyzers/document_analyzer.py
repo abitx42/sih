@@ -112,12 +112,15 @@ class DocumentAnalyzer(BaseAnalyzer):
                 explanation=f"PDF Producer indicates post-processing via online editing utility: '{producer}'."
             ))
 
-        # AI synthesis probability for text/doc (low unless explicitly flagged)
-        ai_score = round(min(0.95, (signal_score * 0.4 + meta_score * 0.4) / 100.0), 3)
+        forensic_anomaly_score = round(min(100.0, signal_score * 0.5 + meta_score * 0.5), 1)
 
         return {
-            "ai_manipulation_score": ai_score,
-            "ai_model_name": "EVIDENCE-X Structural PDF Examiner (DocuGuard)",
+            "ai_model_name": None,
+            "ai_model_version": None,
+            "ai_manipulation_indicator": None,
+            "model_confidence": None,
+            "model_status": "ANALYSIS UNAVAILABLE",
+            "forensic_anomaly_score": forensic_anomaly_score,
             "signal_anomalies_score": min(100.0, signal_score),
             "metadata_anomaly_score": min(100.0, meta_score),
             "findings": findings,
@@ -175,9 +178,15 @@ class DocumentAnalyzer(BaseAnalyzer):
         except Exception as e:
             raw_metrics["error"] = str(e)
 
+        forensic_anomaly_score = round(min(100.0, signal_score * 0.5 + meta_score * 0.5), 1)
+
         return {
-            "ai_manipulation_score": round(min(0.9, signal_score / 100.0), 3),
-            "ai_model_name": "EVIDENCE-X OOXML Integrity Validator",
+            "ai_model_name": None,
+            "ai_model_version": None,
+            "ai_manipulation_indicator": None,
+            "model_confidence": None,
+            "model_status": "ANALYSIS UNAVAILABLE",
+            "forensic_anomaly_score": forensic_anomaly_score,
             "signal_anomalies_score": min(100.0, signal_score),
             "metadata_anomaly_score": min(100.0, meta_score),
             "findings": findings,
@@ -186,8 +195,12 @@ class DocumentAnalyzer(BaseAnalyzer):
 
     def _analyze_generic_document(self, file_path: Path, evidence_id: str) -> Dict[str, Any]:
         return {
-            "ai_manipulation_score": 0.10,
-            "ai_model_name": "EVIDENCE-X Generic File Scanner",
+            "ai_model_name": None,
+            "ai_model_version": None,
+            "ai_manipulation_indicator": None,
+            "model_confidence": None,
+            "model_status": "ANALYSIS UNAVAILABLE",
+            "forensic_anomaly_score": 10.0,
             "signal_anomalies_score": 10.0,
             "metadata_anomaly_score": 10.0,
             "findings": [

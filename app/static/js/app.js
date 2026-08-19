@@ -4,6 +4,17 @@ let currentEvidenceId = null;
 let currentEvidenceData = null;
 let riskChartInstance = null;
 
+// HTML Entity Escaping (XSS Prevention)
+function escapeHTML(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", () => {
   initNavigation();
@@ -103,15 +114,20 @@ function renderDashboardEvidence(items) {
     if (item.risk_category === "HIGH RISK") riskBadge = `<span class="badge badge-high">HIGH RISK</span>`;
     else if (item.risk_category === "REVIEW REQUIRED") riskBadge = `<span class="badge badge-medium">REVIEW REQ.</span>`;
 
+    const safeId = escapeHTML(item.evidence_id);
+    const safeFilename = escapeHTML(item.original_filename);
+    const safeModality = escapeHTML(item.modality);
+    const safeHash = escapeHTML(item.sha256_hash ? item.sha256_hash.substring(0, 16) : "");
+
     return `
       <tr>
-        <td><strong>${item.evidence_id}</strong></td>
-        <td>${item.original_filename}</td>
-        <td><span class="badge badge-modality">${item.modality}</span></td>
-        <td><span class="hash-mono">${item.sha256_hash.substring(0, 16)}...</span></td>
+        <td><strong>${safeId}</strong></td>
+        <td>${safeFilename}</td>
+        <td><span class="badge badge-modality">${safeModality}</span></td>
+        <td><span class="hash-mono">${safeHash}...</span></td>
         <td>${riskBadge} (${item.forensic_risk_score || 0}/100)</td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="openEvidenceInLab('${item.evidence_id}')">Inspect Lab</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEvidenceInLab('${safeId}')">Inspect Lab</button>
         </td>
       </tr>
     `;
@@ -129,12 +145,12 @@ function renderDashboardCustody(events) {
 
   tbody.innerHTML = events.map(e => `
     <tr>
-      <td style="color: var(--text-muted); font-size: 0.8rem;">${(e.timestamp || '').substring(0, 19).replace('T', ' ')}</td>
-      <td><strong>${e.evidence_id}</strong></td>
-      <td><span class="badge badge-modality">${e.action}</span></td>
-      <td>${e.actor}</td>
-      <td><span class="hash-mono">${(e.recorded_sha256 || '').substring(0, 12)}...</span></td>
-      <td style="font-size: 0.82rem;">${e.details}</td>
+      <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
+      <td><strong>${escapeHTML(e.evidence_id)}</strong></td>
+      <td><span class="badge badge-modality">${escapeHTML(e.action)}</span></td>
+      <td>${escapeHTML(e.actor)}</td>
+      <td><span class="hash-mono">${escapeHTML((e.recorded_sha256 || '').substring(0, 12))}...</span></td>
+      <td style="font-size: 0.82rem;">${escapeHTML(e.details)}</td>
     </tr>
   `).join("");
 }
@@ -194,6 +210,25 @@ function handleFileSelected(e) {
   preview.style.display = "block";
 }
 
+async function pollEvidenceStatus(evidenceId) {
+  const maxAttempts = 60;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(`/api/evidence/${evidenceId}/status`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.pipeline_status === "COMPLETED" || data.pipeline_status === "FAILED") {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn("Polling status error:", e);
+    }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return null;
+}
+
 async function handleEvidenceUpload(e) {
   e.preventDefault();
   const fileInput = document.getElementById("file-input");
@@ -228,6 +263,12 @@ async function handleEvidenceUpload(e) {
     }
 
     const data = await res.json();
+    
+    // Poll until async background pipeline finishes
+    await pollEvidenceStatus(data.evidence_id);
+
+    form.style.display = "block";
+    progress.style.display = "none";
     openEvidenceInLab(data.evidence_id);
   } catch (err) {
     alert(`Upload error: ${err}`);
@@ -307,6 +348,8 @@ function renderLabView(data) {
     document.getElementById("lab-ai-model").innerText = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames)`;
   } else if (ev.modality === "AUDIO") {
     document.getElementById("lab-ai-model").innerText = "Acoustic Signal Forensics (No Local ML Model)";
+  } else if (ev.modality === "DOCUMENT" || ev.modality === "ARCHIVE") {
+    document.getElementById("lab-ai-model").innerText = "Structural Heuristics (No Local ML Model)";
   } else {
     document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
   }
@@ -331,9 +374,9 @@ function renderLabView(data) {
     forensicTitle.innerText = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
     forensicImg.style.display = "block";
   } else if (ev.modality === "VIDEO") {
-    origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Video+Stream+Exhibit";
-    forensicImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Uniform+Frame+Sampling+Stream";
-    forensicTitle.innerText = `Exhibit 2: Uniform Keyframe Sequence (${rawMetrics.sampled_frames_count || 0} Frames Decoded)`;
+    origImg.src = `/api/evidence/${ev.evidence_id}/file`;
+    forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/video_frame`;
+    forensicTitle.innerText = `Exhibit 2: Decoded Video Keyframe (${rawMetrics.sampled_frames_count || 0} Frames Sampled)`;
     forensicImg.style.display = "block";
   } else if (ev.modality === "AUDIO") {
     origImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/waveform`;
@@ -359,11 +402,11 @@ function renderLabView(data) {
 
       return `
         <tr>
-          <td><strong>${f.signal_name}</strong></td>
-          <td><span class="badge badge-modality">${f.category}</span></td>
-          <td><span class="badge ${sevClass}">${f.severity}</span></td>
+          <td><strong>${escapeHTML(f.signal_name)}</strong></td>
+          <td><span class="badge badge-modality">${escapeHTML(f.category)}</span></td>
+          <td><span class="badge ${sevClass}">${escapeHTML(f.severity)}</span></td>
           <td>${f.score}/100</td>
-          <td style="font-size: 0.83rem; line-height: 1.35;">${f.explanation}</td>
+          <td style="font-size: 0.83rem; line-height: 1.35;">${escapeHTML(f.explanation)}</td>
         </tr>
       `;
     }).join("");
@@ -373,7 +416,7 @@ function renderLabView(data) {
   document.getElementById("copilot-narrative").innerText = res.summary_narrative || "No narrative generated.";
   const recEl = document.getElementById("copilot-recommendations");
   if (res.recommendations) {
-    recEl.innerHTML = res.recommendations.split('\n').join('<br>');
+    recEl.innerHTML = escapeHTML(res.recommendations).split('\n').join('<br>');
   } else {
     recEl.innerText = "No specific investigator recommendations.";
   }
@@ -472,13 +515,13 @@ async function loadCustodyLedger() {
 
     tbody.innerHTML = events.map(e => `
       <tr>
-        <td><strong>${e.event_id}</strong></td>
-        <td style="color: var(--text-muted); font-size: 0.8rem;">${(e.timestamp || '').substring(0, 19).replace('T', ' ')}</td>
-        <td><strong>${e.evidence_id}</strong></td>
-        <td><span class="badge badge-modality">${e.action}</span></td>
-        <td>${e.actor}</td>
-        <td><span class="hash-mono">${(e.recorded_sha256 || '').substring(0, 16)}...</span></td>
-        <td style="font-size: 0.82rem;">${e.details}</td>
+        <td><strong>${escapeHTML(e.event_id)}</strong></td>
+        <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
+        <td><strong>${escapeHTML(e.evidence_id)}</strong></td>
+        <td><span class="badge badge-modality">${escapeHTML(e.action)}</span></td>
+        <td>${escapeHTML(e.actor)}</td>
+        <td><span class="hash-mono">${escapeHTML((e.recorded_sha256 || '').substring(0, 16))}...</span></td>
+        <td style="font-size: 0.82rem;">${escapeHTML(e.details)}</td>
       </tr>
     `).join("");
   } catch (err) {
@@ -501,12 +544,12 @@ async function loadCasesList() {
 
     tbody.innerHTML = cases.map(c => `
       <tr>
-        <td><strong>${c.case_id}</strong></td>
-        <td>${c.title}</td>
-        <td>${c.lead_investigator}</td>
-        <td style="color: var(--text-muted); font-size: 0.8rem;">${(c.created_at || '').substring(0, 10)}</td>
+        <td><strong>${escapeHTML(c.case_id)}</strong></td>
+        <td>${escapeHTML(c.title)}</td>
+        <td>${escapeHTML(c.lead_investigator)}</td>
+        <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((c.created_at || '').substring(0, 10))}</td>
         <td><span class="badge badge-modality">${c.evidence_count || 0} Exhibits</span></td>
-        <td><span class="badge badge-low">${c.status}</span></td>
+        <td><span class="badge badge-low">${escapeHTML(c.status)}</span></td>
       </tr>
     `).join("");
   } catch (err) {
@@ -522,7 +565,7 @@ async function loadCasesDropdown() {
     const select = document.getElementById("upload-case-id");
     if (!select) return;
 
-    select.innerHTML = cases.map(c => `<option value="${c.case_id}">${c.case_id} - ${c.title}</option>`).join("");
+    select.innerHTML = cases.map(c => `<option value="${escapeHTML(c.case_id)}">${escapeHTML(c.case_id)} - ${escapeHTML(c.title)}</option>`).join("");
   } catch (err) {
     console.error("Cases dropdown error:", err);
   }
@@ -574,7 +617,7 @@ async function generateAIExplanation() {
     
     const findingsDiv = document.getElementById("ai-expl-findings");
     if (Array.isArray(data.technical_findings_requiring_review)) {
-      findingsDiv.innerHTML = data.technical_findings_requiring_review.map(f => `• ${f}`).join("<br>");
+      findingsDiv.innerHTML = data.technical_findings_requiring_review.map(f => `• ${escapeHTML(f)}`).join("<br>");
     } else {
       findingsDiv.innerText = data.technical_findings_requiring_review;
     }
@@ -583,7 +626,7 @@ async function generateAIExplanation() {
 
     const stepsDiv = document.getElementById("ai-expl-steps");
     if (Array.isArray(data.recommended_next_steps)) {
-      stepsDiv.innerHTML = data.recommended_next_steps.map(s => `• ${s}`).join("<br>");
+      stepsDiv.innerHTML = data.recommended_next_steps.map(s => `• ${escapeHTML(s)}`).join("<br>");
     } else {
       stepsDiv.innerText = data.recommended_next_steps;
     }

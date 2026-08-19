@@ -151,11 +151,14 @@ class ForensicReportGenerator:
         story.append(Paragraph("1. File Integrity & Cryptographic Baseline (Bit-Level Verification)", section_style))
         story.append(Paragraph("<i>Note: Cryptographic hash matching certifies bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 2))
+        integrity_str = forensic_result.get("integrity_status", "VERIFIED")
+        match_status_text = "VERIFIED (MATCH)" if integrity_str == "VERIFIED" else "MISMATCH"
+
         hash_data = [
             [Paragraph("<b>Algorithm</b>", table_cell_bold), Paragraph("<b>Cryptographic Hash Fingerprint</b>", table_cell_bold), Paragraph("<b>Baseline Match</b>", table_cell_bold)],
-            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('sha256_hash', 'N/A')}</font>", table_cell), Paragraph(forensic_result.get("integrity_status", "VERIFIED"), table_cell_bold)],
-            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{evidence_data.get('sha512_hash', 'N/A')[:64]}...</font>", table_cell), Paragraph("MATCH", table_cell)],
-            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('md5_hash', 'N/A')}</font>", table_cell), Paragraph("MATCH", table_cell)],
+            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('sha256_hash', 'N/A')}</font>", table_cell), Paragraph(match_status_text, table_cell_bold)],
+            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{evidence_data.get('sha512_hash', 'N/A')[:64]}...</font>", table_cell), Paragraph(match_status_text, table_cell)],
+            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('md5_hash', 'N/A')}</font>", table_cell), Paragraph(match_status_text, table_cell)],
         ]
         t_hash = Table(hash_data, colWidths=[65, 395, 80])
         t_hash.setStyle(TableStyle([
@@ -279,6 +282,7 @@ class ForensicReportGenerator:
         fft_path = raw_metrics.get("fft_image_path")
         waveform_path = raw_metrics.get("waveform_path")
         spectrogram_path = raw_metrics.get("spectrogram_path")
+        video_frame_path = raw_metrics.get("video_frame_path")
 
         visual_exhibits = []
         if ela_path and os.path.exists(ela_path):
@@ -289,6 +293,8 @@ class ForensicReportGenerator:
             visual_exhibits.append(("Exhibit C: Audio Waveform Amplitude Envelope", waveform_path))
         if spectrogram_path and os.path.exists(spectrogram_path):
             visual_exhibits.append(("Exhibit D: Audio STFT Spectrogram & Splicing Map", spectrogram_path))
+        if video_frame_path and os.path.exists(video_frame_path):
+            visual_exhibits.append(("Exhibit E: Decoded Video Keyframe Exhibit", video_frame_path))
 
         if visual_exhibits:
             story.append(Paragraph("5. Visual Forensic Exhibits", section_style))
