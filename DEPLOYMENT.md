@@ -118,10 +118,13 @@ cloudflared tunnel --url http://localhost:8000
 Before presenting to evaluators, verify the following 6-point checklist:
 
 - [ ] **Health Check:** Open `http://localhost:8000/api/health` and verify `{"status": "HEALTHY"}`.
-- [ ] **Image Assessment:** Ingest a sample image (`.jpg` or `.png`). Confirm progress spinner transitions to Lab view with ELA heatmap, 2D FFT spectrum, and ViT indicator.
-- [ ] **Video Ingestion:** Ingest a sample video (`.mp4`). Confirm HTTP 202 async ingestion, status polling every 2s, and extracted keyframe thumbnail exhibits.
+- [ ] **Case Investigation Workspace:** Open `http://localhost:8000` -> Navigate to **Cases** -> Open a case workspace to review live KPIs, risk breakdown, and custody timeline.
+- [ ] **Bulk Ingestion:** Select 2-3 files in **Evidence Intake** and verify the batch queue polls each exhibit concurrently until `COMPLETED`.
+- [ ] **Client-Side Filtering:** In the Case Workspace, test search by filename, modality filters, and risk sorting.
+- [ ] **Case Summary PDF Export:** Click **📄 Export Case Summary (PDF)** and verify the generated case dossier PDF.
+- [ ] **Image & Physical Signals:** Ingest a sample image and verify ELA heatmap, 2D FFT spectrum, and ViT indicator in the Lab view.
 - [ ] **Cryptographic Baseline Re-Verification:** Click **🛡️ Re-Verify Hash** in the Lab view and confirm `PRESERVED (BASELINE MATCH)`.
-- [ ] **Forensic Report Export:** Click **📄 Export Forensic Report (PDF)** and verify the generated multi-page ReportLab PDF contains forensic exhibits and legal disclaimers.
+- [ ] **Individual PDF Report:** Click **📄 Export Forensic Report (PDF)** for an individual exhibit.
 - [ ] **AI Explanation Copilot:** Click **⚡ Generate AI Explanation** to demonstrate grounded LLM synthesis.
 
 ---

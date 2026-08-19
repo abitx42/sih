@@ -155,7 +155,9 @@ function renderDashboardCustody(events) {
   `).join("");
 }
 
-// 2. Evidence Ingestion & Drag and Drop
+// 2. Evidence Ingestion & Multi-File Drag and Drop
+let selectedFiles = [];
+
 function setupDragAndDrop() {
   const dropzone = document.getElementById("upload-dropzone");
   if (!dropzone) return;
@@ -179,114 +181,231 @@ function setupDragAndDrop() {
 
   dropzone.addEventListener('drop', (e) => {
     const dt = e.dataTransfer;
-    const files = dt.files;
+    const files = Array.from(dt.files);
     if (files.length > 0) {
-      document.getElementById('file-input').files = files;
-      handleFileSelected({ target: { files: files } });
+      handleFiles(files);
     }
   });
 }
 
 function handleFileSelected(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const preview = document.getElementById("selected-file-preview");
-  const filename = document.getElementById("preview-filename");
-  const filesize = document.getElementById("preview-filesize");
-  const modality = document.getElementById("preview-modality");
-
-  filename.innerText = file.name;
-  filesize.innerText = `${(file.size / 1024).toFixed(1)} KB`;
-
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'].includes(ext)) modality.innerText = "IMAGE";
-  else if (['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) modality.innerText = "VIDEO";
-  else if (['wav', 'mp3', 'ogg', 'flac', 'm4a'].includes(ext)) modality.innerText = "AUDIO";
-  else if (['pdf', 'docx', 'xlsx', 'pptx', 'txt'].includes(ext)) modality.innerText = "DOCUMENT";
-  else if (['zip', 'tar', 'gz', '7z'].includes(ext)) modality.innerText = "ARCHIVE";
-  else modality.innerText = "MEDIA";
-
-  preview.style.display = "block";
+  const files = Array.from(e.target.files);
+  if (files.length > 0) {
+    handleFiles(files);
+  }
 }
 
-async function pollEvidenceStatus(evidenceId) {
-  const maxAttempts = 60; // 60 attempts * 2s = 120s max
-  const progressText = document.querySelector("#upload-progress-box div:first-child");
-  
+function handleFiles(files) {
+  const maxBatch = 10;
+  for (const f of files) {
+    if (selectedFiles.length >= maxBatch) {
+      alert(`Maximum batch limit reached (${maxBatch} files per upload).`);
+      break;
+    }
+    // Prevent exact duplicates in queue
+    if (!selectedFiles.some(sf => sf.name === f.name && sf.size === f.size)) {
+      selectedFiles.push(f);
+    }
+  }
+  renderSelectedFiles();
+}
+
+function removeSelectedFile(index) {
+  selectedFiles.splice(index, 1);
+  renderSelectedFiles();
+}
+
+function clearSelectedFiles() {
+  selectedFiles = [];
+  const fileInput = document.getElementById("file-input");
+  if (fileInput) fileInput.value = "";
+  renderSelectedFiles();
+}
+
+function detectModalityByName(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff'].includes(ext)) return "IMAGE";
+  if (['mp4', 'avi', 'mov', 'mkv', 'webm'].includes(ext)) return "VIDEO";
+  if (['wav', 'mp3', 'ogg', 'flac', 'm4a'].includes(ext)) return "AUDIO";
+  if (['pdf', 'docx', 'xlsx', 'pptx', 'txt'].includes(ext)) return "DOCUMENT";
+  if (['zip', 'tar', 'gz', '7z'].includes(ext)) return "ARCHIVE";
+  return "MEDIA";
+}
+
+function renderSelectedFiles() {
+  const container = document.getElementById("selected-files-container");
+  const list = document.getElementById("selected-files-list");
+  const countSpan = document.getElementById("selected-files-count");
+  if (!container || !list) return;
+
+  if (selectedFiles.length === 0) {
+    container.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  container.style.display = "block";
+  if (countSpan) countSpan.innerText = selectedFiles.length;
+
+  list.innerHTML = selectedFiles.map((file, idx) => {
+    const mod = detectModalityByName(file.name);
+    return `
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.82rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; overflow: hidden;">
+          <span class="badge badge-modality">${mod}</span>
+          <strong style="color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 320px;">${escapeHTML(file.name)}</strong>
+          <span style="color: var(--text-dim); font-size: 0.75rem;">(${(file.size / 1024).toFixed(1)} KB)</span>
+        </div>
+        <button type="button" onclick="removeSelectedFile(${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem; padding: 0 0.3rem;">✕</button>
+      </div>
+    `;
+  }).join("");
+}
+
+async function pollSingleEvidence(evidenceId, cardElem) {
+  const maxAttempts = 60;
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const res = await fetch(`/api/evidence/${evidenceId}/status`);
       if (res.ok) {
         const data = await res.json();
-        if (progressText) {
-          progressText.innerText = `Analysis in progress... (${data.modality || 'DIGITAL EVIDENCE'})`;
-        }
         if (data.status === "COMPLETED" || data.pipeline_status === "COMPLETED") {
-          return { success: true, data: data };
+          cardElem.className = "bulk-queue-item completed";
+          cardElem.querySelector(".status-col").innerHTML = `
+            <span class="badge badge-low" style="background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3);">✓ COMPLETED</span>
+          `;
+          cardElem.querySelector(".action-col").innerHTML = `
+            <button class="btn btn-primary" style="padding: 0.35rem 0.7rem; font-size: 0.75rem;" onclick="openEvidenceInLab('${evidenceId}')">🔬 Open in Lab</button>
+          `;
+          return { success: true, evidenceId };
         }
         if (data.status === "FAILED" || data.pipeline_status === "FAILED") {
-          return { success: false, data: data, error: data.error_message || "Forensic analysis pipeline failed." };
+          cardElem.className = "bulk-queue-item failed";
+          cardElem.querySelector(".status-col").innerHTML = `
+            <span class="badge badge-high" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">✕ FAILED</span>
+          `;
+          cardElem.querySelector(".action-col").innerHTML = `
+            <span style="font-size: 0.72rem; color: #ef4444;">${escapeHTML(data.error_message || 'Analysis error')}</span>
+          `;
+          return { success: false, evidenceId, error: data.error_message };
         }
       }
     } catch (e) {
-      console.warn("Polling status error:", e);
+      console.warn("Poll single evidence error:", e);
     }
     await new Promise(r => setTimeout(r, 2000));
   }
-  return { success: false, error: "Analysis timed out after 120 seconds." };
+  return { success: false, evidenceId, error: "Timed out" };
 }
 
 async function handleEvidenceUpload(e) {
   e.preventDefault();
   const fileInput = document.getElementById("file-input");
-  if (!fileInput.files[0]) {
-    alert("Please select a digital evidence file to ingest.");
+  
+  if (selectedFiles.length === 0 && fileInput && fileInput.files.length > 0) {
+    selectedFiles = Array.from(fileInput.files);
+  }
+
+  if (selectedFiles.length === 0) {
+    alert("Please select at least one digital evidence file to ingest.");
     return;
   }
 
+  const caseId = document.getElementById("upload-case-id").value;
+  const actor = document.getElementById("upload-actor").value;
+  const notes = document.getElementById("upload-notes").value;
+
   const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-  formData.append("case_id", document.getElementById("upload-case-id").value);
-  formData.append("uploaded_by", document.getElementById("upload-actor").value);
-  formData.append("notes", document.getElementById("upload-notes").value);
+  for (const f of selectedFiles) {
+    formData.append("files", f);
+  }
+  formData.append("case_id", caseId);
+  formData.append("uploaded_by", actor);
+  formData.append("notes", notes);
 
   const form = document.getElementById("evidence-upload-form");
-  const progress = document.getElementById("upload-progress-box");
+  const progressBox = document.getElementById("upload-progress-box");
+  const queueContainer = document.getElementById("bulk-queue-items");
+  const summaryBadge = document.getElementById("batch-progress-summary");
+  const titleElem = document.getElementById("batch-progress-title");
+
   form.style.display = "none";
-  progress.style.display = "block";
+  progressBox.style.display = "block";
+  queueContainer.innerHTML = "";
+  summaryBadge.className = "badge badge-status-analyzing";
+  summaryBadge.innerText = `Ingesting ${selectedFiles.length} exhibit(s)...`;
+  titleElem.innerText = `Ingesting Batch into ${caseId}`;
 
   try {
-    const res = await fetch("/api/evidence/upload", {
+    const res = await fetch("/api/evidence/upload-bulk", {
       method: "POST",
       body: formData
     });
 
     if (!res.ok && res.status !== 202) {
       const err = await res.json();
-      alert(`Upload failed: ${escapeHTML(err.detail || 'Unknown error')}`);
+      alert(`Bulk ingestion failed: ${escapeHTML(err.detail || 'Unknown error')}`);
       form.style.display = "block";
-      progress.style.display = "none";
+      progressBox.style.display = "none";
       return;
     }
 
-    const uploadData = await res.json();
-    const pollResult = await pollEvidenceStatus(uploadData.evidence_id);
+    const bulkData = await res.json();
+    const items = bulkData.items || [];
 
-    form.style.display = "block";
-    progress.style.display = "none";
+    // Render queue cards
+    queueContainer.innerHTML = items.map((item, idx) => {
+      const isAccepted = item.status === "ACCEPTED";
+      const mod = item.modality || detectModalityByName(item.original_filename);
+      return `
+        <div class="bulk-queue-item" id="queue-item-${idx}">
+          <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 200px;">
+            <span class="badge badge-modality">${mod}</span>
+            <div>
+              <strong style="color: #fff; font-size: 0.85rem;">${escapeHTML(item.original_filename)}</strong>
+              <div style="font-size: 0.72rem; color: var(--text-dim);">${item.evidence_id ? escapeHTML(item.evidence_id) : 'Rejection notice'}</div>
+            </div>
+          </div>
 
-    if (!pollResult.success) {
-      alert(`⚠️ Analysis Failed:\n\n${pollResult.error || 'The forensic verification pipeline failed to process this exhibit.'}\n\nA failure record has been committed to the chain of custody audit log.`);
-      loadDashboardData();
-      return;
-    }
+          <div class="status-col">
+            ${isAccepted 
+              ? `<span class="badge badge-status-analyzing">⏳ ANALYZING</span>` 
+              : `<span class="badge badge-high">✕ REJECTED</span>`}
+          </div>
 
-    openEvidenceInLab(uploadData.evidence_id);
+          <div class="action-col" style="min-width: 130px; text-align: right;">
+            ${isAccepted 
+              ? `<span style="font-size: 0.75rem; color: var(--text-dim);">Running heuristics...</span>` 
+              : `<span style="font-size: 0.72rem; color: #ef4444;">${escapeHTML(item.error || 'Invalid file')}</span>`}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    // Start concurrent polling for all accepted items
+    const pollPromises = [];
+    items.forEach((item, idx) => {
+      if (item.status === "ACCEPTED" && item.evidence_id) {
+        const card = document.getElementById(`queue-item-${idx}`);
+        pollPromises.push(pollSingleEvidence(item.evidence_id, card));
+      }
+    });
+
+    // Wait for all polls to finish
+    await Promise.all(pollPromises);
+
+    summaryBadge.className = "badge badge-low";
+    summaryBadge.innerText = `Batch Complete (${bulkData.accepted_count} Analyzed, ${bulkData.rejected_count} Rejected)`;
+    titleElem.innerText = `Batch Analysis Completed for ${caseId}`;
+
+    // Reload dropdown and cases list in background
+    loadDashboardData();
+    loadCasesDropdown();
+
   } catch (err) {
-    alert(`Upload error: ${escapeHTML(String(err))}`);
+    alert(`Bulk upload error: ${escapeHTML(String(err))}`);
     form.style.display = "block";
-    progress.style.display = "none";
+    progressBox.style.display = "none";
   }
 }
 
@@ -572,6 +691,10 @@ function exportCustodyJSON() {
   window.open("/api/custody/export", "_blank");
 }
 
+// 7. Case Management & Investigation Workspace
+let currentCaseId = null;
+let currentCaseEvidence = [];
+
 async function loadCasesList() {
   try {
     const res = await fetch("/api/cases");
@@ -581,6 +704,11 @@ async function loadCasesList() {
     const tbody = document.getElementById("cases-table");
     if (!tbody) return;
 
+    if (cases.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No cases created yet. Click "+ Create New Case" above.</td></tr>`;
+      return;
+    }
+
     tbody.innerHTML = cases.map(c => `
       <tr>
         <td><strong>${escapeHTML(c.case_id)}</strong></td>
@@ -589,6 +717,11 @@ async function loadCasesList() {
         <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((c.created_at || '').substring(0, 10))}</td>
         <td><span class="badge badge-modality">${c.evidence_count || 0} Exhibits</span></td>
         <td><span class="badge badge-low">${escapeHTML(c.status)}</span></td>
+        <td>
+          <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" onclick="openCaseWorkspace('${escapeHTML(c.case_id)}')">
+            📂 Open Workspace
+          </button>
+        </td>
       </tr>
     `).join("");
   } catch (err) {
@@ -627,7 +760,229 @@ function openNewCaseModal() {
     alert(`Case '${data.case_id}' created successfully!`);
     loadCasesList();
     loadCasesDropdown();
+    openCaseWorkspace(data.case_id);
   });
+}
+
+async function openCaseWorkspace(caseId) {
+  currentCaseId = caseId;
+  switchView("cases");
+
+  const listPanel = document.getElementById("cases-list-panel");
+  const wsPanel = document.getElementById("case-workspace-panel");
+  if (listPanel) listPanel.style.display = "none";
+  if (wsPanel) wsPanel.style.display = "block";
+
+  // Reset filters
+  const searchInput = document.getElementById("ws-filter-search");
+  const modSelect = document.getElementById("ws-filter-modality");
+  const stSelect = document.getElementById("ws-filter-status");
+  const rkSelect = document.getElementById("ws-filter-risk");
+  const sortSelect = document.getElementById("ws-filter-sort");
+  if (searchInput) searchInput.value = "";
+  if (modSelect) modSelect.value = "ALL";
+  if (stSelect) stSelect.value = "ALL";
+  if (rkSelect) rkSelect.value = "ALL";
+  if (sortSelect) sortSelect.value = "newest";
+
+  try {
+    const [summaryRes, evidenceRes, timelineRes] = await Promise.all([
+      fetch(`/api/cases/${caseId}/summary`),
+      fetch(`/api/cases/${caseId}/evidence`),
+      fetch(`/api/cases/${caseId}/timeline`)
+    ]);
+
+    if (!summaryRes.ok) {
+      alert("Failed to load case summary.");
+      return;
+    }
+
+    const summary = await summaryRes.json();
+    const evidenceList = evidenceRes.ok ? await evidenceRes.json() : [];
+    const timeline = timelineRes.ok ? await timelineRes.json() : [];
+
+    // Header
+    document.getElementById("ws-case-id").innerText = summary.case_id;
+    document.getElementById("ws-case-status").innerText = summary.status;
+    document.getElementById("ws-case-title").innerText = summary.title;
+    document.getElementById("ws-case-lead").innerText = `Lead Investigator: ${summary.lead_investigator} • Created: ${(summary.created_at || '').substring(0, 10)}`;
+
+    // KPIs
+    document.getElementById("ws-kpi-total").innerText = summary.total_evidence;
+    
+    const sc = summary.status_counts || {};
+    document.getElementById("ws-kpi-status-counts").innerText = `${sc.COMPLETED || 0} Done`;
+    document.getElementById("ws-kpi-status-sub").innerText = `${sc.ANALYZING || 0} Analyzing • ${sc.FAILED || 0} Failed`;
+
+    const rc = summary.risk_counts || {};
+    document.getElementById("ws-kpi-risk-summary").innerHTML = `
+      <span style="color: var(--risk-low);">${rc['LOW RISK'] || 0} Low</span> • 
+      <span style="color: var(--risk-medium);">${rc['REVIEW REQUIRED'] || 0} Review</span> • 
+      <span style="color: var(--risk-high);">${rc['HIGH RISK'] || 0} High</span>
+    `;
+
+    document.getElementById("ws-kpi-latest-ts").innerText = summary.latest_analysis 
+      ? summary.latest_analysis.substring(0, 19).replace('T', ' ') 
+      : 'Never';
+
+    // Store evidence and render table
+    currentCaseEvidence = evidenceList;
+    applyCaseFilters();
+
+    // Render Timeline
+    const tlContainer = document.getElementById("case-timeline-container");
+    if (tlContainer) {
+      if (timeline.length === 0) {
+        tlContainer.innerHTML = `<div style="color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 1rem;">No custody events recorded for this case yet.</div>`;
+      } else {
+        tlContainer.innerHTML = timeline.map(event => `
+          <div class="case-timeline-entry">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <div>
+                <strong style="color: #fff;">${escapeHTML(event.action)}</strong>
+                <span style="color: var(--accent-cyan); font-size: 0.75rem; margin-left: 0.5rem;">[${escapeHTML(event.evidence_id)}]</span>
+              </div>
+              <span style="color: var(--text-dim); font-size: 0.75rem;">${escapeHTML((event.timestamp || '').substring(0, 19).replace('T', ' '))} UTC</span>
+            </div>
+            <div style="color: var(--text-muted); margin-bottom: 0.25rem;">Actor: <strong style="color: var(--text-main);">${escapeHTML(event.actor)}</strong></div>
+            <div style="color: var(--text-dim); font-size: 0.78rem;">${escapeHTML(event.details)}</div>
+          </div>
+        `).join("");
+      }
+    }
+
+  } catch (err) {
+    console.error("Case workspace error:", err);
+  }
+}
+
+function backToCasesList() {
+  const listPanel = document.getElementById("cases-list-panel");
+  const wsPanel = document.getElementById("case-workspace-panel");
+  if (listPanel) listPanel.style.display = "block";
+  if (wsPanel) wsPanel.style.display = "none";
+  currentCaseId = null;
+  currentCaseEvidence = [];
+  loadCasesList();
+}
+
+function applyCaseFilters() {
+  const searchInput = document.getElementById("ws-filter-search");
+  const modSelect = document.getElementById("ws-filter-modality");
+  const stSelect = document.getElementById("ws-filter-status");
+  const rkSelect = document.getElementById("ws-filter-risk");
+  const sortSelect = document.getElementById("ws-filter-sort");
+
+  const q = (searchInput ? searchInput.value : "").trim().toLowerCase();
+  const mod = modSelect ? modSelect.value : "ALL";
+  const st = stSelect ? stSelect.value : "ALL";
+  const rk = rkSelect ? rkSelect.value : "ALL";
+  const sortOpt = sortSelect ? sortSelect.value : "newest";
+
+  let filtered = currentCaseEvidence.filter(item => {
+    // Query search
+    if (q) {
+      const matchName = (item.original_filename || '').toLowerCase().includes(q);
+      const matchId = (item.evidence_id || '').toLowerCase().includes(q);
+      const matchHash = (item.sha256_hash || '').toLowerCase().includes(q);
+      if (!matchName && !matchId && !matchHash) return false;
+    }
+
+    // Modality filter
+    if (mod !== "ALL" && (item.modality || '').toUpperCase() !== mod) return false;
+
+    // Status filter
+    if (st !== "ALL" && (item.status || '').toUpperCase() !== st) return false;
+
+    // Risk filter
+    if (rk !== "ALL" && (item.risk_category || '').toUpperCase() !== rk) return false;
+
+    return true;
+  });
+
+  // Sorting
+  filtered.sort((a, b) => {
+    if (sortOpt === "newest") {
+      return (b.uploaded_at || '').localeCompare(a.uploaded_at || '');
+    } else if (sortOpt === "oldest") {
+      return (a.uploaded_at || '').localeCompare(b.uploaded_at || '');
+    } else if (sortOpt === "risk_high") {
+      return (b.forensic_risk_score || 0) - (a.forensic_risk_score || 0);
+    } else if (sortOpt === "filename") {
+      return (a.original_filename || '').localeCompare(b.original_filename || '');
+    }
+    return 0;
+  });
+
+  // Render Table
+  const tbody = document.getElementById("case-evidence-table-body");
+  const emptyState = document.getElementById("case-empty-state");
+  const countSpan = document.getElementById("ws-evidence-count");
+  const table = document.getElementById("case-evidence-table");
+
+  if (countSpan) countSpan.innerText = filtered.length;
+
+  if (filtered.length === 0) {
+    if (tbody) tbody.innerHTML = "";
+    if (table) table.style.display = "none";
+    if (emptyState) emptyState.style.display = "block";
+    return;
+  }
+
+  if (table) table.style.display = "table";
+  if (emptyState) emptyState.style.display = "none";
+
+  if (tbody) {
+    tbody.innerHTML = filtered.map(item => {
+      let riskBadge = `<span class="badge" style="background: rgba(100,116,139,0.2); color: #94a3b8;">PENDING</span>`;
+      if (item.risk_category === "LOW RISK") {
+        riskBadge = `<span class="badge badge-low">LOW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+      } else if (item.risk_category === "REVIEW REQUIRED") {
+        riskBadge = `<span class="badge badge-medium">REVIEW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+      } else if (item.risk_category === "HIGH RISK") {
+        riskBadge = `<span class="badge badge-high">HIGH (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+      }
+
+      let statusBadge = `<span class="badge badge-status-analyzing">⏳ ANALYZING</span>`;
+      if (item.status === "COMPLETED") {
+        statusBadge = `<span class="badge badge-low">✓ COMPLETED</span>`;
+      } else if (item.status === "FAILED") {
+        statusBadge = `<span class="badge badge-high">✕ FAILED</span>`;
+      }
+
+      return `
+        <tr>
+          <td><strong style="color: #fff;">${escapeHTML(item.evidence_id)}</strong></td>
+          <td>
+            <div style="font-weight: 600; color: #fff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(item.original_filename)}</div>
+            <div style="font-size: 0.72rem; color: var(--text-dim);">${(item.file_size_bytes / 1024).toFixed(1)} KB</div>
+          </td>
+          <td><span class="badge badge-modality">${escapeHTML(item.modality)}</span></td>
+          <td><span class="hash-mono">${escapeHTML((item.sha256_hash || '').substring(0, 12))}...</span></td>
+          <td>${statusBadge}</td>
+          <td>${riskBadge}</td>
+          <td><span style="font-size: 0.8rem; color: var(--text-muted);">${item.findings_count || 0} signal(s)</span></td>
+          <td>
+            <button class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="openEvidenceInLab('${escapeHTML(item.evidence_id)}')">
+              🔬 View in Lab
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+}
+
+function downloadCurrentCaseReport() {
+  if (!currentCaseId) return;
+  window.open(`/api/reports/cases/${encodeURIComponent(currentCaseId)}/download`, '_blank');
+}
+
+function quickIngestToCurrentCase() {
+  if (!currentCaseId) return;
+  switchView("upload");
+  const select = document.getElementById("upload-case-id");
+  if (select) select.value = currentCaseId;
 }
 
 // 8. Generate Structured AI Forensic Explanation

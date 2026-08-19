@@ -226,3 +226,96 @@ def test_integrity_verification_states():
     assert mismatch_data["is_valid"] is False
     assert mismatch_data["status"] == "MISMATCH"
 
+def test_bulk_upload_mixed_batch():
+    import io
+    from PIL import Image
+    
+    # Valid image
+    img_io = io.BytesIO()
+    Image.new("RGB", (32, 32), color=(10, 20, 30)).save(img_io, "JPEG")
+    valid_bytes = img_io.getvalue()
+    
+    # Valid doc
+    valid_pdf = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n%%EOF\n"
+    
+    # Invalid extension
+    invalid_bytes = b"bad executable payload"
+
+    files = [
+        ("files", ("batch_img1.jpg", valid_bytes, "image/jpeg")),
+        ("files", ("batch_doc2.pdf", valid_pdf, "application/pdf")),
+        ("files", ("batch_malicious.exe", invalid_bytes, "application/x-msdownload"))
+    ]
+    data = {"case_id": "CASE-BULK-TEST", "uploaded_by": "Bulk Examiner"}
+
+    res = client.post("/api/evidence/upload-bulk", files=files, data=data)
+    assert res.status_code == 202
+    resp_data = res.json()
+    assert resp_data["total_files"] == 3
+    assert resp_data["accepted_count"] == 2
+    assert resp_data["rejected_count"] == 1
+    
+    # Check items status
+    items = resp_data["items"]
+    assert items[0]["status"] == "ACCEPTED"
+    assert items[0]["evidence_id"].startswith("EV-2026-")
+    assert items[1]["status"] == "ACCEPTED"
+    assert items[2]["status"] == "REJECTED"
+    assert "Unsupported file extension" in items[2]["error"]
+
+def test_bulk_upload_batch_limit_exceeded():
+    files = [
+        ("files", (f"file_{i}.jpg", b"fake", "image/jpeg")) for i in range(12)
+    ]
+    res = client.post("/api/evidence/upload-bulk", files=files, data={"case_id": "CASE-LIMIT-TEST"})
+    assert res.status_code == 400
+    assert "Maximum of 10 files" in res.json()["detail"]
+
+def test_case_summary_and_evidence_endpoints():
+    import io
+    from PIL import Image
+    case_id = "CASE-WORKSPACE-TEST"
+    
+    # Ingest 1 exhibit into this case
+    img_io = io.BytesIO()
+    Image.new("RGB", (32, 32), color=(50, 100, 150)).save(img_io, "JPEG")
+    res = client.post("/api/evidence/upload", files={"file": ("workspace_sample.jpg", img_io.getvalue(), "image/jpeg")}, data={"case_id": case_id})
+    assert res.status_code == 202
+
+    # 1. Summary
+    sum_res = client.get(f"/api/cases/{case_id}/summary")
+    assert sum_res.status_code == 200
+    sum_data = sum_res.json()
+    assert sum_data["case_id"] == case_id
+    assert sum_data["total_evidence"] >= 1
+    assert "status_counts" in sum_data
+    assert "risk_counts" in sum_data
+
+    # 2. Evidence list
+    ev_res = client.get(f"/api/cases/{case_id}/evidence")
+    assert ev_res.status_code == 200
+    ev_list = ev_res.json()
+    assert len(ev_list) >= 1
+    assert any(e["original_filename"] == "workspace_sample.jpg" for e in ev_list)
+
+    # 3. Timeline
+    time_res = client.get(f"/api/cases/{case_id}/timeline")
+    assert time_res.status_code == 200
+    events = time_res.json()
+    assert len(events) >= 1
+    assert any(e["action"] == "EVIDENCE_INGESTION" for e in events)
+
+def test_case_summary_pdf_generation():
+    case_id = "CASE-PDF-TEST"
+    import io
+    from PIL import Image
+    img_io = io.BytesIO()
+    Image.new("RGB", (32, 32), color=(50, 100, 150)).save(img_io, "JPEG")
+    client.post("/api/evidence/upload", files={"file": ("pdf_sample.jpg", img_io.getvalue(), "image/jpeg")}, data={"case_id": case_id})
+
+    res = client.get(f"/api/reports/cases/{case_id}/download")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert len(res.content) > 1000
+    assert f"truth_lens_case_report_{case_id}.pdf" in res.headers.get("content-disposition", "")
+

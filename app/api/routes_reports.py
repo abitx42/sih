@@ -61,3 +61,75 @@ def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic E
         filename=pdf_path.name,
         media_type="application/pdf"
     )
+
+@router.get("/cases/{case_id}/download")
+def generate_and_download_case_report(case_id: str, actor: str = "Lead Forensic Examiner"):
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # 1. Case
+        cursor.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
+        case_info = cursor.fetchone()
+        if not case_info:
+            raise HTTPException(status_code=404, detail="Case not found.")
+
+        # 2. Evidence with forensic results
+        cursor.execute("""
+        SELECT 
+            e.evidence_id, e.case_id, e.original_filename, e.modality, e.file_size_bytes,
+            e.sha256_hash, e.uploaded_by, e.uploaded_at, e.status, e.analyzed_at,
+            fr.forensic_risk_score, fr.risk_category, fr.model_status
+        FROM evidence e
+        LEFT JOIN forensic_results fr ON e.evidence_id = fr.evidence_id
+        WHERE e.case_id = ?
+        ORDER BY e.uploaded_at DESC
+        """, (case_id,))
+        evidence_items = cursor.fetchall()
+
+        # 3. Case Summary stats
+        status_counts = {"ANALYZING": 0, "COMPLETED": 0, "FAILED": 0}
+        risk_counts = {"LOW RISK": 0, "REVIEW REQUIRED": 0, "HIGH RISK": 0}
+        for item in evidence_items:
+            st = item["status"]
+            status_counts[st] = status_counts.get(st, 0) + 1
+            rc = item.get("risk_category")
+            if rc in risk_counts:
+                risk_counts[rc] += 1
+        summary_data = {
+            "total_evidence": len(evidence_items),
+            "status_counts": status_counts,
+            "risk_counts": risk_counts
+        }
+
+        # 4. Custody events
+        cursor.execute("""
+        SELECT coc.*
+        FROM chain_of_custody coc
+        JOIN evidence e ON coc.evidence_id = e.evidence_id
+        WHERE e.case_id = ?
+        ORDER BY coc.timestamp DESC
+        LIMIT 100
+        """, (case_id,))
+        custody_events = cursor.fetchall()
+
+    pdf_path = ForensicReportGenerator.generate_case_summary_pdf(
+        case_data=case_info,
+        summary_data=summary_data,
+        evidence_items=evidence_items,
+        custody_events=custody_events
+    )
+
+    if evidence_items:
+        ChainOfCustodyLogger.record_event(
+            evidence_id=evidence_items[0]["evidence_id"],
+            action="CASE_REPORT_EXPORTED",
+            actor=actor,
+            recorded_sha256=evidence_items[0]["sha256_hash"],
+            details=f"Truth Lens Case investigation summary PDF report exported for case '{case_id}' ({len(evidence_items)} exhibits)."
+        )
+
+    return FileResponse(
+        path=str(pdf_path),
+        filename=pdf_path.name,
+        media_type="application/pdf"
+    )

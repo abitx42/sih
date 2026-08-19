@@ -171,29 +171,27 @@
     <!-- 2. EVIDENCE INTAKE / UPLOAD VIEW -->
     <section id="view-upload" class="view-section">
       <h2 class="section-title">Digital Evidence Intake & Ingestion</h2>
-      <p class="section-desc">Securely upload digital media. Automatically sanitizes payload, calculates cryptographic SHA-256/SHA-512 fingerprints, registers custody baseline, and runs automated forensic verification.</p>
+      <p class="section-desc">Securely ingest single or bulk digital exhibits (up to 10 files per batch). Automatically calculates cryptographic SHA-256 baseline, registers custody events, and dispatches background multi-signal forensic verification.</p>
 
-      <div style="max-width: 800px; margin: 0 auto;">
+      <div style="max-width: 860px; margin: 0 auto;">
         <div class="card-panel">
           <form id="evidence-upload-form" onsubmit="handleEvidenceUpload(event)">
             <div class="dropzone" id="upload-dropzone" onclick="document.getElementById('file-input').click()">
               <div class="dropzone-icon">📁</div>
-              <h3>Drag & Drop Digital Evidence or Click to Browse</h3>
+              <h3>Drag & Drop Digital Evidence (Single or Bulk Batch) or Click to Browse</h3>
               <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-                Supported Formats: Images (JPG, PNG, WEBP), Videos (MP4, AVI, MOV), Audio (WAV, MP3), Documents (PDF, DOCX, XLSX), Archives (ZIP, TAR)
+                Supported: Images (JPG, PNG, WEBP), Videos (MP4, AVI, MOV), Audio (WAV, MP3), Documents (PDF, DOCX, XLSX), Archives (ZIP, TAR) • Max 10 files / 150 MB per exhibit
               </p>
-              <input type="file" id="file-input" style="display: none;" onchange="handleFileSelected(event)">
+              <input type="file" id="file-input" multiple style="display: none;" onchange="handleFileSelected(event)">
             </div>
 
-            <!-- Selected File Preview Card -->
-            <div id="selected-file-preview" style="display: none; background: var(--bg-card); padding: 1rem; border-radius: 8px; margin-bottom: 1.25rem; border: 1px solid var(--border-color);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <strong id="preview-filename" style="color: #fff;">file.png</strong>
-                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;" id="preview-filesize">0 KB</div>
-                </div>
-                <div class="badge badge-modality" id="preview-modality">DETECTING</div>
+            <!-- Selected Files List Container -->
+            <div id="selected-files-container" style="display: none; margin-bottom: 1.25rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Selected Exhibits for Ingestion (<span id="selected-files-count">0</span>):</label>
+                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="clearSelectedFiles()">Clear Selection</button>
               </div>
+              <div id="selected-files-list" style="display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto;"></div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
@@ -212,7 +210,7 @@
 
             <div style="margin-bottom: 1.5rem;">
               <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Evidence Context & Chain of Custody Notes</label>
-              <textarea id="upload-notes" rows="3" placeholder="Specify source device, seizure location, witness reference, or transfer details..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px; font-family: inherit; font-size: 0.88rem;"></textarea>
+              <textarea id="upload-notes" rows="2" placeholder="Specify source device, seizure location, witness reference, or transfer details..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.6rem; border-radius: 8px; font-family: inherit; font-size: 0.88rem;"></textarea>
             </div>
 
             <button type="submit" id="btn-submit-upload" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem;">
@@ -220,10 +218,16 @@
             </button>
           </form>
 
-          <!-- Upload Progress Loader -->
-          <div id="upload-progress-box" style="display: none; text-align: center; padding: 2rem;">
-            <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Running Multi-Signal Forensic Verification...</div>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">Calculating SHA-256 fingerprint, executing ELA/FFT analysis, running local ViT ML model, inspecting provenance, and computing risk score.</p>
+          <!-- Live Batch Upload Queue & Progress -->
+          <div id="upload-progress-box" style="display: none; padding: 1.5rem 0 0 0; margin-top: 1.5rem; border-top: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <div style="font-size: 1.05rem; font-weight: 700; color: #fff;" id="batch-progress-title">Forensic Assessment Queue</div>
+              <span class="badge badge-status-analyzing" id="batch-progress-summary">Processing...</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 1rem;">
+              Computing SHA-256 cryptographic baselines, executing multi-signal heuristics (ELA/FFT), evaluating local Vision Transformer ML models, and writing tamper-evident custody events.
+            </p>
+            <div class="bulk-queue-container" id="bulk-queue-items"></div>
           </div>
         </div>
       </div>
@@ -430,34 +434,174 @@
       </div>
     </section>
 
-    <!-- 5. CASES VIEW -->
+    <!-- 5. CASES VIEW & INVESTIGATION WORKSPACE -->
     <section id="view-cases" class="view-section">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <div>
-          <h2 class="section-title">Case Management</h2>
-          <p class="section-desc" style="margin-bottom: 0;">Organize and group digital evidence exhibits by official investigation case numbers.</p>
+      <!-- 5A. CASE LIST PANEL -->
+      <div id="cases-list-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <div>
+            <h2 class="section-title">Case Investigation Management</h2>
+            <p class="section-desc" style="margin-bottom: 0;">Organize and group digital evidence exhibits by official investigation case numbers.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openNewCaseModal()">+ Create New Case</button>
         </div>
-        <button class="btn btn-primary" onclick="openNewCaseModal()">+ Create New Case</button>
+
+        <div class="card-panel">
+          <div style="overflow-x: auto;">
+            <table class="forensic-table">
+              <thead>
+                <tr>
+                  <th>Case Reference</th>
+                  <th>Investigation Title</th>
+                  <th>Lead Investigator</th>
+                  <th>Creation Date</th>
+                  <th>Evidence Exhibits</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="cases-table">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-dim);">Loading cases...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div class="card-panel">
-        <div style="overflow-x: auto;">
-          <table class="forensic-table">
-            <thead>
-              <tr>
-                <th>Case Reference</th>
-                <th>Investigation Title</th>
-                <th>Lead Investigator</th>
-                <th>Creation Date</th>
-                <th>Evidence Exhibits</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="cases-table">
-              <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading cases...</td></tr>
-            </tbody>
-          </table>
+      <!-- 5B. CASE INVESTIGATION WORKSPACE PANEL -->
+      <div id="case-workspace-panel" style="display: none;">
+        <!-- Header -->
+        <div class="case-workspace-header">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+              <button class="btn btn-secondary" onclick="backToCasesList()" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">← Back to Cases</button>
+              <span class="badge badge-modality" id="ws-case-id">CASE-XXXX</span>
+              <span class="badge badge-status-preserved" id="ws-case-status">ACTIVE</span>
+            </div>
+            <h2 id="ws-case-title" style="font-size: 1.35rem; color: #fff; margin-bottom: 0.25rem;">Operation Title</h2>
+            <p id="ws-case-lead" style="color: var(--text-muted); font-size: 0.85rem; margin: 0;">Lead Investigator: N/A</p>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="quickIngestToCurrentCase()">📁 Ingest Exhibits to Case</button>
+            <button class="btn btn-primary" onclick="downloadCurrentCaseReport()">📄 Export Case Summary (PDF)</button>
+          </div>
         </div>
+
+        <!-- Investigation Workflow Ribbon -->
+        <div class="case-workflow-ribbon">
+          <div class="workflow-step active"><span>01</span> Bulk Ingest Exhibits</div>
+          <span style="color: var(--border-color);">→</span>
+          <div class="workflow-step active"><span>02</span> Async Multi-Signal Analysis</div>
+          <span style="color: var(--border-color);">→</span>
+          <div class="workflow-step active"><span>03</span> Triage & Filter Findings</div>
+          <span style="color: var(--border-color);">→</span>
+          <div class="workflow-step active"><span>04</span> Export Official Case Dossier</div>
+        </div>
+
+        <!-- KPI Metrics Grid -->
+        <div class="case-kpi-grid">
+          <div class="case-kpi-card">
+            <div class="kpi-label">Total Ingested Exhibits</div>
+            <div class="kpi-val" id="ws-kpi-total">0</div>
+            <div class="kpi-sub">Digital Evidence Files</div>
+          </div>
+          <div class="case-kpi-card">
+            <div class="kpi-label">Pipeline Status</div>
+            <div class="kpi-val" style="color: var(--accent-cyan);" id="ws-kpi-status-counts">0 Done</div>
+            <div class="kpi-sub" id="ws-kpi-status-sub">0 Analyzing • 0 Failed</div>
+          </div>
+          <div class="case-kpi-card">
+            <div class="kpi-label">Forensic Risk Breakdown</div>
+            <div class="kpi-val" style="font-size: 1.15rem; margin-top: 0.2rem;" id="ws-kpi-risk-summary">0 Low • 0 Review • 0 High</div>
+            <div class="kpi-sub">3-Tier Composite Risk Model</div>
+          </div>
+          <div class="case-kpi-card">
+            <div class="kpi-label">Latest Analysis</div>
+            <div class="kpi-val" style="font-size: 0.95rem; margin-top: 0.35rem;" id="ws-kpi-latest-ts">Never</div>
+            <div class="kpi-sub">UTC Timestamp</div>
+          </div>
+        </div>
+
+        <!-- Evidence Filter & Search Toolbar -->
+        <div class="case-filter-bar">
+          <input type="text" id="ws-filter-search" placeholder="🔍 Search exhibits by filename, ID, or hash..." oninput="applyCaseFilters()">
+          
+          <select id="ws-filter-modality" onchange="applyCaseFilters()">
+            <option value="ALL">All Modalities</option>
+            <option value="IMAGE">Images</option>
+            <option value="VIDEO">Videos</option>
+            <option value="AUDIO">Audio</option>
+            <option value="DOCUMENT">Documents</option>
+            <option value="ARCHIVE">Archives</option>
+          </select>
+
+          <select id="ws-filter-status" onchange="applyCaseFilters()">
+            <option value="ALL">All Statuses</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="ANALYZING">Analyzing</option>
+            <option value="FAILED">Failed</option>
+          </select>
+
+          <select id="ws-filter-risk" onchange="applyCaseFilters()">
+            <option value="ALL">All Risk Levels</option>
+            <option value="LOW RISK">Low Risk</option>
+            <option value="REVIEW REQUIRED">Review Required</option>
+            <option value="HIGH RISK">High Risk</option>
+          </select>
+
+          <select id="ws-filter-sort" onchange="applyCaseFilters()">
+            <option value="newest">Sort: Newest Ingested</option>
+            <option value="oldest">Sort: Oldest Ingested</option>
+            <option value="risk_high">Sort: Highest Risk</option>
+            <option value="filename">Sort: Filename (A-Z)</option>
+          </select>
+        </div>
+
+        <!-- Evidence Table Panel -->
+        <div class="card-panel" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff;">Case Exhibits Inventory (<span id="ws-evidence-count">0</span>)</h3>
+            <span style="font-size: 0.8rem; color: var(--text-dim);">Live Filtered View</span>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="forensic-table" id="case-evidence-table">
+              <thead>
+                <tr>
+                  <th>Evidence ID</th>
+                  <th>Original Filename</th>
+                  <th>Modality</th>
+                  <th>SHA-256 Fingerprint</th>
+                  <th>Analysis Status</th>
+                  <th>Composite Risk</th>
+                  <th>Findings</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="case-evidence-table-body">
+                <tr><td colspan="8" style="text-align: center; color: var(--text-dim);">Loading case exhibits...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Empty State -->
+          <div id="case-empty-state" class="empty-state-box" style="display: none; margin-top: 1rem;">
+            <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📂</div>
+            <h3>No Evidence Exhibits Found</h3>
+            <p>No digital evidence exhibits match your active search filters, or no evidence has been ingested into this case yet.</p>
+            <button class="btn btn-primary" onclick="quickIngestToCurrentCase()">+ Ingest First Exhibit to Case</button>
+          </div>
+        </div>
+
+        <!-- Case Custody Timeline Stream -->
+        <div class="card-panel">
+          <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">⛓️ Case Investigation Custody Audit Stream</h3>
+          <div class="case-timeline" id="case-timeline-container">
+            <div style="color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 1.5rem;">Loading case custody stream...</div>
+          </div>
+        </div>
+
       </div>
     </section>
 

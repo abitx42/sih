@@ -17,6 +17,56 @@ class CaseResponse(BaseModel):
     status: str
     evidence_count: Optional[int] = 0
 
+class CaseSummaryResponse(BaseModel):
+    case_id: str
+    title: str
+    description: Optional[str]
+    lead_investigator: str
+    created_at: str
+    status: str
+    total_evidence: int
+    status_counts: Dict[str, int]
+    risk_counts: Dict[str, int]
+    latest_analysis: Optional[str] = None
+
+class CaseEvidenceItemResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
+    evidence_id: str
+    case_id: str
+    original_filename: str
+    modality: str
+    file_size_bytes: int
+    sha256_hash: str
+    uploaded_by: str
+    uploaded_at: str
+    status: str
+    pipeline_status: Optional[str] = "COMPLETED"
+    analyzed_at: Optional[str] = None
+    forensic_risk_score: Optional[float] = None
+    risk_category: Optional[str] = None
+    model_status: Optional[str] = None
+    findings_count: int = 0
+
+# --- Bulk Upload ---
+class BulkUploadItemResponse(BaseModel):
+    status: str  # "ACCEPTED" or "REJECTED"
+    evidence_id: Optional[str] = None
+    original_filename: str
+    modality: Optional[str] = None
+    mime_type: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    sha256_hash: Optional[str] = None
+    error: Optional[str] = None
+
+class BulkUploadResponse(BaseModel):
+    case_id: str
+    total_files: int
+    accepted_count: int
+    rejected_count: int
+    items: List[BulkUploadItemResponse]
+    message: str
+
 # --- Evidence ---
 class EvidenceBase(BaseModel):
     evidence_id: str

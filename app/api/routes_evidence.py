@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 
@@ -26,7 +26,7 @@ from app.analyzers.archive_analyzer import ArchiveAnalyzer
 from app.models.schemas import (
     EvidenceBase, EvidenceListResponse, EvidenceDetailResponse,
     IntegrityVerificationRequest, IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse,
-    AIExplanationResponse
+    AIExplanationResponse, BulkUploadResponse, BulkUploadItemResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -229,15 +229,27 @@ def execute_forensic_pipeline(evidence_id: str):
             details=f"Automated pipeline processing failed: {safe_error}"
         )
 
-@router.post("/upload", status_code=202)
-async def upload_evidence(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    case_id: str = Form("CASE-2026-001"),
-    uploaded_by: str = Form("Digital Forensics Investigator"),
-    notes: Optional[str] = Form("")
-):
-    clean_filename = sanitize_filename(file.filename or "evidence.bin")
+MAX_BULK_FILES = 10
+
+async def _ingest_single_file_payload(
+    file: UploadFile,
+    case_id: str,
+    uploaded_by: str,
+    notes: Optional[str],
+    background_tasks: BackgroundTasks
+) -> Dict[str, Any]:
+    raw_name = file.filename or "evidence.bin"
+    clean_filename = sanitize_filename(raw_name)
+    
+    # Extension validation
+    ext = clean_filename.rsplit(".", 1)[-1].lower() if "." in clean_filename else ""
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        return {
+            "status": "REJECTED",
+            "original_filename": clean_filename,
+            "error": f"Unsupported file extension '.{ext}'. Allowed types: {', '.join(sorted(list(settings.ALLOWED_EXTENSIONS))[:6])}..."
+        }
+
     evidence_id = f"EV-2026-{uuid.uuid4().hex[:6].upper()}"
     stored_filename = f"{evidence_id}_{clean_filename}"
     target_path = EVIDENCE_DIR / stored_filename
@@ -249,8 +261,21 @@ async def upload_evidence(
             if file_size > settings.MAX_UPLOAD_SIZE_BYTES:
                 if target_path.exists():
                     os.remove(target_path)
-                raise HTTPException(status_code=400, detail="File size exceeds maximum upload limit (150 MB).")
+                return {
+                    "status": "REJECTED",
+                    "original_filename": clean_filename,
+                    "error": f"File size exceeds maximum upload limit ({settings.MAX_UPLOAD_SIZE_BYTES // (1024*1024)} MB)."
+                }
             f.write(chunk)
+
+    if file_size == 0:
+        if target_path.exists():
+            os.remove(target_path)
+        return {
+            "status": "REJECTED",
+            "original_filename": clean_filename,
+            "error": "Empty (0 byte) file payload cannot be ingested as forensic evidence."
+        }
 
     mime_type, modality = detect_mime_and_modality(target_path, clean_filename)
     hashes = calculate_file_hashes(target_path)
@@ -282,13 +307,14 @@ async def upload_evidence(
         action="EVIDENCE_INGESTION",
         actor=uploaded_by,
         recorded_sha256=hashes["sha256"],
-        details=f"Original digital exhibit '{clean_filename}' ingested. Baseline SHA-256 fingerprint recorded."
+        details=f"Original digital exhibit '{clean_filename}' ingested into {case_id}. Baseline SHA-256 fingerprint recorded."
     )
 
     # Dispatch pipeline in background task
     background_tasks.add_task(execute_forensic_pipeline, evidence_id)
 
     return {
+        "status": "ACCEPTED",
         "evidence_id": evidence_id,
         "case_id": case_id,
         "original_filename": clean_filename,
@@ -296,9 +322,78 @@ async def upload_evidence(
         "mime_type": mime_type,
         "file_size_bytes": file_size,
         "sha256_hash": hashes["sha256"],
-        "status": "ANALYZING",
         "message": "Evidence ingested. Background forensic assessment pipeline in progress."
     }
+
+@router.post("/upload", status_code=202)
+async def upload_evidence(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    case_id: str = Form("CASE-2026-001"),
+    uploaded_by: str = Form("Digital Forensics Investigator"),
+    notes: Optional[str] = Form("")
+):
+    res = await _ingest_single_file_payload(file, case_id, uploaded_by, notes, background_tasks)
+    if res["status"] == "REJECTED":
+        raise HTTPException(status_code=400, detail=res["error"])
+    return {
+        "evidence_id": res["evidence_id"],
+        "case_id": res["case_id"],
+        "original_filename": res["original_filename"],
+        "modality": res["modality"],
+        "mime_type": res["mime_type"],
+        "file_size_bytes": res["file_size_bytes"],
+        "sha256_hash": res["sha256_hash"],
+        "status": "ANALYZING",
+        "message": res["message"]
+    }
+
+@router.post("/upload-bulk", status_code=202, response_model=BulkUploadResponse)
+async def upload_bulk_evidence(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    case_id: str = Form("CASE-2026-001"),
+    uploaded_by: str = Form("Digital Forensics Investigator"),
+    notes: Optional[str] = Form("")
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided for upload.")
+    if len(files) > MAX_BULK_FILES:
+        raise HTTPException(status_code=400, detail=f"Maximum of {MAX_BULK_FILES} files allowed per bulk upload batch. (Received {len(files)}).")
+
+    items = []
+    accepted = 0
+    rejected = 0
+
+    for f in files:
+        item_res = await _ingest_single_file_payload(f, case_id, uploaded_by, notes, background_tasks)
+        if item_res["status"] == "ACCEPTED":
+            accepted += 1
+            items.append(BulkUploadItemResponse(
+                status="ACCEPTED",
+                evidence_id=item_res["evidence_id"],
+                original_filename=item_res["original_filename"],
+                modality=item_res["modality"],
+                mime_type=item_res["mime_type"],
+                file_size_bytes=item_res["file_size_bytes"],
+                sha256_hash=item_res["sha256_hash"]
+            ))
+        else:
+            rejected += 1
+            items.append(BulkUploadItemResponse(
+                status="REJECTED",
+                original_filename=item_res["original_filename"],
+                error=item_res.get("error", "Validation failed.")
+            ))
+
+    return BulkUploadResponse(
+        case_id=case_id,
+        total_files=len(files),
+        accepted_count=accepted,
+        rejected_count=rejected,
+        items=items,
+        message=f"Bulk upload processed: {accepted} file(s) accepted into background pipeline, {rejected} rejected."
+    )
 
 @router.get("/{evidence_id}/status")
 def get_evidence_status(evidence_id: str):

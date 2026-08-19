@@ -3,7 +3,9 @@ from datetime import datetime
 from typing import List
 from fastapi import APIRouter, HTTPException
 from app.database import get_db
-from app.models.schemas import CaseCreate, CaseResponse
+from app.models.schemas import (
+    CaseCreate, CaseResponse, CaseSummaryResponse, CaseEvidenceItemResponse, CustodyEventResponse
+)
 
 router = APIRouter(prefix="/api/cases", tags=["Cases"])
 
@@ -69,3 +71,94 @@ def get_case(case_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="Case not found.")
         return row
+
+@router.get("/{case_id}/summary", response_model=CaseSummaryResponse)
+def get_case_summary(case_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,))
+        case_row = cursor.fetchone()
+        if not case_row:
+            raise HTTPException(status_code=404, detail="Case not found.")
+
+        cursor.execute("""
+        SELECT e.status, fr.risk_category, e.analyzed_at
+        FROM evidence e
+        LEFT JOIN forensic_results fr ON e.evidence_id = fr.evidence_id
+        WHERE e.case_id = ?
+        """, (case_id,))
+        ev_rows = cursor.fetchall()
+
+    status_counts = {"ANALYZING": 0, "COMPLETED": 0, "FAILED": 0}
+    risk_counts = {"LOW RISK": 0, "REVIEW REQUIRED": 0, "HIGH RISK": 0}
+    latest_ts = None
+
+    for row in ev_rows:
+        st = row["status"]
+        if st in status_counts:
+            status_counts[st] += 1
+        else:
+            status_counts[st] = status_counts.get(st, 0) + 1
+
+        rc = row.get("risk_category")
+        if rc in risk_counts:
+            risk_counts[rc] += 1
+
+        an_at = row.get("analyzed_at")
+        if an_at:
+            if latest_ts is None or an_at > latest_ts:
+                latest_ts = an_at
+
+    return {
+        "case_id": case_row["case_id"],
+        "title": case_row["title"],
+        "description": case_row["description"],
+        "lead_investigator": case_row["lead_investigator"],
+        "created_at": case_row["created_at"],
+        "status": case_row["status"],
+        "total_evidence": len(ev_rows),
+        "status_counts": status_counts,
+        "risk_counts": risk_counts,
+        "latest_analysis": latest_ts
+    }
+
+@router.get("/{case_id}/evidence", response_model=List[CaseEvidenceItemResponse])
+def get_case_evidence(case_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT case_id FROM cases WHERE case_id = ?", (case_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Case not found.")
+
+        cursor.execute("""
+        SELECT 
+            e.evidence_id, e.case_id, e.original_filename, e.modality, e.file_size_bytes,
+            e.sha256_hash, e.uploaded_by, e.uploaded_at, e.status, e.pipeline_status,
+            e.analyzed_at, fr.forensic_risk_score, fr.risk_category, fr.model_status,
+            COUNT(f.finding_id) as findings_count
+        FROM evidence e
+        LEFT JOIN forensic_results fr ON e.evidence_id = fr.evidence_id
+        LEFT JOIN findings f ON e.evidence_id = f.evidence_id
+        WHERE e.case_id = ?
+        GROUP BY e.evidence_id
+        ORDER BY e.uploaded_at DESC
+        """, (case_id,))
+        return cursor.fetchall()
+
+@router.get("/{case_id}/timeline", response_model=List[CustodyEventResponse])
+def get_case_timeline(case_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT case_id FROM cases WHERE case_id = ?", (case_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Case not found.")
+
+        cursor.execute("""
+        SELECT coc.*
+        FROM chain_of_custody coc
+        JOIN evidence e ON coc.evidence_id = e.evidence_id
+        WHERE e.case_id = ?
+        ORDER BY coc.timestamp DESC
+        LIMIT 300
+        """, (case_id,))
+        return cursor.fetchall()

@@ -103,9 +103,15 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
      - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators.
    - **Integrity Rule**: SHA-256 integrity is recorded strictly as file bitstream preservation; it does **not** artificially reduce AI manipulation risk or prove authenticity.
 
-6. **C2PA / Content Credentials Provenance**: Automatic detection of C2PA manifest container atoms and editing software metadata signatures (`DETECTED_UNVERIFIED_MANIFEST`).
+6. **Case Investigation Workspace & Bulk Upload**:
+   - **Multi-Exhibit Ingestion**: Ingest up to 10 digital exhibits per batch (`POST /api/evidence/upload-bulk`) with independent background processing, per-file cryptographic fingerprinting, and real-time polling queue.
+   - **Investigation Workspace**: Dedicated workspace view per case displaying total exhibits, live pipeline status breakdown (`COMPLETED`, `ANALYZING`, `FAILED`), 3-tier risk distribution, and chronological case custody audit stream.
+   - **Client-Side Filtering & Search**: Instant zero-reload filtering by filename, modality, analysis status, and composite risk, with multi-option sorting (Newest, Oldest, Highest Risk, Filename).
+   - **Case Investigation Summary PDF**: `GET /api/reports/cases/{case_id}/download` generates an official `truth_lens_case_report_{case_id}.pdf` containing case metadata, inventory matrix, chronological custody audit log, and judicial review disclaimers.
 
-7. **Asynchronous Ingestion & Crash Recovery**:
+7. **C2PA / Content Credentials Provenance**: Automatic detection of C2PA manifest container atoms and editing software metadata signatures (`DETECTED_UNVERIFIED_MANIFEST`).
+
+8. **Asynchronous Ingestion & Crash Recovery**:
    - `POST /api/evidence/upload` returns HTTP 202 Accepted immediately, executing forensic analysis in the background.
    - `GET /api/evidence/{evidence_id}/status` provides real-time polling with safe failure reporting and custody event logging.
    - On server restart, startup reconciliation automatically recovers orphaned jobs and transitions them to `FAILED`.
@@ -125,6 +131,40 @@ This platform is a prototype built for the Smart India Hackathon (SIH PS-27) and
 3. **Container-Level Provenance Only**: Scans for C2PA container markers; does not perform full cryptographic X.509 certificate chain validation.
 4. **Indicators, Not Proof**: Vision transformer and heuristic scores are screening indicators, not legal determinations or judicial proof.
 5. **Mandatory Human Corroboration**: All exported PDF reports and findings require qualified forensic examiner review before evidentiary submission.
+
+---
+
+## 🧭 Investigation Workflow
+
+```
+[1. Create Case] ──► [2. Bulk Ingest Exhibits] ──► [3. Monitor Async Pipeline]
+                                                              │
+                                                              ▼
+[5. Export Case Summary PDF] ◄── [4. Triage & Filter Findings]
+```
+
+---
+
+## 📡 API Endpoints Overview
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/health` | `GET` | Health status and service identification |
+| `/api/cases` | `GET` / `POST` | List all cases / create a new investigation case |
+| `/api/cases/{case_id}/summary` | `GET` | Retrieve case workspace KPIs and status/risk distribution |
+| `/api/cases/{case_id}/evidence` | `GET` | Retrieve all evidence exhibits associated with a case |
+| `/api/cases/{case_id}/timeline` | `GET` | Retrieve chronological custody audit stream for a case |
+| `/api/evidence/upload` | `POST` | Ingest single digital evidence exhibit (HTTP 202 Accepted) |
+| `/api/evidence/upload-bulk` | `POST` | Ingest bulk digital exhibits batch (Max 10 files, HTTP 202) |
+| `/api/evidence/{id}` | `GET` | Complete forensic assessment dossier and findings for exhibit |
+| `/api/evidence/{id}/status` | `GET` | Real-time pipeline processing status and failure details |
+| `/api/evidence/{id}/verify-integrity` | `POST` | Decoupled cryptographic integrity baseline vs reference check |
+| `/api/evidence/{id}/explain` | `POST` | AI-assisted structured forensic explanation (with offline fallback) |
+| `/api/copilot/query` | `POST` | Grounded interactive Q&A assistant for exhibit |
+| `/api/reports/{id}/download` | `GET` | Download individual exhibit PDF assessment report |
+| `/api/reports/cases/{case_id}/download` | `GET` | Download comprehensive Case Investigation Summary PDF report |
+| `/api/custody` | `GET` | Query append-only application custody ledger |
+| `/api/custody/export` | `GET` | Export complete chain-of-custody audit log in JSON format |
 
 ---
 

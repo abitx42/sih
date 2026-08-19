@@ -219,6 +219,50 @@ def run_rehearsal():
     print(f"  ✓ External Expected Hash Match: Status='{match_data['status']}'")
     results["integrity_verification"] = True
 
+    # 10. Bulk Upload & Case Workspace Verification
+    print("\n[10] Testing Bulk Upload & Case Investigation Workspace...")
+    bulk_files = [
+        ("files", ("bulk_photo1.jpg", b_a.getvalue(), "image/jpeg")),
+        ("files", ("bulk_contract2.pdf", pdf_b, "application/pdf")),
+        ("files", ("bulk_invalid.exe", b"invalid executable", "application/x-msdownload"))
+    ]
+    r_bulk = client.post("/api/evidence/upload-bulk", files=bulk_files, data={"case_id": case_uid, "uploaded_by": "Bulk Lead Officer"})
+    assert r_bulk.status_code == 202
+    b_data = r_bulk.json()
+    assert b_data["accepted_count"] == 2
+    assert b_data["rejected_count"] == 1
+    print(f"  ✓ Bulk Upload: {b_data['accepted_count']} accepted, {b_data['rejected_count']} rejected.")
+
+    # Case Summary KPI
+    r_c_sum = client.get(f"/api/cases/{case_uid}/summary")
+    assert r_c_sum.status_code == 200
+    c_sum = r_c_sum.json()
+    assert c_sum["total_evidence"] >= 7
+    print(f"  ✓ Case Workspace KPIs: Total Evidence={c_sum['total_evidence']} | Status={c_sum['status_counts']}")
+
+    # Case Evidence List
+    r_c_ev = client.get(f"/api/cases/{case_uid}/evidence")
+    assert r_c_ev.status_code == 200
+    c_ev = r_c_ev.json()
+    assert len(c_ev) >= 7
+    print(f"  ✓ Case Exhibits Inventory: {len(c_ev)} exhibits loaded.")
+
+    # Case Custody Timeline
+    r_c_tl = client.get(f"/api/cases/{case_uid}/timeline")
+    assert r_c_tl.status_code == 200
+    c_tl = r_c_tl.json()
+    assert len(c_tl) >= 7
+    print(f"  ✓ Case Custody Stream: {len(c_tl)} custody events.")
+
+    # Case Summary PDF Export
+    r_case_pdf = client.get(f"/api/reports/cases/{case_uid}/download")
+    assert r_case_pdf.status_code == 200
+    assert r_case_pdf.headers["content-type"] == "application/pdf"
+    assert len(r_case_pdf.content) > 1000
+    assert f"truth_lens_case_report_{case_uid}.pdf" in r_case_pdf.headers.get("content-disposition", "")
+    print(f"  ✓ Case Summary PDF Export verified ({len(r_case_pdf.content)} bytes, filename='truth_lens_case_report_{case_uid}.pdf').")
+    results["case_workspace"] = True
+
     print("\n" + "=" * 60)
     print("ALL REHEARSAL CHECKS PASSED (100% SUCCESSFUL)!")
     print("=" * 60)
