@@ -8,9 +8,9 @@
 Traditional deepfake detectors output a binary `"Real or Fake"` verdict or an isolated probability score. In a legal and digital forensic context, this is insufficient.
 
 EVIDENCE-X addresses the central investigative question:  
-> **"Can an investigator trust this digital file as forensic evidence?"**
+> **"What verifiable signals and indicators can assist an investigator in assessing digital evidence?"**
 
-By combining **Cryptographic Bitstream Integrity (SHA-256)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Provenance**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Physical Signal Deconstruction (ELA 95%, 2D FFT, PRNU Noise, STFT Spectrogram, Waveform Envelope)**, an **Immutable Chain of Custody Ledger**, and an **AI Forensic Copilot (TCET CoE Gateway / Qwen 3.6)**, EVIDENCE-X provides courts and law enforcement with a defensible, multi-signal verification dossier.
+By combining **Cryptographic Bitstream Fingerprinting (SHA-256 baseline recording)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Detection**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Physical Signal Deconstruction (ELA 95%, 2D FFT, Sensor-Noise Consistency, STFT Spectrogram, Waveform Envelope)**, an **Append-Only Application Custody Log**, and an **AI Forensic Copilot (TCET CoE Gateway / Qwen 3.6)**, EVIDENCE-X provides investigators with an explainable multi-signal forensic assessment dossier.
 
 ---
 
@@ -37,7 +37,7 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
  └────┬─────┘     └─────┬─────┘     └─────┬─────┘
       │                 │                 │
       │   ┌─────────────┴─────────────┐   │
-      │   │ Image: ELA, FFT, PRNU     │   │
+      │   │ Image: ELA, FFT, Noise    │   │
       │   │ Video: OpenCV Real Frames │   │
       │   │ Audio: Waveform, STFT     │   │
       │   │ Docs:  Incremental Update │   │
@@ -62,8 +62,8 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
       ┌─────────────────┴─────────────────┐
       ▼                                   ▼
 ┌─────────────────────────┐   ┌─────────────────────────┐
-│ Forensic Copilot (Qwen) │   │ Court-Ready ReportLab   │
-│ TCET CoE Gateway / Q&A  │   │ High-Integrity PDF Dossier
+│ Forensic Copilot (Qwen) │   │ Forensic ReportLab      │
+│ TCET CoE Gateway / Q&A  │   │ PDF Assessment Dossier  │
 └─────────────────────────┘   └─────────────────────────┘
 ```
 
@@ -72,13 +72,13 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 ## ⚡ Key Features & Reliability Principles
 
 1. **Independent Heuristic & ML Signal Separation**:
-   - **Forensic Anomaly Score (0-100)**: Derived from physical compression artifacts (ELA 95%), 2D FFT periodic frequency spikes, PRNU sensor noise inconsistency, and container modification records.
-   - **Local ML Vision Model**: `dima806/deepfake_vs_real_image_detection` running in-process via PyTorch.
+   - **Forensic Anomaly Score (0-100)**: Derived from physical compression artifacts (ELA 95%), 2D FFT periodic frequency spikes, sensor-noise consistency variance, and container modification records.
+   - **Local ML Vision Model**: `dima806/deepfake_vs_real_image_detection` running in-process via PyTorch as a prototype visual-manipulation indicator.
    - **Honest Failure Handling**: If the model is offline or uninstalled, the system outputs `model_status: "ANALYSIS UNAVAILABLE"`. If class labels cannot be mapped, it returns `model_status: "ANALYSIS INCONCLUSIVE"`. **Zero made-up or hallucinated scores.**
 
 2. **Real Video Forensics & Frame Aggregation**:
    - **True Frame Decoding**: Decodes real video streams using OpenCV (`opencv-python-headless`), sampling up to 16 uniformly distributed keyframes across the file duration.
-   - **Statistical Aggregation**: Reuses the local ViT classifier on real decoded frames and aggregates results using the **median** indicator and interquartile range (IQR) dispersion.
+   - **Statistical Aggregation**: Evaluates the local ViT classifier on real decoded frames and aggregates results using the **median** indicator and interquartile range (IQR) dispersion.
    - **Threshold Safety**: Requires a minimum of 3 valid decoded frames with model predictions; otherwise returns `ANALYSIS INCONCLUSIVE` or `ANALYSIS UNAVAILABLE` with null AI indicator.
    - **Supported Codecs**: Native support for MP4 (H.264/AVC, MPEG-4), AVI, MOV, WebM.
 
@@ -91,14 +91,9 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 
 4. **TCET CoE AI Gateway & Forensic Copilot**:
    - **Model**: `qwen3.6` hosted via OpenAI-compatible endpoint at `https://ai.tcetcercd.in/v1`.
-   - **Purpose**: Optional forensic interpretation service providing 4-part structured synthesis:
-     1. Investigator Summary
-     2. Technical Findings Requiring Review
-     3. Physical Limitations
-     4. Recommended Next Steps
+   - **Purpose**: Optional forensic interpretation service providing 4-part structured synthesis (Investigator Summary, Technical Findings Requiring Review, Physical Limitations, Recommended Next Steps).
    - **Prompt Injection Defense**: Untrusted evidence inputs (filenames, user notes, findings) are safely encapsulated in `<untrusted_evidence_data>` boundaries.
    - **Zero-Failure Fallback**: If the gateway times out (15s timeout), returns 401/502, or if `LLM_API_KEY` is not set, the platform automatically utilizes its built-in deterministic forensic engine. Ingestion and analysis never fail.
-   - **Endpoint**: `POST /api/evidence/{evidence_id}/explain`.
    - **Mandatory Notice**: *"AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility."*
 
 5. **Deterministic Multi-Signal Risk Engine**:
@@ -110,14 +105,26 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 
 6. **C2PA / Content Credentials Provenance**: Automatic detection of C2PA manifest container atoms and editing software metadata signatures (`DETECTED_UNVERIFIED_MANIFEST`).
 
-7. **Asynchronous Ingestion Pipeline**:
+7. **Asynchronous Ingestion & Crash Recovery**:
    - `POST /api/evidence/upload` returns HTTP 202 Accepted immediately, executing forensic analysis in the background.
    - `GET /api/evidence/{evidence_id}/status` provides real-time polling with safe failure reporting and custody event logging.
+   - On server restart, startup reconciliation automatically recovers orphaned jobs and transitions them to `FAILED`.
    - `GET /api/evidence/{evidence_id}/frames` provides decoded video keyframe metadata and artifact URLs.
 
-8. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+8. **Application Custody Log**: Append-only application custody log stored in local SQLite capturing timestamp, actor identity, action taken, and recorded SHA-256 hash to support workflow documentation.
 
-9. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram, Keyframes), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers. See [DEPLOYMENT.md](DEPLOYMENT.md) for full demo runbook.
+9. **Forensic Assessment Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram, Keyframes), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers. See [DEPLOYMENT.md](DEPLOYMENT.md) for full demo runbook.
+
+---
+
+## ⚠️ Prototype Limitations
+
+This platform is a prototype built for the Smart India Hackathon (SIH PS-27) and has the following operational boundaries:
+1. **No User Authentication / RBAC**: Open demo endpoints without JWT authentication or multi-tenant permission controls.
+2. **In-Process Concurrency & SQLite**: Runs via in-memory `BackgroundTasks` and local SQLite; not designed for high-concurrency enterprise workloads.
+3. **Container-Level Provenance Only**: Scans for C2PA container markers; does not perform full cryptographic X.509 certificate chain validation.
+4. **Indicators, Not Proof**: Vision transformer and heuristic scores are screening indicators, not legal determinations or judicial proof.
+5. **Mandatory Human Corroboration**: All exported PDF reports and findings require qualified forensic examiner review before evidentiary submission.
 
 ---
 
@@ -184,7 +191,7 @@ Open your browser at: **`http://localhost:8000`**
 ## 🧪 Testing & CI Workflow
 
 ### Local Test Execution
-Run the full non-slow test suite (41 unit & integration tests):
+Run the full non-slow test suite:
 ```bash
 source venv/bin/activate
 PYTHONPATH=. pytest -v -m "not slow"
@@ -201,10 +208,3 @@ Automated continuous integration runs on every `push` and `pull_request` to bran
 - Installs pinned dependencies from `requirements.txt`
 - Executes `PYTHONPATH=. pytest -v -m "not slow" --junitxml=pytest-report.xml`
 - Uploads `pytest-failure-report` artifact if any tests fail.
-
----
-
-## ⚖️ Standards & Legal Alignment
-- **NIST Guidelines on AI-Assisted Digital Evidence Verification**
-- **ISO/IEC 27037**: Guidelines for identification, collection, acquisition, and preservation of digital evidence
-- **Section 65B Indian Evidence Act / Bharatiya Sakshya Adhiniyam**: Electronic record certificate format compliance

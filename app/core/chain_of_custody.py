@@ -5,7 +5,9 @@ from app.database import get_db
 
 class ChainOfCustodyLogger:
     """
-    Manages the immutable forensic ledger for digital evidence custody events.
+    Manages the append-only application custody log designed to support forensic
+    workflow documentation. Stored in local SQLite; not an independent cryptographic
+    proof or a replacement for formal evidence-management procedures.
     """
 
     @staticmethod

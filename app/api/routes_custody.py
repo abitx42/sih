@@ -23,7 +23,7 @@ def list_custody_events(evidence_id: Optional[str] = None):
 @router.get("/export")
 def export_custody_ledger(evidence_id: Optional[str] = None):
     """
-    Exports the immutable chain of custody audit ledger in formatted JSON format.
+    Exports the append-only application custody log in formatted JSON format.
     """
     query = "SELECT * FROM chain_of_custody WHERE 1=1"
     params = []
@@ -38,8 +38,9 @@ def export_custody_ledger(evidence_id: Optional[str] = None):
         events = cursor.fetchall()
 
     export_payload = {
-        "platform": "EVIDENCE-X Digital Evidence Verification Platform",
-        "standard": "ISO/IEC 27037 Digital Forensics Custody Log",
+        "platform": "EVIDENCE-X Digital Evidence Forensic Assessment Platform",
+        "log_type": "Append-Only Application Custody Log",
+        "disclaimer": "Prototype application custody log designed to support forensic workflow documentation. Stored in local SQLite; not an independent cryptographic proof or replacement for formal evidence-management procedures.",
         "filter_evidence_id": evidence_id,
         "total_events": len(events),
         "events": events

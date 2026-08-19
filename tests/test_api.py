@@ -148,3 +148,81 @@ def test_cors_origins_configuration():
     )
     assert res_disallowed.headers.get("access-control-allow-origin") != "http://untrusted-adversary.com"
     assert res_disallowed.headers.get("access-control-allow-origin") != "*"
+
+def test_startup_recovery_orphaned_jobs():
+    from app.database import get_db, reconcile_orphaned_jobs
+    import uuid
+    from datetime import datetime
+
+    test_ev_id = f"EV-TEST-ORPHAN-{uuid.uuid4().hex[:6]}"
+    now = datetime.utcnow().isoformat() + "Z"
+
+    # Insert an orphaned job in ANALYZING status
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO evidence (evidence_id, case_id, original_filename, stored_filename, file_size_bytes, 
+                             mime_type, modality, sha256_hash, sha512_hash, md5_hash, uploaded_by, 
+                             uploaded_at, status, pipeline_status, analysis_started_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            test_ev_id, "CASE-2026-001", "crashed_stream.mp4", "nonexistent.mp4", 5000,
+            "video/mp4", "VIDEO", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "", "", "Officer Smith", now, "ANALYZING", "ANALYZING", now
+        ))
+
+    # Trigger reconciliation
+    recovered = reconcile_orphaned_jobs()
+    assert recovered >= 1
+
+    # Check status endpoint
+    status_res = client.get(f"/api/evidence/{test_ev_id}/status")
+    assert status_res.status_code == 200
+    status_data = status_res.json()
+    assert status_data["status"] == "FAILED"
+    assert status_data["pipeline_status"] == "FAILED"
+    assert "Analysis interrupted by server restart" in status_data["error_message"]
+
+    # Check chain of custody
+    custody_res = client.get(f"/api/custody?evidence_id={test_ev_id}")
+    assert custody_res.status_code == 200
+    events = custody_res.json()
+    assert any(e["action"] == "ANALYSIS_FAILED" and "System Recovery" in e["actor"] for e in events)
+
+def test_integrity_verification_states():
+    from PIL import Image
+    import io
+    img_io = io.BytesIO()
+    test_img = Image.new("RGB", (50, 50), color=(10, 20, 30))
+    test_img.save(img_io, "PNG")
+    file_bytes = img_io.getvalue()
+
+    files = {"file": ("integrity_state_test.png", file_bytes, "image/png")}
+    data = {"case_id": "CASE-2026-001", "uploaded_by": "Test Investigator"}
+
+    upload_res = client.post("/api/evidence/upload", files=files, data=data)
+    assert upload_res.status_code == 202
+    ev_id = upload_res.json()["evidence_id"]
+    sha256_recorded = upload_res.json()["sha256_hash"]
+
+    # 1. Baseline preservation check (no reference hash provided)
+    base_res = client.post(f"/api/evidence/{ev_id}/verify-integrity")
+    assert base_res.status_code == 200
+    base_data = base_res.json()
+    assert base_data["is_valid"] is True
+    assert base_data["status"] == "PRESERVED"
+
+    # 2. Matching external reference check
+    match_res = client.post(f"/api/evidence/{ev_id}/verify-integrity", json={"expected_sha256": sha256_recorded})
+    assert match_res.status_code == 200
+    match_data = match_res.json()
+    assert match_data["is_valid"] is True
+    assert match_data["status"] == "MATCH"
+
+    # 3. Mismatched external reference check
+    mismatch_res = client.post(f"/api/evidence/{ev_id}/verify-integrity", json={"expected_sha256": "0" * 64})
+    assert mismatch_res.status_code == 200
+    mismatch_data = mismatch_res.json()
+    assert mismatch_data["is_valid"] is False
+    assert mismatch_data["status"] == "MISMATCH"
+

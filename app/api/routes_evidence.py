@@ -25,7 +25,7 @@ from app.analyzers.archive_analyzer import ArchiveAnalyzer
 
 from app.models.schemas import (
     EvidenceBase, EvidenceListResponse, EvidenceDetailResponse,
-    IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse,
+    IntegrityVerificationRequest, IntegrityVerificationResponse, ForensicResultResponse, FindingSchema, CaseResponse,
     AIExplanationResponse
 )
 
@@ -273,7 +273,7 @@ async def upload_evidence(
         action="EVIDENCE_INGESTION",
         actor=uploaded_by,
         recorded_sha256=hashes["sha256"],
-        details=f"Original digital exhibit '{clean_filename}' ingested. Baseline SHA-256 fingerprint generated."
+        details=f"Original digital exhibit '{clean_filename}' ingested. Baseline SHA-256 fingerprint recorded."
     )
 
     # Dispatch pipeline in background task
@@ -288,7 +288,7 @@ async def upload_evidence(
         "file_size_bytes": file_size,
         "sha256_hash": hashes["sha256"],
         "status": "ANALYZING",
-        "message": "Evidence ingested. Background forensic verification pipeline in progress."
+        "message": "Evidence ingested. Background forensic assessment pipeline in progress."
     }
 
 @router.get("/{evidence_id}/status")
@@ -364,28 +364,31 @@ def list_evidence(case_id: Optional[str] = None, modality: Optional[str] = None)
 def get_evidence_detail(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
-        
+
+        # 1. Evidence
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
         evidence = cursor.fetchone()
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
+        # 2. Case
         cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
         case_info = cursor.fetchone()
 
+        # 3. Forensic Results
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
-        res_row = cursor.fetchone()
-        forensic_result = None
-        if res_row:
+        forensic_result = cursor.fetchone()
+        if forensic_result:
             try:
-                res_row["raw_metrics_json"] = json.loads(res_row["raw_metrics_json"])
+                forensic_result["raw_metrics_json"] = json.loads(forensic_result["raw_metrics_json"])
             except Exception:
-                res_row["raw_metrics_json"] = {}
-            forensic_result = res_row
+                forensic_result["raw_metrics_json"] = {}
 
+        # 4. Findings
         cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
         findings = cursor.fetchall()
 
+        # 5. Custody Events
         cursor.execute("SELECT * FROM chain_of_custody WHERE evidence_id = ? ORDER BY timestamp ASC", (evidence_id,))
         custody = cursor.fetchall()
 
@@ -398,7 +401,11 @@ def get_evidence_detail(evidence_id: str):
     }
 
 @router.post("/{evidence_id}/verify-integrity", response_model=IntegrityVerificationResponse)
-def verify_evidence_integrity(evidence_id: str, actor: str = "Lead Forensic Examiner"):
+def verify_evidence_integrity(
+    evidence_id: str,
+    body: Optional[IntegrityVerificationRequest] = None,
+    actor: str = "Lead Forensic Examiner"
+):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
@@ -407,16 +414,24 @@ def verify_evidence_integrity(evidence_id: str, actor: str = "Lead Forensic Exam
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
     file_path = EVIDENCE_DIR / evidence["stored_filename"]
-    is_valid, current_sha256, status_msg = verify_integrity(file_path, evidence["sha256_hash"])
+    has_external_ref = bool(body and body.expected_sha256)
+    target_ref = body.expected_sha256 if has_external_ref else evidence["sha256_hash"]
 
-    status = "VERIFIED" if is_valid else "MISMATCH"
+    is_valid, current_sha256, status_msg = verify_integrity(file_path, target_ref)
+
+    if has_external_ref:
+        status = "MATCH" if is_valid else "MISMATCH"
+        check_type = f"Reference Hash Comparison: {status}"
+    else:
+        status = "PRESERVED" if is_valid else "MISMATCH"
+        check_type = f"Recorded Baseline Fidelity Check: {status}"
 
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="INTEGRITY_VERIFIED" if is_valid else "INTEGRITY_VIOLATION_DETECTED",
         actor=actor,
         recorded_sha256=current_sha256,
-        details=f"Cryptographic hash check result: {status}. Note: File-integrity baseline check only; does not evaluate content authenticity."
+        details=f"{check_type}. Note: Bitstream integrity check only; does not evaluate content authenticity."
     )
 
     return {

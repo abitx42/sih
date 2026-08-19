@@ -166,6 +166,37 @@ def init_db():
             ))
             logger.info("Initialized default case CASE-2026-001")
 
+def reconcile_orphaned_jobs() -> int:
+    """
+    On application startup, scans for evidence records left in status 'ANALYZING' 
+    due to an unexpected server interruption/restart and transitions them to 'FAILED'.
+    Logs an ANALYSIS_FAILED event in the chain of custody.
+    """
+    import uuid
+    now = datetime.utcnow().isoformat() + "Z"
+    safe_msg = "Analysis interrupted by server restart. Please retry the upload."
+    recovered = 0
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT evidence_id, sha256_hash FROM evidence WHERE status = 'ANALYZING' OR pipeline_status = 'ANALYZING'")
+        stale_records = cursor.fetchall()
+        for rec in stale_records:
+            ev_id = rec["evidence_id"]
+            cursor.execute("""
+            UPDATE evidence
+            SET status = 'FAILED', pipeline_status = 'FAILED', error_message = ?, analyzed_at = ?
+            WHERE evidence_id = ?
+            """, (safe_msg, now, ev_id))
+            recovered += 1
+
+            event_id = f"COC-{uuid.uuid4().hex[:10].upper()}"
+            cursor.execute("""
+            INSERT INTO chain_of_custody (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (event_id, ev_id, "ANALYSIS_FAILED", "EVIDENCE-X System Recovery", rec["sha256_hash"], f"Job recovery: {safe_msg}", now))
+
+    return recovered
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")

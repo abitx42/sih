@@ -118,8 +118,18 @@ cloudflared tunnel --url http://localhost:8000
 Before presenting to evaluators, verify the following 6-point checklist:
 
 - [ ] **Health Check:** Open `http://localhost:8000/api/health` and verify `{"status": "HEALTHY"}`.
-- [ ] **Image Verification:** Ingest a sample image (`.jpg` or `.png`). Confirm progress spinner transitions to Lab view with ELA heatmap, 2D FFT spectrum, and ViT indicator.
-- [ ] **Video Ingestion:** Ingest a sample video (`.mp4`). Confirm HTTP 202 async ingestion, status polling every 2s, and extracted keyframe thumbnail exhibit.
-- [ ] **Cryptographic Re-Verification:** Click **🛡️ Re-Verify Hash** in the Lab view and confirm `VERIFIED (MATCH)`.
-- [ ] **Court Dossier Export:** Click **📄 Export Court Dossier (PDF)** and verify the generated multi-page ReportLab PDF contains forensic exhibits and Section 65B-aligned legal disclaimers.
+- [ ] **Image Assessment:** Ingest a sample image (`.jpg` or `.png`). Confirm progress spinner transitions to Lab view with ELA heatmap, 2D FFT spectrum, and ViT indicator.
+- [ ] **Video Ingestion:** Ingest a sample video (`.mp4`). Confirm HTTP 202 async ingestion, status polling every 2s, and extracted keyframe thumbnail exhibits.
+- [ ] **Cryptographic Baseline Re-Verification:** Click **🛡️ Re-Verify Hash** in the Lab view and confirm `PRESERVED (BASELINE MATCH)`.
+- [ ] **Forensic Report Export:** Click **📄 Export Forensic Report (PDF)** and verify the generated multi-page ReportLab PDF contains forensic exhibits and legal disclaimers.
 - [ ] **AI Explanation Copilot:** Click **⚡ Generate AI Explanation** to demonstrate grounded LLM synthesis.
+
+---
+
+## 7. Prototype Limitations & Operational Boundaries
+
+1. **No User Authentication / RBAC**: Open demo endpoints without JWT authentication or multi-tenant permission controls.
+2. **In-Process Concurrency & SQLite**: Runs via in-memory `BackgroundTasks` and local SQLite; not designed for high-concurrency enterprise workloads.
+3. **Container-Level Provenance Only**: Scans for C2PA container markers; does not perform full cryptographic X.509 certificate chain validation.
+4. **Indicators, Not Proof**: Vision transformer and heuristic scores are screening indicators, not legal determinations or judicial proof.
+5. **Mandatory Human Corroboration**: All exported PDF reports and findings require qualified forensic examiner review before evidentiary submission.

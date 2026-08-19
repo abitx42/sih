@@ -111,11 +111,11 @@ class ImageAnalyzer(BaseAnalyzer):
         if noise_score > 60:
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
-                signal_name="Noise Residual Inconsistency",
+                signal_name="Sensor-Noise Consistency Heuristic: Disrupted Pattern",
                 category="SIGNAL_ANALYSIS",
                 severity="HIGH",
                 score=noise_score,
-                explanation=f"High-pass filter revealed non-uniform noise distribution across image quadrants (inconsistency index: {noise_details.get('inconsistency', 0):.2f}). Natural sensor PRNU noise pattern is disrupted.",
+                explanation=f"High-pass filter revealed non-uniform noise distribution across image quadrants (inconsistency index: {noise_details.get('inconsistency', 0):.2f}). Spatial high-frequency noise variation detected (heuristic screening signal, not camera attribution).",
                 location_ref="Spatial Noise Domain"
             ))
 

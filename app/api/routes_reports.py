@@ -53,7 +53,7 @@ def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic E
         action="FORENSIC_REPORT_EXPORTED",
         actor=actor,
         recorded_sha256=evidence["sha256_hash"],
-        details=f"Court-ready Forensic Verification PDF generated: '{pdf_path.name}'."
+        details=f"Forensic assessment PDF report generated: '{pdf_path.name}'."
     )
 
     return FileResponse(

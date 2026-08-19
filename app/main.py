@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings, BASE_DIR
-from app.database import init_db
+from app.database import init_db, reconcile_orphaned_jobs
 from app.api.routes_cases import router as cases_router
 from app.api.routes_evidence import router as evidence_router
 from app.api.routes_custody import router as custody_router
@@ -27,9 +27,15 @@ init_db()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Digital Evidence Forensic Verification Platform — SIH PS-27",
+    description="Digital Evidence Forensic Assessment Platform — SIH PS-27",
     version=settings.VERSION
 )
+
+@app.on_event("startup")
+def startup_event():
+    recovered = reconcile_orphaned_jobs()
+    if recovered > 0:
+        logger.info(f"Startup recovery: Reconciled {recovered} orphaned analysis job(s) left in ANALYZING state.")
 
 # CORS Configuration
 app.add_middleware(

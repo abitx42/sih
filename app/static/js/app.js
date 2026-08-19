@@ -441,6 +441,24 @@ function renderLabView(data) {
   } else {
     recEl.innerText = "No specific investigator recommendations.";
   }
+
+  // Bitstream Integrity / Baseline Status
+  const integrityDot = document.getElementById("lab-integrity-dot");
+  const integrityText = document.getElementById("lab-integrity-text");
+  const integrityStatus = res.integrity_status || "RECORDED";
+  if (integrityStatus === "MISMATCH") {
+    integrityDot.style.background = "var(--risk-high)";
+    integrityText.textContent = "INTEGRITY MISMATCH";
+    integrityText.style.color = "var(--risk-high)";
+  } else if (integrityStatus === "MATCH") {
+    integrityDot.style.background = "var(--risk-low)";
+    integrityText.textContent = "MATCH (REFERENCE)";
+    integrityText.style.color = "var(--risk-low)";
+  } else {
+    integrityDot.style.background = "var(--risk-low)";
+    integrityText.textContent = "RECORDED (BASELINE)";
+    integrityText.style.color = "var(--risk-low)";
+  }
 }
 
 // 4. On-Demand Integrity Re-Verification
@@ -457,9 +475,9 @@ async function reverifyIntegrity() {
 
     if (data.is_valid) {
       dot.style.background = "var(--risk-low)";
-      text.innerText = "VERIFIED (MATCH)";
+      text.innerText = "PRESERVED (BASELINE MATCH)";
       text.style.color = "var(--risk-low)";
-      alert(`✅ Cryptographic File-Integrity Verified!\n\nRecorded Hash: ${data.recorded_sha256}\nCurrent Hash:  ${data.current_sha256}\n\nBit-level integrity is intact.\n(Note: Integrity certifies file preservation, not content authenticity.)`);
+      alert(`✅ Cryptographic File-Integrity Verified!\n\nRecorded Hash: ${data.recorded_sha256}\nCurrent Hash:  ${data.current_sha256}\n\nBit-level integrity is preserved against recorded baseline.\n(Note: Integrity certifies bitstream preservation, not content authenticity.)`);
     } else {
       dot.style.background = "var(--risk-high)";
       text.innerText = "INTEGRITY MISMATCH";

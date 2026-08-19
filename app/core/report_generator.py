@@ -99,10 +99,10 @@ class ForensicReportGenerator:
         story = []
 
         # 1. Header Banner
-        story.append(Paragraph("EVIDENCE-X : FORENSIC VERIFICATION DOSSIER", title_style))
-        story.append(Paragraph("DIGITAL EVIDENCE INTEGRITY & AUTOMATED FORENSIC SIGNAL ASSESSMENT", subtitle_style))
+        story.append(Paragraph("EVIDENCE-X : DIGITAL EVIDENCE FORENSIC ASSESSMENT REPORT", title_style))
+        story.append(Paragraph("AUTOMATED MULTI-SIGNAL SCREENING DOSSIER & INVESTIGATOR REVIEW AID", subtitle_style))
         story.append(Spacer(1, 3))
-        story.append(Paragraph(f"Standard Compliance: ISO/IEC 27037 & SIH PS-27 Specification | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
+        story.append(Paragraph(f"Forensic Assessment Report | Prototype Review Aid (SIH PS-27) | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 5))
         story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2563eb"), spaceAfter=7))
 
@@ -148,33 +148,35 @@ class ForensicReportGenerator:
         story.append(Spacer(1, 6))
 
         # 3. Cryptographic Fingerprints & Integrity Note
-        story.append(Paragraph("1. File Integrity & Cryptographic Baseline (Bit-Level Verification)", section_style))
-        story.append(Paragraph("<i>Note: Cryptographic hash matching certifies bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
+        story.append(Paragraph("1. File Cryptographic Fingerprint & Baseline Fidelity", section_style))
+        story.append(Paragraph("<i>Note: Cryptographic hash calculation records bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated. 'MATCH' indicates verification against an external reference hash; 'RECORDED BASELINE' indicates fingerprint calculated at initial intake.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 2))
         sha256_val = evidence_data.get("sha256_hash")
         sha512_val = evidence_data.get("sha512_hash")
         md5_val = evidence_data.get("md5_hash")
 
-        integrity_str = forensic_result.get("integrity_status", "VERIFIED")
+        integrity_str = forensic_result.get("integrity_status", "RECORDED")
         
         def get_match_status(hash_val):
             if not hash_val or hash_val == "N/A":
                 return "NOT PROVIDED"
             if integrity_str == "MISMATCH":
                 return "MISMATCH"
-            elif integrity_str == "VERIFIED":
+            elif integrity_str == "MATCH":
                 return "MATCH"
+            elif integrity_str in ("PRESERVED", "VERIFIED", "RECORDED"):
+                return "RECORDED BASELINE"
             elif integrity_str == "NOT_CHECKED":
                 return "NOT CHECKED"
-            return integrity_str
+            return "RECORDED BASELINE"
 
         hash_data = [
-            [Paragraph("<b>Algorithm</b>", table_cell_bold), Paragraph("<b>Cryptographic Hash Fingerprint</b>", table_cell_bold), Paragraph("<b>Baseline Match</b>", table_cell_bold)],
+            [Paragraph("<b>Algorithm</b>", table_cell_bold), Paragraph("<b>Cryptographic Hash Fingerprint</b>", table_cell_bold), Paragraph("<b>Status / Baseline</b>", table_cell_bold)],
             [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{sha256_val or 'N/A'}</font>", table_cell), Paragraph(get_match_status(sha256_val), table_cell_bold)],
             [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{(sha512_val[:64] + '...') if sha512_val else 'NOT PROVIDED'}</font>", table_cell), Paragraph(get_match_status(sha512_val), table_cell)],
             [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{md5_val or 'NOT PROVIDED'}</font>", table_cell), Paragraph(get_match_status(md5_val), table_cell)],
         ]
-        t_hash = Table(hash_data, colWidths=[65, 395, 80])
+        t_hash = Table(hash_data, colWidths=[65, 385, 90])
         t_hash.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
@@ -186,7 +188,7 @@ class ForensicReportGenerator:
         story.append(Spacer(1, 6))
 
         # 4. Machine Learning Vision Model Assessment
-        story.append(Paragraph("2. Machine Learning Vision Model Assessment & Reproducibility Metadata", section_style))
+        story.append(Paragraph("2. Prototype Visual-Manipulation Indicator (Machine Learning Model)", section_style))
         ml_model = forensic_result.get("ai_model_name", "dima806/deepfake_vs_real_image_detection")
         ml_ver = forensic_result.get("ai_model_version") or "29e4cf9efc543845610045f6ba7e88e5cf9d9301"
         ml_status = forensic_result.get("model_status", "AVAILABLE")
@@ -321,8 +323,10 @@ class ForensicReportGenerator:
                 except Exception:
                     pass
 
-        # 8. Chain of Custody Audit Ledger
-        story.append(Paragraph("6. Chain of Custody Immutable Ledger", section_style))
+        # 8. Application Custody Log (Workflow Documentation)
+        story.append(Paragraph("6. Application Custody Log (Workflow Documentation)", section_style))
+        story.append(Paragraph("<i>Note: Append-only application custody log stored in local SQLite database. Designed to support forensic workflow documentation; not an independent cryptographic proof or replacement for formal evidence-management procedures.</i>", ParagraphStyle('CocNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
+        story.append(Spacer(1, 2))
         coc_table_data = [
             [
                 Paragraph("<b>Timestamp (UTC)</b>", table_cell_bold),
@@ -352,14 +356,12 @@ class ForensicReportGenerator:
         story.append(t_coc)
         story.append(Spacer(1, 8))
 
-        # 9. Legal Disclaimer & NIST Notice
+        # 9. Legal Disclaimer
         disclaimer = (
-            "<b>LEGAL & SCIENTIFIC DISCLAIMER:</b> This dossier was generated automatically by the EVIDENCE-X "
-            "Forensic Verification Engine (SIH PS-27). Measurements and findings represent an objective, multi-signal "
-            "forensic authenticity assessment. In compliance with NIST guidelines, automated AI manipulation indicators "
-            "are statistical classification signals and must be corroborated by qualified forensic examiners and physical "
-            "corroborating evidence prior to formal submission in a court of law. Audio forensic signals are automated "
-            "screening indicators, not proof of synthetic speech, editing, authenticity, or legal admissibility."
+            "<b>FORENSIC & LEGAL DISCLAIMER:</b> This report was generated automatically by the EVIDENCE-X prototype "
+            "(SIH PS-27) as an investigative review aid. Outputs, anomaly scores, and model predictions are automated screening "
+            "indicators and do not constitute legal proof, certified expert testimony, or definitive determinations of authenticity "
+            "or manipulation. All findings require independent examination by qualified forensic examiners and legal review prior to evidentiary submission."
         )
         story.append(Paragraph(disclaimer, ParagraphStyle('Disc', parent=styles['Normal'], fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
 
