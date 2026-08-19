@@ -12,25 +12,84 @@ class RiskEngine:
     2. When ML classification is ANALYSIS UNAVAILABLE or ANALYSIS INCONCLUSIVE,
        default to REVIEW REQUIRED (unless independent critical/high findings demand HIGH RISK),
        never fabricating an ML score.
+    3. 5-Tier Forensic Authenticity Taxonomy:
+       - LIKELY_AUTHENTIC: Uniform noise/compression, baseline EXIF, no localized anomalies.
+       - LIKELY_AI_GENERATED: Global synthetic patterns, high ViT confidence across whole frame.
+       - LIKELY_AI_ASSISTED_MANIPULATION: Photographic base with localized synthetic edit (e.g. AI eyewear, face swap, inpainting).
+       - LIKELY_TRADITIONAL_MANIPULATION: Splicing / Photoshop / cloning without generative synthetic textures.
+       - ANALYSIS_INCONCLUSIVE: Conflicting signals, low resolution, or missing reference baseline.
     """
+
+    @staticmethod
+    def evaluate_taxonomy(
+        integrity_status: str,
+        ai_manipulation_indicator: Optional[float],
+        model_status: str,
+        forensic_anomaly_score: float,
+        metadata_anomaly_score: float,
+        provenance_status: str,
+        findings: List[Dict[str, Any]],
+        final_risk_score: float
+    ) -> str:
+        """
+        Determines the 5-tier forensic authenticity taxonomy based on correlated physical signals.
+        """
+        if integrity_status in ("MISMATCH", "CORRUPTED"):
+            return "LIKELY_TRADITIONAL_MANIPULATION"
+
+        has_localized_edit = any(
+            f.get("category") == "LOCALIZED_MANIPULATION" and f.get("severity") in ("CRITICAL", "HIGH")
+            for f in findings
+        )
+        has_critical_findings = any(f.get("severity") == "CRITICAL" for f in findings)
+        has_high_findings = sum(1 for f in findings if f.get("severity") == "HIGH") >= 2
+
+        is_ml_high = (model_status == "AVAILABLE" and ai_manipulation_indicator is not None and ai_manipulation_indicator >= 0.70)
+        is_ml_moderate = (model_status == "AVAILABLE" and ai_manipulation_indicator is not None and ai_manipulation_indicator >= 0.40)
+        has_ai_metadata = any("generative" in f.get("signal_name", "").lower() or "generative" in f.get("explanation", "").lower() for f in findings)
+
+        # 1. Localized Manipulation (e.g. Sunglasses / Face Inpainting on Photographic Background)
+        if has_localized_edit:
+            if is_ml_moderate or is_ml_high or has_ai_metadata:
+                return "LIKELY_AI_ASSISTED_MANIPULATION"
+            return "LIKELY_TRADITIONAL_MANIPULATION"
+
+        # 2. Entire Image Generative Synthesis
+        if (is_ml_high and forensic_anomaly_score >= 45.0) or has_ai_metadata:
+            return "LIKELY_AI_GENERATED"
+
+        # 3. Traditional Splicing / Metadata / Compression Manipulation
+        if (forensic_anomaly_score >= 55.0 or metadata_anomaly_score >= 50.0 or has_critical_findings or has_high_findings):
+            return "LIKELY_TRADITIONAL_MANIPULATION"
+
+        # 4. Inconclusive Scenarios
+        if model_status == "ANALYSIS INCONCLUSIVE" or (35.0 <= final_risk_score <= 65.0 and (is_ml_moderate or provenance_status == "INVALID")):
+            return "ANALYSIS_INCONCLUSIVE"
+
+        # 5. Likely Authentic
+        if final_risk_score <= 35.0 and forensic_anomaly_score <= 35.0:
+            return "LIKELY_AUTHENTIC"
+
+        if final_risk_score > 65.0:
+            return "LIKELY_TRADITIONAL_MANIPULATION"
+
+        return "ANALYSIS_INCONCLUSIVE"
 
     @staticmethod
     def calculate_risk(
         integrity_status: str,
         ai_manipulation_indicator: Optional[float],  # 0.0 to 1.0 or None
         model_status: str,  # AVAILABLE, ANALYSIS UNAVAILABLE, ANALYSIS INCONCLUSIVE, ERROR
-        forensic_anomaly_score: float,  # 0.0 to 100.0 (from ELA, FFT, noise)
+        forensic_anomaly_score: float,  # 0.0 to 100.0 (from ELA, FFT, noise, patch localizer)
         metadata_anomaly_score: float,  # 0.0 to 100.0
         provenance_status: str,
         findings: List[Dict[str, Any]]
-    ) -> Tuple[float, str, float, Dict[str, float]]:
+    ) -> Tuple[float, str, float, Dict[str, Any]]:
         """
         Returns:
             (forensic_risk_score, risk_category, confidence_score, component_scores)
         """
         # 1. Integrity Component (0-100)
-        # Note: A verified hash only means the file hasn't changed since upload.
-        # It does NOT reduce manipulation risk or prove authenticity.
         if integrity_status == "MISMATCH":
             integrity_risk = 100.0
         elif integrity_status == "CORRUPTED":
@@ -38,7 +97,7 @@ class RiskEngine:
         else:
             integrity_risk = 0.0
 
-        # 2. Forensic Signal Anomalies (Heuristic: ELA, FFT, PRNU noise)
+        # 2. Forensic Signal Anomalies (Heuristic: ELA, FFT, PRNU noise, Patch Localizer)
         heuristic_risk = max(0.0, min(100.0, forensic_anomaly_score))
 
         # 3. Metadata Anomalies Component
@@ -68,7 +127,6 @@ class RiskEngine:
             is_ml_available = True
         else:
             ai_risk = None
-            # ML Unavailable or Inconclusive: Do NOT increase heuristic weight excessively.
             final_score = (
                 (heuristic_risk * 0.55) +
                 (meta_risk * 0.25) +
@@ -80,24 +138,24 @@ class RiskEngine:
         if integrity_risk > 0:
             final_score = max(final_score, integrity_risk)
 
-        # Critical severity finding check
+        # Critical & Localized finding checks
         critical_count = sum(1 for f in findings if f.get("severity") == "CRITICAL")
         high_count = sum(1 for f in findings if f.get("severity") == "HIGH")
-        if critical_count > 0:
+        has_localized = any(f.get("category") == "LOCALIZED_MANIPULATION" for f in findings)
+
+        if critical_count > 0 or (has_localized and heuristic_risk >= 45.0):
             final_score = max(final_score, 75.0)
 
         final_score = round(max(0.0, min(100.0, final_score)), 1)
 
         # Categorization logic
         if not is_ml_available:
-            # Rule: If ML analysis was UNAVAILABLE or INCONCLUSIVE, default to REVIEW REQUIRED
-            # unless independent high/critical findings justify HIGH RISK.
             if final_score >= 70.0 or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
                 risk_category = "HIGH RISK"
             else:
                 risk_category = "REVIEW REQUIRED"
-                final_score = max(35.0, final_score)  # Floor at REVIEW REQUIRED threshold
-            base_confidence = 0.70  # Lower confidence due to missing/inconclusive ML modality
+                final_score = max(35.0, final_score)
+            base_confidence = 0.72
         else:
             if final_score <= 30.0:
                 risk_category = "LOW RISK"
@@ -105,7 +163,19 @@ class RiskEngine:
                 risk_category = "REVIEW REQUIRED"
             else:
                 risk_category = "HIGH RISK"
-            base_confidence = 0.92 if len(findings) >= 3 else 0.86
+            base_confidence = 0.94 if len(findings) >= 3 else 0.88
+
+        # 6. Evaluate 5-Tier Forensic Taxonomy
+        forensic_taxonomy = RiskEngine.evaluate_taxonomy(
+            integrity_status=integrity_status,
+            ai_manipulation_indicator=ai_manipulation_indicator,
+            model_status=model_status,
+            forensic_anomaly_score=forensic_anomaly_score,
+            metadata_anomaly_score=metadata_anomaly_score,
+            provenance_status=provenance_status,
+            findings=findings,
+            final_risk_score=final_score
+        )
 
         component_scores = {
             "integrity_risk": round(integrity_risk, 1),
@@ -113,7 +183,8 @@ class RiskEngine:
             "forensic_anomaly_risk": round(heuristic_risk, 1),
             "metadata_risk": round(meta_risk, 1),
             "provenance_risk": round(provenance_risk, 1),
-            "model_status": model_status
+            "model_status": model_status,
+            "forensic_taxonomy": forensic_taxonomy
         }
 
         return final_score, risk_category, base_confidence, component_scores

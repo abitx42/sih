@@ -268,16 +268,18 @@
         </div>
 
         <div class="stat-card">
-          <div class="stat-header">Prototype Visual-Manipulation Indicator (ML)</div>
-          <div class="stat-value" id="lab-ai-score">--</div>
-          <div class="stat-footer" id="lab-ai-model">dima806/deepfake_vs_real_image_detection</div>
-          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Statistical screening signal; requires examiner review</div>
+          <div class="stat-header">Forensic Authenticity Taxonomy</div>
+          <div style="margin: 0.4rem 0;">
+            <span class="taxonomy-badge taxonomy-likely-authentic" id="lab-taxonomy-badge">🔍 LIKELY AUTHENTIC</span>
+          </div>
+          <div class="stat-footer" id="lab-ai-model">Multi-Signal Grounded Determination</div>
+          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Correlates localized patches, physical noise, and ML models</div>
         </div>
 
         <div class="stat-card">
           <div class="stat-header">Forensic Anomaly Score (Heuristic)</div>
           <div class="stat-value" id="lab-heuristic-score" style="color: var(--accent-cyan);">0/100</div>
-          <div class="stat-footer">ELA (95%) • 2D FFT • Sensor-Noise Consistency</div>
+          <div class="stat-footer">ELA (95%) • 2D FFT • Patch Localizer</div>
         </div>
 
         <div class="stat-card">
@@ -290,6 +292,34 @@
         </div>
       </div>
 
+      <!-- Multi-Signal "WHY + WHERE + HOW" Evidence Correlation Card -->
+      <div class="correlation-matrix-card" id="lab-correlation-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.6rem; margin-bottom: 0.5rem;">
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🔬</span> Multi-Signal "WHY + WHERE + HOW" Forensic Correlation Matrix
+          </h3>
+          <span class="badge badge-modality" id="wwh-signals-count">0 Signals Correlated</span>
+        </div>
+        <div class="why-where-how-grid">
+          <div class="wwh-col">
+            <div class="wwh-col-title">📍 WHERE (Spatial ROI)</div>
+            <div class="wwh-col-content" id="wwh-where-content">Global Frame (Uniform Distribution)</div>
+          </div>
+          <div class="wwh-col">
+            <div class="wwh-col-title">🔎 WHAT (Observed Anomalies)</div>
+            <div class="wwh-col-content" id="wwh-what-content">Baseline physical signals intact.</div>
+          </div>
+          <div class="wwh-col">
+            <div class="wwh-col-title">⚙️ HOW (Inferred Mechanism)</div>
+            <div class="wwh-col-content" id="wwh-how-content">Continuous optical sensor imaging pipeline.</div>
+          </div>
+          <div class="wwh-col">
+            <div class="wwh-col-title">⚖️ WHY (Forensic Assessment)</div>
+            <div class="wwh-col-content" id="wwh-why-content">No localized or generative manipulation indicators detected.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Deep Dive Grid (Exhibits & Findings) -->
       <div class="lab-grid">
         <div>
@@ -297,17 +327,21 @@
           <div class="card-panel">
             <div class="panel-header">
               <h3>Forensic Exhibits & Signal Visualization</h3>
-              <span style="font-size: 0.8rem; color: var(--text-muted);">Error Level (ELA) • 2D FFT • Spectrogram</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Spatial Heatmap • ELA 95% • 2D FFT Spectrum</span>
             </div>
 
-            <div class="exhibit-container" id="lab-exhibits-box">
+            <div class="exhibit-container" id="lab-exhibits-box" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
               <div class="exhibit-box">
                 <img id="exhibit-orig" src="" alt="Original Evidence">
                 <div class="exhibit-title">Exhibit 1: Original Ingested Media</div>
               </div>
-              <div class="exhibit-box">
+              <div class="exhibit-box" id="box-exhibit-heatmap" style="display: none;">
+                <img id="exhibit-heatmap" src="" alt="Spatial Anomaly Heatmap">
+                <div class="exhibit-title">Exhibit 2: Spatial Patch Manipulation Heatmap</div>
+              </div>
+              <div class="exhibit-box" id="box-exhibit-forensic">
                 <img id="exhibit-forensic" src="" alt="Forensic Analysis Artifact">
-                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 2: Error Level Analysis (ELA 95%)</div>
+                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 3: Error Level Analysis (ELA 95%)</div>
               </div>
             </div>
           </div>

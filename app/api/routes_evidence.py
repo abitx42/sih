@@ -16,6 +16,7 @@ from app.core.provenance_engine import ProvenanceEngine
 from app.core.risk_engine import RiskEngine
 from app.core.chain_of_custody import ChainOfCustodyLogger
 from app.core.copilot import ForensicCopilot
+from app.core.explainability import ForensicCorrelationBuilder
 
 from app.analyzers.image_analyzer import ImageAnalyzer
 from app.analyzers.video_analyzer import VideoAnalyzer
@@ -116,7 +117,7 @@ def execute_forensic_pipeline(evidence_id: str):
                 "created_at": datetime.utcnow().isoformat() + "Z"
             })
 
-        # 3. Calculate Deterministic Forensic Risk Score
+        # 3. Calculate Deterministic Forensic Risk Score & 5-Tier Taxonomy
         risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(
             integrity_status="VERIFIED",
             ai_manipulation_indicator=ai_indicator,
@@ -127,8 +128,21 @@ def execute_forensic_pipeline(evidence_id: str):
             findings=findings
         )
         raw_metrics["risk_components"] = comp_scores
+        forensic_taxonomy = comp_scores.get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
+        raw_metrics["forensic_taxonomy"] = forensic_taxonomy
 
-        # 4. Generate Copilot Narrative Summary & Recommendations
+        # 4. Generate Multi-Signal 'Why + Where + How' Correlation Matrix
+        correlation_matrix = ForensicCorrelationBuilder.build_correlation(
+            evidence_id=evidence_id,
+            forensic_taxonomy=forensic_taxonomy,
+            risk_category=risk_cat,
+            risk_score=risk_score,
+            findings=findings,
+            metrics=raw_metrics
+        )
+        raw_metrics["correlation_summary"] = correlation_matrix
+
+        # 5. Generate Copilot Narrative Summary & Recommendations
         narrative_res = ForensicCopilot.generate_narrative_and_recommendations(
             evidence_id=evidence_id,
             modality=modality,
@@ -487,6 +501,7 @@ def get_evidence_detail(evidence_id: str):
                 forensic_result["raw_metrics_json"] = json.loads(forensic_result["raw_metrics_json"])
             except Exception:
                 forensic_result["raw_metrics_json"] = {}
+            forensic_result["forensic_taxonomy"] = forensic_result["raw_metrics_json"].get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
 
         # 4. Findings
         cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
@@ -580,6 +595,9 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
         media = "image/png"
     elif artifact_type == "waveform":
         p = FORENSIC_DIR / f"waveform_{evidence_id}.png"
+        media = "image/png"
+    elif artifact_type in ("manipulation_heatmap", "heatmap"):
+        p = FORENSIC_DIR / f"manipulation_heatmap_{evidence_id}.png"
         media = "image/png"
     elif artifact_type == "video_frame":
         p = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"

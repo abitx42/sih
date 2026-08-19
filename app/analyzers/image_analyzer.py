@@ -9,6 +9,7 @@ from scipy import ndimage
 
 from app.analyzers.base_analyzer import BaseAnalyzer
 from app.analyzers.hf_image_detector import HFImageDetector
+from app.analyzers.patch_localizer import PatchLocalizer
 from app.core.explainability import FindingBuilder
 from app.config import FORENSIC_DIR
 
@@ -18,11 +19,14 @@ class ImageAnalyzer(BaseAnalyzer):
     Combines:
     1. Heuristic Forensic Anomaly Pipeline: ELA (95%), 2D FFT Frequency Analysis,
        PRNU Noise Residual Consistency, and EXIF metadata validation.
-    2. Local Hugging Face ML Vision Classifier: 'dima806/deepfake_vs_real_image_detection'.
+    2. Spatial Patch Localizer: Sliding ROI decomposition for localized manipulation detection
+       (sensor noise consistency, patch ELA, boundary resampling, and spatial heatmapping).
+    3. Local Hugging Face ML Vision Classifier: 'dima806/deepfake_vs_real_image_detection'.
     """
 
     def __init__(self):
         self.hf_detector = HFImageDetector()
+        self.patch_localizer = PatchLocalizer()
 
     def analyze(self, file_path: Path, evidence_id: str) -> Dict[str, Any]:
         findings: List[Dict[str, Any]] = []
@@ -43,7 +47,7 @@ class ImageAnalyzer(BaseAnalyzer):
         raw_metrics["exif"] = exif_data
 
         # B. Error Level Analysis (ELA)
-        ela_score, ela_path, ela_details = self._perform_ela(img, file_path, evidence_id)
+        ela_score, ela_path, ela_details, enhanced_diff = self._perform_ela(img, file_path, evidence_id)
         raw_metrics["ela_image_path"] = str(ela_path) if ela_path else None
         raw_metrics["ela_variance"] = ela_details.get("variance", 0)
 
@@ -119,8 +123,46 @@ class ImageAnalyzer(BaseAnalyzer):
                 location_ref="Spatial Noise Domain"
             ))
 
+        # E. Spatial Patch Analysis & Localized Manipulation Localization
+        patch_res = self.patch_localizer.analyze_patches(img, enhanced_diff, evidence_id)
+        raw_metrics["manipulation_heatmap_path"] = patch_res.get("heatmap_path")
+        raw_metrics["localized_regions"] = patch_res.get("localized_regions", [])
+        raw_metrics["max_patch_anomaly"] = patch_res.get("max_patch_anomaly", 0.0)
+        raw_metrics["mean_patch_anomaly"] = patch_res.get("mean_patch_anomaly", 0.0)
+        raw_metrics["patch_count"] = patch_res.get("patch_count", 0)
+
+        localized_regions = patch_res.get("localized_regions", [])
+        if localized_regions:
+            for r in localized_regions:
+                box = r.get("bounding_box", {})
+                findings.append(FindingBuilder.create_finding(
+                    evidence_id=evidence_id,
+                    signal_name=f"Localized Manipulation Detected ({r['semantic_label']})",
+                    category="LOCALIZED_MANIPULATION",
+                    severity="CRITICAL" if r["anomaly_score"] > 80.0 else "HIGH",
+                    score=r["anomaly_score"],
+                    explanation=f"Spatial patch analysis detected a concentrated anomaly in the {r['semantic_label']} (Score: {r['anomaly_score']:.1f}%). Primary indicator: {r['primary_anomaly']}. Significant deviation from surrounding photographic characteristics suggests localized digital modification, inpainting, or synthetic addition (e.g. eyewear, face edit, or object grafting).",
+                    location_ref=f"ROI [{r['region_id']}: y:{box.get('ymin')}-{box.get('ymax')}, x:{box.get('xmin')}-{box.get('xmax')}]"
+                ))
+        else:
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Uniform Spatial Patch Consistency",
+                category="SIGNAL_ANALYSIS",
+                severity="INFO",
+                score=patch_res.get("mean_patch_anomaly", 0.0),
+                explanation="Patch-level spatial analysis shows uniform sensor noise, consistent error level, and seamless boundary gradients across all sub-regions. No isolated manipulation patches detected."
+            ))
+
         # Heuristic Forensic Anomaly Score (0.0 - 100.0)
-        forensic_anomaly_score = round((ela_score * 0.40) + (fft_score * 0.35) + (noise_score * 0.25), 1)
+        max_patch_anom = patch_res.get("max_patch_anomaly", 0.0)
+        forensic_anomaly_score = round(
+            (ela_score * 0.25) +
+            (fft_score * 0.25) +
+            (noise_score * 0.20) +
+            (max_patch_anom * 0.30),
+            1
+        )
         raw_metrics["forensic_anomaly_score"] = forensic_anomaly_score
 
         # -------------------------------------------------------------
@@ -198,6 +240,9 @@ class ImageAnalyzer(BaseAnalyzer):
             "forensic_anomaly_score": forensic_anomaly_score,
             "signal_anomalies_score": forensic_anomaly_score,
             "metadata_anomaly_score": meta_score,
+            "max_patch_anomaly": max_patch_anom,
+            "localized_regions": localized_regions,
+            "manipulation_heatmap_path": patch_res.get("heatmap_path"),
             "findings": findings,
             "raw_metrics": raw_metrics
         }
@@ -294,9 +339,9 @@ class ImageAnalyzer(BaseAnalyzer):
 
             variance = float(np.var(cell_means))
             score = min(100.0, variance * 12.0)
-            return round(score, 1), ela_out_path, {"variance": variance, "max_diff": max_diff}
+            return round(score, 1), ela_out_path, {"variance": variance, "max_diff": max_diff}, enhanced_diff
         except Exception as e:
-            return 20.0, None, {"error": str(e)}
+            return 20.0, None, {"error": str(e)}, None
 
     def _perform_fft(self, img: Image.Image, evidence_id: str) -> (float, Path, Dict[str, Any]):
         try:

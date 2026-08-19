@@ -109,6 +109,14 @@ class ForensicReportGenerator:
         # 2. Case & Evidence Summary Table
         risk_cat = forensic_result.get("risk_category", "UNKNOWN")
         risk_score = forensic_result.get("forensic_risk_score", 0.0)
+        raw_metrics = forensic_result.get("raw_metrics_json", {})
+        if isinstance(raw_metrics, str):
+            try:
+                raw_metrics = json.loads(raw_metrics)
+            except Exception:
+                raw_metrics = {}
+
+        forensic_taxonomy = raw_metrics.get("forensic_taxonomy", forensic_result.get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")).replace("_", " ")
 
         if risk_cat == "LOW RISK":
             badge_color = colors.HexColor("#16a34a")
@@ -131,7 +139,7 @@ class ForensicReportGenerator:
                 Paragraph("<b>Lead Investigator:</b>", bold_body), Paragraph(case_data.get("lead_investigator", "Digital Forensics Unit"), body_style)
             ],
             [
-                Paragraph("<b>Ingestion Date:</b>", bold_body), Paragraph(evidence_data.get("uploaded_at", "N/A")[:19], body_style),
+                Paragraph("<b>Forensic Taxonomy:</b>", bold_body), Paragraph(f"<b>{forensic_taxonomy}</b>", ParagraphStyle('TaxStyle', parent=body_style, textColor=colors.HexColor("#2563eb"), fontName='Helvetica-Bold')),
                 Paragraph("<b>Forensic Risk Assessment:</b>", bold_body), Paragraph(f"<b>{risk_cat} ({risk_score}/100)</b>", ParagraphStyle('RStyle', parent=body_style, textColor=badge_color, fontName='Helvetica-Bold'))
             ]
         ]
@@ -241,8 +249,31 @@ class ForensicReportGenerator:
         story.append(Paragraph(f"<i>Label Mapping: {label_map_str} | Notice: The AI manipulation indicator is an automated statistical classification metric produced by the local vision model, not definitive legal proof of authenticity or manipulation.</i>", ParagraphStyle('MLDisc', parent=body_style, fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 6))
 
-        # 5. Executive Forensic Narrative & Recommendations
-        story.append(Paragraph("3. Executive Forensic Narrative & Recommendations", section_style))
+        # 5. Multi-Signal "Why + Where + How" Evidence Correlation
+        corr = raw_metrics.get("correlation_summary", {})
+        if corr:
+            story.append(Paragraph("3. Multi-Signal 'Why + Where + How' Evidence Correlation", section_style))
+            where_locs = corr.get("where_locations", [])
+            where_desc = ", ".join([f"{loc.get('label', 'ROI')} ({loc.get('anomaly_type', 'Anomaly')})" for loc in where_locs])
+            
+            corr_table_data = [
+                [Paragraph("<b>WHERE (Spatial ROI)</b>", table_cell_bold), Paragraph(where_desc or "Global Frame", table_cell)],
+                [Paragraph("<b>HOW (Physical Inferred Mechanism)</b>", table_cell_bold), Paragraph(corr.get("how_mechanism", "N/A"), table_cell)],
+                [Paragraph("<b>WHY (Forensic Conclusion)</b>", table_cell_bold), Paragraph(corr.get("why_conclusion", "N/A"), table_cell)]
+            ]
+            t_corr = Table(corr_table_data, colWidths=[140, 400])
+            t_corr.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#f1f5f9")),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            story.append(t_corr)
+            story.append(Spacer(1, 6))
+
+        # 6. Executive Forensic Narrative & Recommendations
+        story.append(Paragraph("4. Executive Forensic Narrative & Recommendations", section_style))
         summary_text = forensic_result.get("summary_narrative") or "Automated multi-signal forensic evaluation completed."
         recom_text = forensic_result.get("recommendations") or "No further actions required."
         
@@ -251,8 +282,8 @@ class ForensicReportGenerator:
         story.append(Paragraph(f"<b>Investigator Recommendations:</b><br/>{recom_text.replace(chr(10), '<br/>')}", body_style))
         story.append(Spacer(1, 6))
 
-        # 6. Detailed Forensic Findings Breakdown
-        story.append(Paragraph("4. Technical Forensic Findings Breakdown", section_style))
+        # 7. Detailed Forensic Findings Breakdown
+        story.append(Paragraph("5. Technical Forensic Findings Breakdown", section_style))
         findings_table_data = [
             [
                 Paragraph("<b>Signal Name</b>", table_cell_bold),
@@ -293,7 +324,8 @@ class ForensicReportGenerator:
         story.append(t_find)
         story.append(Spacer(1, 6))
 
-        # 7. Visual Forensic Exhibits
+        # 8. Visual Forensic Exhibits
+        heatmap_path = raw_metrics.get("manipulation_heatmap_path")
         ela_path = raw_metrics.get("ela_image_path")
         fft_path = raw_metrics.get("fft_image_path")
         waveform_path = raw_metrics.get("waveform_path")
@@ -301,19 +333,21 @@ class ForensicReportGenerator:
         video_frame_path = raw_metrics.get("video_frame_path")
 
         visual_exhibits = []
+        if heatmap_path and os.path.exists(heatmap_path):
+            visual_exhibits.append(("Exhibit A: Spatial Patch Manipulation Heatmap (Localized Anomaly Map)", heatmap_path))
         if ela_path and os.path.exists(ela_path):
-            visual_exhibits.append(("Exhibit A: Error Level Analysis (ELA 95% Heatmap)", ela_path))
+            visual_exhibits.append(("Exhibit B: Error Level Analysis (ELA 95% Heatmap)", ela_path))
         if fft_path and os.path.exists(fft_path):
-            visual_exhibits.append(("Exhibit B: 2D FFT Frequency Power Spectrum", fft_path))
+            visual_exhibits.append(("Exhibit C: 2D FFT Frequency Power Spectrum", fft_path))
         if waveform_path and os.path.exists(waveform_path):
-            visual_exhibits.append(("Exhibit C: Audio Waveform Amplitude Envelope", waveform_path))
+            visual_exhibits.append(("Exhibit D: Audio Waveform Amplitude Envelope", waveform_path))
         if spectrogram_path and os.path.exists(spectrogram_path):
-            visual_exhibits.append(("Exhibit D: Audio STFT Spectrogram & Splicing Map", spectrogram_path))
+            visual_exhibits.append(("Exhibit E: Audio STFT Spectrogram & Splicing Map", spectrogram_path))
         if video_frame_path and os.path.exists(video_frame_path):
-            visual_exhibits.append(("Exhibit E: Decoded Video Keyframe Exhibit", video_frame_path))
+            visual_exhibits.append(("Exhibit F: Decoded Video Keyframe Exhibit", video_frame_path))
 
         if visual_exhibits:
-            story.append(Paragraph("5. Visual Forensic Exhibits", section_style))
+            story.append(Paragraph("6. Visual Forensic Exhibits", section_style))
             for title, img_p in visual_exhibits:
                 try:
                     story.append(Paragraph(f"<b>{title}</b>", body_style))

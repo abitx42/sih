@@ -45,6 +45,7 @@ class CaseEvidenceItemResponse(BaseModel):
     analyzed_at: Optional[str] = None
     forensic_risk_score: Optional[float] = None
     risk_category: Optional[str] = None
+    forensic_taxonomy: Optional[str] = None
     model_status: Optional[str] = None
     findings_count: int = 0
 
@@ -131,6 +132,7 @@ class ForensicResultResponse(BaseModel):
     forensic_anomaly_score: float = 0.0
     forensic_risk_score: float
     risk_category: str
+    forensic_taxonomy: Optional[str] = "ANALYSIS_INCONCLUSIVE"
     confidence_score: float
     analyzed_at: str
     raw_metrics_json: Dict[str, Any]

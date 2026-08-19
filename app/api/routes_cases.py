@@ -135,6 +135,7 @@ def get_case_evidence(case_id: str):
             e.evidence_id, e.case_id, e.original_filename, e.modality, e.file_size_bytes,
             e.sha256_hash, e.uploaded_by, e.uploaded_at, e.status, e.pipeline_status,
             e.analyzed_at, fr.forensic_risk_score, fr.risk_category, fr.model_status,
+            fr.raw_metrics_json,
             COUNT(f.finding_id) as findings_count
         FROM evidence e
         LEFT JOIN forensic_results fr ON e.evidence_id = fr.evidence_id
@@ -143,7 +144,20 @@ def get_case_evidence(case_id: str):
         GROUP BY e.evidence_id
         ORDER BY e.uploaded_at DESC
         """, (case_id,))
-        return cursor.fetchall()
+        rows = cursor.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            tax = "LIKELY_AUTHENTIC"
+            if d.get("raw_metrics_json"):
+                try:
+                    m = json.loads(d["raw_metrics_json"])
+                    tax = m.get("forensic_taxonomy", "LIKELY_AUTHENTIC")
+                except Exception:
+                    pass
+            d["forensic_taxonomy"] = tax
+            result.append(d)
+        return result
 
 @router.get("/{case_id}/timeline", response_model=List[CustodyEventResponse])
 def get_case_timeline(case_id: str):

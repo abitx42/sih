@@ -457,36 +457,63 @@ function renderLabView(data) {
     riskScoreEl.style.color = "var(--risk-low)";
   }
 
-  // AI Manipulation Indicator (ML Vision Model)
-  const aiScoreEl = document.getElementById("lab-ai-score");
-  const modelStatus = (res.model_status || "ANALYSIS_UNAVAILABLE").replace('_', ' ');
-  const modelIndicator = res.ai_manipulation_indicator;
-
-  if (modelStatus === "AVAILABLE" && modelIndicator !== null && modelIndicator !== undefined) {
-    const aiPct = (modelIndicator * 100).toFixed(1);
-    aiScoreEl.textContent = `${aiPct}%`;
-    aiScoreEl.style.color = aiPct > 70 ? "var(--risk-high)" : (aiPct > 35 ? "var(--risk-medium)" : "var(--risk-low)");
-  } else if (modelStatus.includes("INCONCLUSIVE")) {
-    aiScoreEl.textContent = "INCONCLUSIVE";
-    aiScoreEl.style.color = "var(--risk-medium)";
-  } else {
-    aiScoreEl.textContent = "UNAVAILABLE";
-    aiScoreEl.style.color = "var(--text-dim)";
-  }
-  
-  if (ev.modality === "VIDEO") {
-    const sampled = rawMetrics.sampled_frames_count || 0;
-    const analysed = rawMetrics.ml_detector ? rawMetrics.ml_detector.analysed_frame_count : 0;
-    document.getElementById("lab-ai-model").textContent = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames sampled)`;
-  } else if (ev.modality === "AUDIO") {
-    document.getElementById("lab-ai-model").textContent = "Acoustic Signal Forensics (No Local ML Model)";
-  } else if (ev.modality === "DOCUMENT" || ev.modality === "ARCHIVE") {
-    document.getElementById("lab-ai-model").textContent = "Structural Heuristics (No Local ML Model)";
-  } else {
-    document.getElementById("lab-ai-model").textContent = res.ai_model_name || "ViT Image Detector";
+  // Forensic Authenticity Taxonomy
+  const taxonomy = res.forensic_taxonomy || rawMetrics.forensic_taxonomy || "ANALYSIS_INCONCLUSIVE";
+  const taxBadge = document.getElementById("lab-taxonomy-badge");
+  if (taxBadge) {
+    if (taxonomy === "LIKELY_AUTHENTIC") {
+      taxBadge.className = "taxonomy-badge taxonomy-likely-authentic";
+      taxBadge.innerHTML = "🔍 LIKELY AUTHENTIC";
+    } else if (taxonomy === "LIKELY_AI_GENERATED") {
+      taxBadge.className = "taxonomy-badge taxonomy-likely-ai-generated";
+      taxBadge.innerHTML = "🤖 LIKELY AI-GENERATED";
+    } else if (taxonomy === "LIKELY_AI_ASSISTED_MANIPULATION") {
+      taxBadge.className = "taxonomy-badge taxonomy-likely-ai-assisted";
+      taxBadge.innerHTML = "✨ LIKELY AI-ASSISTED MANIPULATION";
+    } else if (taxonomy === "LIKELY_TRADITIONAL_MANIPULATION") {
+      taxBadge.className = "taxonomy-badge taxonomy-likely-traditional";
+      taxBadge.innerHTML = "✂️ LIKELY TRADITIONAL MANIPULATION";
+    } else {
+      taxBadge.className = "taxonomy-badge taxonomy-inconclusive";
+      taxBadge.innerHTML = "❓ ANALYSIS INCONCLUSIVE";
+    }
   }
 
-  // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Acoustic / Noise)
+  // Multi-Signal "WHY + WHERE + HOW" Correlation Card
+  const corrCard = document.getElementById("lab-correlation-card");
+  const corr = rawMetrics.correlation_summary;
+  if (corrCard && corr) {
+    corrCard.style.display = "block";
+    const sigCount = document.getElementById("wwh-signals-count");
+    if (sigCount) sigCount.innerText = `${corr.signal_agreement_count || 0} Elevated Indicator(s)`;
+
+    const whereEl = document.getElementById("wwh-where-content");
+    if (whereEl && Array.isArray(corr.where_locations)) {
+      whereEl.innerHTML = corr.where_locations.map(loc => `
+        <div style="margin-bottom: 0.3rem;">
+          <strong style="color: #fff;">${escapeHTML(loc.label || 'ROI')}</strong>
+          <div style="font-size: 0.75rem; color: var(--accent-cyan);">${escapeHTML(loc.anomaly_type || 'Anomaly')} (Score: ${loc.score || 0}%)</div>
+        </div>
+      `).join("");
+    }
+
+    const whatEl = document.getElementById("wwh-what-content");
+    if (whatEl && Array.isArray(corr.what_observations)) {
+      whatEl.innerHTML = corr.what_observations.slice(0, 3).map(obs => `
+        <div style="font-size: 0.78rem; margin-bottom: 0.25rem; color: var(--text-main);">• ${escapeHTML(obs)}</div>
+      `).join("");
+    }
+
+    const howEl = document.getElementById("wwh-how-content");
+    if (howEl) howEl.innerText = corr.how_mechanism || "Continuous optical sensor imaging pipeline.";
+
+    const whyEl = document.getElementById("wwh-why-content");
+    if (whyEl) whyEl.innerText = corr.why_conclusion || "Multi-signal evaluation completed.";
+  } else if (corrCard) {
+    corrCard.style.display = "none";
+  }
+
+  // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Acoustic / Noise / Patch Localizer)
   const heuristicScore = res.forensic_anomaly_score !== undefined ? res.forensic_anomaly_score : 0;
   document.getElementById("lab-heuristic-score").textContent = `${heuristicScore}/100`;
 
@@ -497,18 +524,28 @@ function renderLabView(data) {
 
   // Visual Exhibits
   const origImg = document.getElementById("exhibit-orig");
+  const heatmapBox = document.getElementById("box-exhibit-heatmap");
+  const heatmapImg = document.getElementById("exhibit-heatmap");
   const forensicImg = document.getElementById("exhibit-forensic");
   const forensicTitle = document.getElementById("exhibit-forensic-title");
 
   if (ev.modality === "IMAGE") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
-    forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
-    forensicTitle.textContent = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
     origImg.style.display = "block";
+
+    if (heatmapBox && heatmapImg) {
+      heatmapImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/manipulation_heatmap`;
+      heatmapBox.style.display = "block";
+    }
+
+    forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
+    forensicTitle.textContent = "Exhibit 3: Error Level Analysis (ELA 95% Heatmap)";
     forensicImg.style.display = "block";
   } else if (ev.modality === "VIDEO") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
     origImg.style.display = "block";
+    if (heatmapBox) heatmapBox.style.display = "none";
+
     if (rawMetrics.sampled_frames_count > 0) {
       forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/video_frame`;
       forensicTitle.textContent = `Exhibit 2: Decoded Video Keyframe (${rawMetrics.sampled_frames_count || 0} Frames Sampled)`;
@@ -518,12 +555,14 @@ function renderLabView(data) {
       forensicTitle.textContent = "Exhibit 2: No Decoded Frames Available";
     }
   } else if (ev.modality === "AUDIO") {
+    if (heatmapBox) heatmapBox.style.display = "none";
     origImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/waveform`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/spectrogram`;
     forensicTitle.textContent = `Exhibit 2: STFT Spectrogram & Splicing Analysis (${rawMetrics.sample_rate_hz || 0}Hz)`;
     origImg.style.display = "block";
     forensicImg.style.display = "block";
   } else {
+    if (heatmapBox) heatmapBox.style.display = "none";
     origImg.style.display = "none";
     forensicImg.style.display = "none";
     forensicTitle.textContent = "Non-Visual Structural Verification";
