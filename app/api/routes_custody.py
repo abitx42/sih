@@ -38,7 +38,7 @@ def export_custody_ledger(evidence_id: Optional[str] = None):
         events = cursor.fetchall()
 
     export_payload = {
-        "platform": "EVIDENCE-X Digital Evidence Forensic Assessment Platform",
+        "platform": "Truth Lens Digital Evidence Forensics Platform",
         "log_type": "Append-Only Application Custody Log",
         "disclaimer": "Prototype application custody log designed to support forensic workflow documentation. Stored in local SQLite; not an independent cryptographic proof or replacement for formal evidence-management procedures.",
         "filter_evidence_id": evidence_id,

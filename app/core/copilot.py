@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 DISCLAIMER_TEXT = "AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility."
 
-COPILOT_SYSTEM_PROMPT = """You are EVIDENCE-X Forensic Copilot, an expert digital forensics assistant for cybercrime investigators.
+COPILOT_SYSTEM_PROMPT = """You are Truth Lens Forensic Copilot, an expert digital forensics assistant for cybercrime investigators.
 
 CORE PRINCIPLES:
 1. Provide objective, precise, and scientifically grounded explanations of forensic findings.
@@ -34,226 +34,208 @@ class ForensicCopilot:
         findings: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Generates a comprehensive 4-part forensic explanation:
-        - investigator_summary
-        - technical_findings_requiring_review
-        - limitations
-        - recommended_next_steps
-        - disclaimer
-        - source
+        Generates 4-part structured forensic explanation complying with CoE Gateway contract.
+        Sanitizes payload, encapsulates in containment tags, queries CoE Gateway,
+        and falls back gracefully to deterministic logic if offline or key is missing.
         """
-        timestamp = datetime.utcnow().isoformat() + "Z"
-
-        # Sanitize data for payload (never send local paths, databases, or keys)
-        filename = str(evidence_data.get("original_filename", "unnamed_evidence"))
-        modality = str(evidence_data.get("modality", "UNKNOWN"))
-        file_size_kb = round(evidence_data.get("file_size_bytes", 0) / 1024.0, 1)
-        sha256_hash = str(evidence_data.get("sha256_hash", "N/A"))
-        risk_score = forensic_result.get("forensic_risk_score", 0.0)
-        risk_category = str(forensic_result.get("risk_category", "UNKNOWN"))
-        forensic_anomaly_score = forensic_result.get("forensic_anomaly_score", 0.0)
-        model_status = str(forensic_result.get("model_status", "UNKNOWN"))
-        ai_indicator = forensic_result.get("ai_manipulation_indicator")
-
-        sanitized_findings = []
-        for f in findings:
-            sanitized_findings.append({
-                "signal_name": str(f.get("signal_name", "")),
-                "category": str(f.get("category", "")),
-                "severity": str(f.get("severity", "")),
-                "score": f.get("score", 0.0),
-                "explanation": str(f.get("explanation", ""))
-            })
-
-        sanitized_payload = {
-            "evidence_id": evidence_id,
-            "filename": filename,
-            "modality": modality,
-            "file_size_kb": file_size_kb,
-            "sha256": sha256_hash,
-            "risk_score": risk_score,
-            "risk_category": risk_category,
-            "forensic_anomaly_score": forensic_anomaly_score,
-            "model_status": model_status,
-            "ai_manipulation_indicator": ai_indicator,
-            "findings_count": len(sanitized_findings),
-            "findings": sanitized_findings,
-            "physical_limitations": "Compression artifacts, re-encoding, low resolution, or hardware noise may simulate anomalies."
-        }
-
-        # 1. Attempt TCET CoE AI Gateway call if configured
         if settings.LLM_API_KEY and settings.LLM_API_BASE_URL:
-            coe_result = ForensicCopilot._call_coe_gateway(sanitized_payload)
-            if coe_result:
-                coe_result["evidence_id"] = evidence_id
-                coe_result["timestamp"] = timestamp
-                coe_result["disclaimer"] = DISCLAIMER_TEXT
-                coe_result["source"] = f"CoE Gateway ({settings.LLM_MODEL})"
-                return coe_result
+            try:
+                res = ForensicCopilot._query_coe_gateway(
+                    evidence_id=evidence_id,
+                    evidence_data=evidence_data,
+                    forensic_result=forensic_result,
+                    findings=findings
+                )
+                if res:
+                    return res
+            except Exception as e:
+                logger.warning(f"CoE Gateway explanation request failed: {e}. Falling back to deterministic engine.")
 
-        # 2. Local Deterministic Fallback
-        fallback_result = ForensicCopilot._deterministic_structured_explanation(sanitized_payload)
-        fallback_result["evidence_id"] = evidence_id
-        fallback_result["timestamp"] = timestamp
-        fallback_result["disclaimer"] = DISCLAIMER_TEXT
-        fallback_result["source"] = "Local Deterministic Engine"
-        return fallback_result
+        # Deterministic offline fallback
+        return ForensicCopilot._generate_deterministic_explanation(
+            evidence_id=evidence_id,
+            evidence_data=evidence_data,
+            forensic_result=forensic_result,
+            findings=findings
+        )
 
     @staticmethod
-    def _call_coe_gateway(sanitized_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _query_coe_gateway(
+        evidence_id: str,
+        evidence_data: Dict[str, Any],
+        forensic_result: Dict[str, Any],
+        findings: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
         """
-        Executes OpenAI-compatible chat completion on TCET CoE Gateway with timeout & retries.
+        Sends sanitized, structured evidence metadata to TCET CoE AI Gateway via OpenAI-compatible endpoint.
         """
-        url = f"{settings.LLM_API_BASE_URL.rstrip('/')}/chat/completions"
+        url = f"{settings.LLM_API_BASE_URL}/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.LLM_API_KEY}",
             "Content-Type": "application/json"
         }
 
-        user_prompt = f"""
-Analyze the following digital forensic evidence report.
+        # Build sanitized untrusted context block
+        clean_findings = [
+            {
+                "signal": str(f.get("signal_name", "Unknown")),
+                "severity": str(f.get("severity", "INFO")),
+                "score": float(f.get("score", 0.0)),
+                "explanation": str(f.get("explanation", ""))
+            }
+            for f in findings
+        ]
+
+        clean_context = {
+            "evidence_id": evidence_id,
+            "filename": str(evidence_data.get("original_filename", "unnamed")),
+            "modality": str(evidence_data.get("modality", "UNKNOWN")),
+            "file_size_kb": round(float(evidence_data.get("file_size_bytes", 0)) / 1024.0, 1),
+            "forensic_risk_score": float(forensic_result.get("forensic_risk_score", 0.0)),
+            "risk_category": str(forensic_result.get("risk_category", "UNKNOWN")),
+            "model_status": str(forensic_result.get("model_status", "AVAILABLE")),
+            "ai_manipulation_indicator": forensic_result.get("ai_manipulation_indicator"),
+            "findings_count": len(clean_findings),
+            "findings": clean_findings
+        }
+
+        user_content = f"""Please analyze the following sanitized forensic metadata and generate an investigator report.
 
 <untrusted_evidence_data>
-{json.dumps(sanitized_data, indent=2)}
+{json.dumps(clean_context, indent=2)}
 </untrusted_evidence_data>
 
-Please output a strictly valid JSON object with the following schema:
-{{
-  "investigator_summary": "Concise executive summary of what was evaluated and the risk rating.",
-  "technical_findings_requiring_review": [
-    "Specific technical finding 1 requiring scrutiny",
-    "Specific technical finding 2"
-  ],
-  "limitations": "Physical, compression, and mathematical limitations of this analysis.",
-  "recommended_next_steps": [
-    "Actionable step 1 for lead investigator",
-    "Actionable step 2"
-  ]
-}}
+Provide a valid JSON response containing EXACTLY these keys:
+- "investigator_summary": string
+- "technical_findings_requiring_review": list of strings
+- "limitations": string or list of strings
+- "recommended_next_steps": list of strings
 """
 
         payload = {
             "model": settings.LLM_MODEL,
             "messages": [
                 {"role": "system", "content": COPILOT_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_content}
             ],
             "temperature": 0.2,
-            "max_tokens": 800
+            "max_tokens": 1000
         }
 
-        # Max 2 attempts (1 initial + 1 retry for 502/timeouts)
-        for attempt in range(2):
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=15)
-                
-                if resp.status_code == 200:
-                    resp_json = resp.json()
-                    content = resp_json["choices"][0]["message"]["content"].strip()
-                    
-                    if "{" in content and "}" in content:
-                        clean_json = content[content.find("{") : content.rfind("}") + 1]
-                        parsed = json.loads(clean_json)
-                        if "investigator_summary" in parsed and "limitations" in parsed:
-                            return {
-                                "investigator_summary": parsed.get("investigator_summary", ""),
-                                "technical_findings_requiring_review": parsed.get("technical_findings_requiring_review", []),
-                                "limitations": parsed.get("limitations", ""),
-                                "recommended_next_steps": parsed.get("recommended_next_steps", [])
-                            }
-                elif resp.status_code in [502, 503, 504]:
-                    logger.warning(f"CoE Gateway returned {resp.status_code}, attempt {attempt+1}/2")
-                    if attempt == 0:
-                        time.sleep(1)
-                        continue
-                else:
-                    logger.warning(f"CoE Gateway error {resp.status_code}: {resp.text[:200]}")
-                    break
-            except (requests.Timeout, requests.ConnectionError) as e:
-                logger.warning(f"CoE Gateway connection timeout on attempt {attempt+1}/2: {e}")
-                if attempt == 0:
-                    time.sleep(1)
-                    continue
-            except Exception as e:
-                logger.error(f"Unexpected CoE Gateway exception: {e}")
-                break
+        start_time = time.time()
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        duration = round(time.time() - start_time, 2)
 
-        return None
+        if resp.status_code != 200:
+            logger.warning(f"CoE Gateway returned HTTP {resp.status_code}: {resp.text[:200]}")
+            return None
+
+        data = resp.json()
+        raw_text = data["choices"][0]["message"]["content"].strip()
+
+        # Parse JSON from response
+        try:
+            # Handle potential markdown code fencing in LLM response
+            if "```json" in raw_text:
+                json_part = raw_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw_text:
+                json_part = raw_text.split("```")[1].split("```")[0].strip()
+            else:
+                json_part = raw_text
+
+            parsed = json.loads(json_part)
+            return {
+                "evidence_id": evidence_id,
+                "investigator_summary": parsed.get("investigator_summary", ""),
+                "technical_findings_requiring_review": parsed.get("technical_findings_requiring_review", []),
+                "limitations": parsed.get("limitations", ""),
+                "recommended_next_steps": parsed.get("recommended_next_steps", []),
+                "source": f"CoE Gateway ({settings.LLM_MODEL})",
+                "disclaimer": DISCLAIMER_TEXT,
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+        except Exception as parse_err:
+            logger.warning(f"Failed to parse JSON from CoE Gateway response: {parse_err}. Raw: {raw_text[:200]}")
+            return None
 
     @staticmethod
-    def _deterministic_structured_explanation(data: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_deterministic_explanation(
+        evidence_id: str,
+        evidence_data: Dict[str, Any],
+        forensic_result: Dict[str, Any],
+        findings: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
-        Deterministic rule-based explanation generator ensuring complete offline functionality.
+        Built-in rule-based deterministic NLG fallback when CoE Gateway is unavailable.
         """
-        filename = data.get("filename", "Evidence")
-        modality = data.get("modality", "FILE")
-        risk_score = data.get("risk_score", 0.0)
-        risk_cat = data.get("risk_category", "UNKNOWN")
-        findings = data.get("findings", [])
-        model_status = data.get("model_status", "UNKNOWN")
-        ai_ind = data.get("ai_manipulation_indicator")
+        filename = evidence_data.get("original_filename", "unnamed_evidence")
+        modality = evidence_data.get("modality", "UNKNOWN")
+        risk_score = forensic_result.get("forensic_risk_score", 0.0)
+        risk_category = forensic_result.get("risk_category", "UNKNOWN")
+        model_status = forensic_result.get("model_status", "AVAILABLE")
 
-        flagged = [f["signal_name"] for f in findings if f.get("severity") in ["CRITICAL", "HIGH", "MEDIUM"]]
+        # 1. Summary
+        if risk_category == "LOW RISK":
+            summary = (
+                f"Automated forensic verification of '{filename}' ({modality}) concluded with LOW RISK "
+                f"({risk_score}/100). Bitstream baseline is established, physical signal distributions align "
+                f"with authentic capture characteristics, and no compounding manipulation anomalies were identified."
+            )
+        elif risk_category == "REVIEW REQUIRED":
+            summary = (
+                f"Automated forensic assessment of '{filename}' ({modality}) resulted in REVIEW REQUIRED "
+                f"({risk_score}/100). Intermediate compression discrepancies, unavailable ML modalities, "
+                f"or container metadata tags were detected that warrant human forensic examiner inspection."
+            )
+        else:
+            summary = (
+                f"Automated forensic assessment of '{filename}' ({modality}) flagged HIGH RISK "
+                f"({risk_score}/100). Multiple compounding manipulation indicators, elevated model anomaly "
+                f"scores, or structural tampering markers were identified."
+            )
 
-        if risk_cat == "LOW RISK":
-            summary = (
-                f"Digital evidence exhibit '{filename}' ({modality}) completed multi-signal automated verification. "
-                f"Cryptographic hash analysis confirmed bitstream integrity against baseline. "
-                f"No compounding compression, frequency, or structural anomalies were detected (Risk Score: {risk_score}/100)."
-            )
-            findings_review = flagged if flagged else ["No high-severity technical anomalies flagged."]
-            limitations = (
-                "Cryptographic hash verification certifies that the file bitstream has not been altered since acquisition. "
-                "It does not verify real-world authenticity or camera-sensor provenance if the original capture was already staged."
-            )
-            next_steps = [
-                "Log SHA-256 baseline hash in primary case chain-of-custody ledger.",
-                "Archive original bitstream on write-blocked forensic media.",
-                "Proceed with standard case documentation."
-            ]
-        elif risk_cat == "REVIEW REQUIRED":
-            summary = (
-                f"Evidence exhibit '{filename}' ({modality}) received an intermediate risk rating of {risk_score}/100 "
-                f"(REVIEW REQUIRED). Automated evaluation detected specific anomalous indicators or inconclusive model status "
-                f"({model_status}) requiring qualified forensic examiner scrutiny."
-            )
-            findings_review = flagged if flagged else [
-                "Inconclusive statistical signals or absent C2PA provenance manifest."
-            ]
-            limitations = (
-                "Intermediate indicators can be caused by benign social media re-compression, lossy transcoders, "
-                "variable bitrate encoding, or subtle generative post-processing. Automated metrics cannot resolve this without manual review."
-            )
-            next_steps = [
-                "Request original uncompressed source file directly from capture hardware.",
-                "Conduct manual quadrant ELA / frequency spectrum inspection on flagged ROIs.",
-                "Corroborate capture timestamps with cellular carrier or witness timeline records."
-            ]
-        else: # HIGH RISK
-            summary = (
-                f"CRITICAL FORENSIC ALERT: Evidence exhibit '{filename}' ({modality}) exhibited multiple compounding "
-                f"anomalies resulting in a Forensic Risk Score of {risk_score}/100 (HIGH RISK). "
-                f"Automated physical and statistical signals indicate potential generative manipulation, splicing, or container alteration."
-            )
-            findings_review = flagged if flagged else [
-                "High statistical AI manipulation indicator",
-                "Severe structural / frequency domain disruption"
-            ]
-            limitations = (
-                "Automated anomaly scores are statistical indicators and do not constitute self-sufficient legal proof. "
-                "Heavy adversarial filtering or multi-generation re-encoding can also induce high anomaly variance."
-            )
-            next_steps = [
-                "Do NOT introduce this exhibit as uncorroborated evidence in judicial proceedings.",
-                "Subpoena original hardware firmware logs, camera EXIF tables, and carrier metadata.",
-                "Submit exhibit to accredited cyber laboratory for deep sensor PRNU pattern verification."
-            ]
+        # 2. Technical Findings
+        tech_findings = []
+        if not findings:
+            tech_findings.append("No anomalous forensic signals detected across primary screening routines.")
+        else:
+            for f in findings:
+                sev = f.get("severity", "INFO")
+                sig = f.get("signal_name", "Finding")
+                expl = f.get("explanation", "")
+                if sev in ["CRITICAL", "HIGH", "MEDIUM"]:
+                    tech_findings.append(f"[{sev}] {sig}: {expl}")
+
+        if not tech_findings and findings:
+            tech_findings.append(f"Informational: {findings[0].get('signal_name')}")
+
+        # 3. Limitations
+        limitations = (
+            "AI manipulation indicators and anomaly scores are statistical screening aids, not definitive proof. "
+            "Cryptographic hash matching verifies bit-level file preservation, not original semantic authenticity."
+        )
+
+        # 4. Next Steps
+        next_steps = [
+            "Perform manual secondary examination using certified physical analysis tools.",
+            "Verify acquisition source device and chain of custody documentation."
+        ]
+        if risk_category == "HIGH RISK":
+            next_steps.insert(0, "Flag exhibit for comprehensive manual forensic deconstruction.")
+            if modality == "IMAGE":
+                next_steps.append("Submit exhibit to accredited cyber laboratory for deep sensor PRNU pattern verification.")
+        elif risk_category == "REVIEW REQUIRED":
+            next_steps.insert(0, "Conduct targeted inspection of flagged timestamps/quadrants.")
 
         return {
+            "evidence_id": evidence_id,
             "investigator_summary": summary,
-            "technical_findings_requiring_review": findings_review,
+            "technical_findings_requiring_review": tech_findings,
             "limitations": limitations,
-            "recommended_next_steps": next_steps
+            "recommended_next_steps": next_steps,
+            "source": "Local Deterministic Engine",
+            "disclaimer": DISCLAIMER_TEXT,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
         }
 
     @staticmethod
@@ -282,7 +264,7 @@ Please output a strictly valid JSON object with the following schema:
         return {
             "summary": exp.get("investigator_summary", ""),
             "recommendations": steps_str,
-            "source": exp.get("source", "EVIDENCE-X Grounded Engine")
+            "source": exp.get("source", "Local Deterministic Engine")
         }
 
     @staticmethod
@@ -311,8 +293,7 @@ Please output a strictly valid JSON object with the following schema:
                     "findings": findings
                 }, indent=2)
 
-                prompt = f"""
-Context of digital evidence under review:
+                prompt = f"""Context of digital evidence under review:
 <untrusted_evidence_data>
 {context_str}
 </untrusted_evidence_data>

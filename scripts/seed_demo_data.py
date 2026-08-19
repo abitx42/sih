@@ -1,12 +1,18 @@
 import os
+import sys
 import io
 import wave
 import tempfile
 import numpy as np
 from PIL import Image, ImageDraw
 from pathlib import Path
-from fastapi.testclient import TestClient
 
+# Ensure repo root is on sys.path
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+from fastapi.testclient import TestClient
 from app.main import app
 from app.config import STORAGE_DIR
 

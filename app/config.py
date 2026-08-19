@@ -32,8 +32,9 @@ for directory in [STORAGE_DIR, EVIDENCE_DIR, THUMBNAILS_DIR, FORENSIC_DIR, REPOR
     directory.mkdir(parents=True, exist_ok=True)
 
 class Settings:
-    PROJECT_NAME: str = "EVIDENCE-X"
-    TAGLINE: str = "Digital Evidence Forensic Verification Platform"
+    PROJECT_NAME: str = "Truth Lens"
+    TAGLINE: str = "Digital Evidence Forensics Platform"
+    SHORT_TAGLINE: str = "See the signals. Review the evidence."
     VERSION: str = "1.2.0"
     PS_NUMBER: str = "SIH PS-27 (KAVACH 2023)"
     

@@ -8,7 +8,7 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "HEALTHY"
-    assert "EVIDENCE-X" in data["service"]
+    assert "Truth Lens" in data["service"]
 
 def test_dashboard_stats():
     response = client.get("/api/dashboard/stats")

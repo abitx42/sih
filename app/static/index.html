@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EVIDENCE-X : Digital Evidence Forensic Verification Platform</title>
+  <title>Truth Lens — Digital Evidence Forensics Platform</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -11,11 +11,17 @@
 
   <!-- Top App Navigation -->
   <header class="app-header">
-    <div class="brand-container">
-      <div class="brand-logo">EX</div>
+    <div class="brand-container" onclick="switchView('dashboard')" style="cursor: pointer;">
+      <div class="brand-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <circle cx="11" cy="11" r="3" fill="currentColor" fill-opacity="0.3"></circle>
+        </svg>
+      </div>
       <div class="brand-info">
-        <h1>EVIDENCE-X</h1>
-        <p>SIH PS-27 • Forensic Verification Platform</p>
+        <h1>Truth Lens</h1>
+        <p>Digital Evidence Forensics Platform</p>
       </div>
     </div>
 
@@ -24,12 +30,12 @@
       <button class="nav-item" onclick="switchView('cases')">📁 Cases</button>
       <button class="nav-item" onclick="switchView('upload')">📤 Evidence Intake</button>
       <button class="nav-item" onclick="switchView('lab')">🔬 Forensic Lab</button>
-      <button class="nav-item" onclick="switchView('custody')">⛓️ Chain of Custody</button>
+      <button class="nav-item" onclick="switchView('custody')">⛓️ Custody Log</button>
     </nav>
 
     <div class="header-status">
       <div class="status-dot"></div>
-      <span>Forensic Core Active</span>
+      <span>Forensic Core Ready</span>
     </div>
   </header>
 
@@ -38,8 +44,44 @@
 
     <!-- 1. DASHBOARD VIEW -->
     <section id="view-dashboard" class="view-section active">
-      <h2 class="section-title">Forensic Operations Dashboard</h2>
-      <p class="section-desc">Real-time overview of active investigations, digital evidence integrity status, and automated forensic risk assessments.</p>
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="hero-content">
+          <div class="hero-tag">SIH PS-27 • KAVACH SPECIFICATION</div>
+          <h2 class="hero-title">See the signals. Review the evidence.</h2>
+          <p class="hero-desc">
+            Automated multi-signal forensic verification decoupling bitstream cryptographic preservation (SHA-256) from physical compression heuristics, local Vision Transformer classification, and tamper-evident documentation.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onclick="switchView('upload')">📤 Ingest New Evidence Exhibit</button>
+            <button class="btn btn-secondary" onclick="switchView('custody')">📜 View Application Custody Log</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- How It Works Flow Pipeline -->
+      <div class="flow-pipeline-grid">
+        <div class="flow-step-card">
+          <div class="flow-step-num">01</div>
+          <h4>Cryptographic Baseline</h4>
+          <p>Calculates SHA-256, SHA-512, and MD5 fingerprints at intake; logs genesis custody record.</p>
+        </div>
+        <div class="flow-step-card">
+          <div class="flow-step-num">02</div>
+          <h4>Multi-Signal Heuristics</h4>
+          <p>Extracts ELA 95%, 2D FFT spectral peaks, sensor-noise consistency, and STFT acoustic flux.</p>
+        </div>
+        <div class="flow-step-card">
+          <div class="flow-step-num">03</div>
+          <h4>Local ML Vision Model</h4>
+          <p>In-process ViT inference on sampled video keyframes and images with defensive label normalization.</p>
+        </div>
+        <div class="flow-step-card">
+          <div class="flow-step-num">04</div>
+          <h4>Forensic Assessment</h4>
+          <p>Computes 3-tier risk classification and compiles PDF assessment reports with disclaimers.</p>
+        </div>
+      </div>
 
       <div class="grid-cards">
         <div class="stat-card">
@@ -103,8 +145,8 @@
       <!-- Live Chain of Custody Stream -->
       <div class="card-panel">
         <div class="panel-header">
-          <h3>Live Chain of Custody Ledger Stream</h3>
-          <button class="btn btn-secondary btn-sm" onclick="switchView('custody')">View Full Ledger</button>
+          <h3>Application Custody Log Stream</h3>
+          <button class="btn btn-secondary btn-sm" onclick="switchView('custody')">View Full Log</button>
         </div>
         <div style="overflow-x: auto;">
           <table class="forensic-table">
@@ -119,7 +161,7 @@
               </tr>
             </thead>
             <tbody id="dashboard-custody-table">
-              <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading custody ledger...</td></tr>
+              <tr><td colspan="6" style="text-align: center; color: var(--text-dim);">Loading custody log...</td></tr>
             </tbody>
           </table>
         </div>
@@ -343,11 +385,11 @@
             <div class="chat-container">
               <div class="chat-messages" id="copilot-chat-messages">
                 <div class="chat-bubble assistant">
-                  Hello Investigator. I am your Forensic Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of acoustic splicing?", "What did the ViT model report?").
+                  Hello Investigator. I am Truth Lens Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of acoustic splicing?", "What did the ViT model report?").
                 </div>
               </div>
               <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
-                <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Forensic Copilot a question...">
+                <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Truth Lens Copilot a question...">
                 <button type="submit" class="btn btn-primary btn-sm">Send</button>
               </form>
             </div>

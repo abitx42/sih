@@ -1,16 +1,16 @@
-# EVIDENCE-X : Digital Evidence Forensic Verification Platform
+# Truth Lens : Digital Evidence Forensics Platform
 > **Smart India Hackathon (SIH 2026) • PS-27: Deepfake Detection for Digital Evidence Verification (KAVACH 2023)**  
-> *Tagline: "Verify Before You Trust."*
+> *Tagline: "See the signals. Review the evidence."*
 
 ---
 
 ## 🎯 Executive Summary & Core Mission
 Traditional deepfake detectors output a binary `"Real or Fake"` verdict or an isolated probability score. In a legal and digital forensic context, this is insufficient.
 
-EVIDENCE-X addresses the central investigative question:  
+Truth Lens addresses the central investigative question:  
 > **"What verifiable signals and indicators can assist an investigator in assessing digital evidence?"**
 
-By combining **Cryptographic Bitstream Fingerprinting (SHA-256 baseline recording)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Detection**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Physical Signal Deconstruction (ELA 95%, 2D FFT, Sensor-Noise Consistency, STFT Spectrogram, Waveform Envelope)**, an **Append-Only Application Custody Log**, and an **AI Forensic Copilot (TCET CoE Gateway / Qwen 3.6)**, EVIDENCE-X provides investigators with an explainable multi-signal forensic assessment dossier.
+By combining **Cryptographic Bitstream Fingerprinting (SHA-256 baseline recording)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Detection**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Physical Signal Deconstruction (ELA 95%, 2D FFT, Sensor-Noise Consistency, STFT Spectrogram, Waveform Envelope)**, an **Append-Only Application Custody Log**, and an **AI Forensic Copilot (TCET CoE Gateway / Qwen 3.6)**, Truth Lens provides investigators with an explainable multi-signal forensic assessment dossier.
 
 ---
 

@@ -26,7 +26,7 @@ class ForensicReportGenerator:
         custody_events: List[Dict[str, Any]]
     ) -> Path:
         evidence_id = evidence_data.get("evidence_id", "EV-UNKNOWN")
-        output_filename = f"Forensic_Report_{evidence_id}.pdf"
+        output_filename = f"truth_lens_report_{evidence_id}.pdf"
         output_path = REPORTS_DIR / output_filename
 
         doc = SimpleDocTemplate(
@@ -60,21 +60,21 @@ class ForensicReportGenerator:
             alignment=TA_CENTER
         )
         section_style = ParagraphStyle(
-            'SectionHeader',
+            'DocSection',
             parent=styles['Heading2'],
             fontName='Helvetica-Bold',
-            fontSize=10.5,
+            fontSize=11,
             leading=14,
             textColor=colors.HexColor("#1e293b"),
             spaceBefore=8,
-            spaceAfter=3
+            spaceAfter=4
         )
         body_style = ParagraphStyle(
-            'BodyDark',
+            'DocBody',
             parent=styles['Normal'],
             fontName='Helvetica',
             fontSize=8,
-            leading=11.5,
+            leading=11,
             textColor=colors.HexColor("#334155")
         )
         bold_body = ParagraphStyle(
@@ -99,10 +99,10 @@ class ForensicReportGenerator:
         story = []
 
         # 1. Header Banner
-        story.append(Paragraph("EVIDENCE-X : DIGITAL EVIDENCE FORENSIC ASSESSMENT REPORT", title_style))
+        story.append(Paragraph("TRUTH LENS : DIGITAL EVIDENCE FORENSIC ASSESSMENT REPORT", title_style))
         story.append(Paragraph("AUTOMATED MULTI-SIGNAL SCREENING DOSSIER & INVESTIGATOR REVIEW AID", subtitle_style))
         story.append(Spacer(1, 3))
-        story.append(Paragraph(f"Forensic Assessment Report | Prototype Review Aid (SIH PS-27) | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
+        story.append(Paragraph(f"Truth Lens Forensic Assessment Report | Prototype Review Aid (SIH PS-27) | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 5))
         story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2563eb"), spaceAfter=7))
 
@@ -358,7 +358,7 @@ class ForensicReportGenerator:
 
         # 9. Legal Disclaimer
         disclaimer = (
-            "<b>FORENSIC & LEGAL DISCLAIMER:</b> This report was generated automatically by the EVIDENCE-X prototype "
+            "<b>FORENSIC & LEGAL DISCLAIMER:</b> This report was generated automatically by the Truth Lens prototype "
             "(SIH PS-27) as an investigative review aid. Outputs, anomaly scores, and model predictions are automated screening "
             "indicators and do not constitute legal proof, certified expert testimony, or definitive determinations of authenticity "
             "or manipulation. All findings require independent examination by qualified forensic examiners and legal review prior to evidentiary submission."

@@ -4,7 +4,7 @@ from app.core.integrity_engine import calculate_file_hashes, verify_integrity
 
 def test_hash_calculation():
     with tempfile.NamedTemporaryFile(delete=False) as f:
-        f.write(b"EVIDENCE-X SECURE CRYPTOGRAPHIC TEST PAYLOAD")
+        f.write(b"TRUTH LENS SECURE CRYPTOGRAPHIC TEST PAYLOAD")
         temp_path = Path(f.name)
 
     try:

@@ -135,7 +135,7 @@ class AIExplanationResponse(BaseModel):
     evidence_id: str
     investigator_summary: str
     technical_findings_requiring_review: Union[List[str], str]
-    limitations: str
+    limitations: Union[List[str], str]
     recommended_next_steps: Union[List[str], str]
     disclaimer: str = "AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility."
     source: str

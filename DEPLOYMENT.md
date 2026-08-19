@@ -1,4 +1,4 @@
-# EVIDENCE-X Deployment & Demo Guide
+# Truth Lens Deployment & Demo Guide
 
 **Problem Statement:** SIH PS-27 (KAVACH 2023) — Digital Evidence Verification Platform  
 **Target Environment:** Localhost / LAN / Cloudflare Tunnel Prototype  
@@ -7,7 +7,7 @@
 
 ## 1. Architectural Overview & Demo Topology
 
-EVIDENCE-X is a full-stack digital forensics platform consisting of:
+Truth Lens is a full-stack digital forensics platform consisting of:
 - **Backend:** FastAPI (Python 3.9+) with asynchronous ingestion pipeline (`BackgroundTasks`).
 - **Database & Storage:** SQLite (`storage/evidence_x.db`) with localized exhibit storage (`storage/evidence/`, `storage/forensic/`).
 - **Machine Learning Engine:** Local PyTorch Hugging Face Vision Transformer (`dima806/deepfake_vs_real_image_detection` @ revision `29e4cf9efc543845610045f6ba7e88e5cf9d9301`).
@@ -16,7 +16,7 @@ EVIDENCE-X is a full-stack digital forensics platform consisting of:
 
 > [!IMPORTANT]
 > **Why Vercel / Netlify Are Not Suitable for the Complete Application:**  
-> Serverless platforms like Vercel have strict payload limits (4.5 MB), 10–15s execution timeouts, ephemeral filesystems (no persistent SQLite or exhibit blobs), and no GPU/PyTorch runtime support. Vercel can only host static frontends. EVIDENCE-X requires a persistent Python environment for multi-frame video decoding, signal FFT/ELA computation, and local ML inference.
+> Serverless platforms like Vercel have strict payload limits (4.5 MB), 10–15s execution timeouts, ephemeral filesystems (no persistent SQLite or exhibit blobs), and no GPU/PyTorch runtime support. Vercel can only host static frontends. Truth Lens requires a persistent Python environment for multi-frame video decoding, signal FFT/ELA computation, and local ML inference.
 
 ---
 

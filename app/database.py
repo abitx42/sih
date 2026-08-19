@@ -193,7 +193,7 @@ def reconcile_orphaned_jobs() -> int:
             cursor.execute("""
             INSERT INTO chain_of_custody (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (event_id, ev_id, "ANALYSIS_FAILED", "EVIDENCE-X System Recovery", rec["sha256_hash"], f"Job recovery: {safe_msg}", now))
+            """, (event_id, ev_id, "ANALYSIS_FAILED", "Truth Lens System Recovery", rec["sha256_hash"], f"Job recovery: {safe_msg}", now))
 
     return recovered
 

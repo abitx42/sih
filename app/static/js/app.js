@@ -1,4 +1,4 @@
-// EVIDENCE-X Web Application Controller
+// Truth Lens Web Application Controller
 
 let currentEvidenceId = null;
 let currentEvidenceData = null;

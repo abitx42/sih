@@ -27,7 +27,7 @@ init_db()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Digital Evidence Forensic Assessment Platform — SIH PS-27",
+    description="Digital Evidence Forensics Platform — SIH PS-27",
     version=settings.VERSION
 )
 
@@ -66,7 +66,7 @@ def serve_index():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
         return FileResponse(str(index_file))
-    return {"message": "EVIDENCE-X Backend API is active. Web UI initializing."}
+    return {"message": "Truth Lens Backend API is active. Web UI initializing."}
 
 @app.get("/api/health")
 def health_check():

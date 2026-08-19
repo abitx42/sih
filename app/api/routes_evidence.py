@@ -86,9 +86,9 @@ def execute_forensic_pipeline(evidence_id: str):
         model_status = analysis_res.get("model_status", "ANALYSIS_UNAVAILABLE")
         ai_indicator = analysis_res.get("ai_manipulation_indicator")
         model_confidence = analysis_res.get("model_confidence")
-        ai_model_name = analysis_res.get("ai_model_name", "EVIDENCE-X Signal Engine")
-        ai_model_version = analysis_res.get("ai_model_version", "1.0")
-        forensic_anomaly_score = analysis_res.get("forensic_anomaly_score", analysis_res.get("signal_anomalies_score", 0.0))
+        ai_model_name = analysis_res.get("ai_model_name") or "Truth Lens Signal Engine"
+        ai_model_version = analysis_res.get("ai_model_version") or "1.0"
+        forensic_anomaly_score = float(analysis_res.get("forensic_anomaly_score", analysis_res.get("signal_anomalies_score", 0.0)))
 
         # Add Provenance Finding if present
         if provenance_status == "DETECTED_UNVERIFIED_MANIFEST" or "DETECTED" in provenance_status:
@@ -122,7 +122,7 @@ def execute_forensic_pipeline(evidence_id: str):
             ai_manipulation_indicator=ai_indicator,
             model_status=model_status,
             forensic_anomaly_score=forensic_anomaly_score,
-            metadata_anomaly_score=analysis_res.get("metadata_anomaly_score", 0.0),
+            metadata_anomaly_score=float(analysis_res.get("metadata_anomaly_score", 0.0)),
             provenance_status=provenance_status,
             findings=findings
         )
@@ -143,6 +143,15 @@ def execute_forensic_pipeline(evidence_id: str):
         result_id = f"RES-{uuid.uuid4().hex[:8].upper()}"
         analyzed_at = datetime.utcnow().isoformat() + "Z"
 
+        def _json_safe(obj):
+            if hasattr(obj, "tolist"):
+                return obj.tolist()
+            if hasattr(obj, "__float__"):
+                return float(obj)
+            if hasattr(obj, "__int__"):
+                return int(obj)
+            return str(obj)
+
         with get_db() as conn:
             cursor = conn.cursor()
             
@@ -157,10 +166,10 @@ def execute_forensic_pipeline(evidence_id: str):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 result_id, evidence_id, "VERIFIED", provenance_status,
-                ai_indicator, ai_indicator, ai_model_name,
+                ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
                 ai_model_version, model_confidence, model_status,
                 forensic_anomaly_score, risk_score, risk_cat,
-                confidence, analyzed_at, json.dumps(raw_metrics),
+                confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
                 narrative_res.get("summary", ""),
                 narrative_res.get("recommendations", "")
             ))
@@ -185,14 +194,14 @@ def execute_forensic_pipeline(evidence_id: str):
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
             action="FORENSIC_ANALYSIS_COMPLETED",
-            actor="EVIDENCE-X Forensic Engine",
+            actor="Truth Lens Forensic Engine",
             recorded_sha256=evidence["sha256_hash"],
             details=f"Modality ({modality}) automated multi-signal analysis executed. {len(findings)} findings logged. Model status: {model_status}."
         )
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
             action="RISK_ASSESSED",
-            actor="EVIDENCE-X Risk Engine",
+            actor="Truth Lens Risk Engine",
             recorded_sha256=evidence["sha256_hash"],
             details=f"Calculated Forensic Risk: {risk_score}/100 ({risk_cat}). AI manipulation indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'}."
         )
@@ -215,7 +224,7 @@ def execute_forensic_pipeline(evidence_id: str):
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
             action="ANALYSIS_FAILED",
-            actor="EVIDENCE-X Forensic Engine",
+            actor="Truth Lens Forensic Engine",
             recorded_sha256=recorded_hash,
             details=f"Automated pipeline processing failed: {safe_error}"
         )
