@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  truth-lens:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: truth-lens-app
+    restart: unless-stopped
+    ports:
+      # Map host port 80 (HTTP) to container port 8000
+      # Change host port via HOST_PORT variable in .env if desired (e.g. HOST_PORT=8000)
+      - "${HOST_PORT:-80}:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - STORAGE_DIR=/app/storage
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1,http://localhost:8000,http://127.0.0.1:8000}
+      - HF_MODEL_NAME=${HF_MODEL_NAME:-dima806/deepfake_vs_real_image_detection}
+      - HF_MODEL_REVISION=${HF_MODEL_REVISION:-29e4cf9efc543845610045f6ba7e88e5cf9d9301}
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://ai.tcetcercd.in/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.6}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-150}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Persistent host volume mount for SQLite, exhibits, heatmaps, PDFs, and Hugging Face model cache
+      - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

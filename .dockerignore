@@ -1,0 +1,62 @@
+# Git & CI
+.git
+.github
+.gitignore
+
+# Python & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+pytest-report.xml
+pytest-failure-report/
+
+# Secrets & Environment configs
+.env
+.env.*
+!.env.example
+
+# Local Storage (mounted via host volumes)
+storage/evidence/*
+storage/forensic/*
+storage/reports/*
+storage/models/*
+storage/*.db
+storage/*.db-journal
+storage/*.db-wal
+storage/*.db-shm
+
+# IDE & OS Metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Documentation drafts & rehearsal notes
+DEMO_REHEARSAL.md

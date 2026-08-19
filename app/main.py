@@ -68,6 +68,7 @@ def serve_index():
         return FileResponse(str(index_file))
     return {"message": "Truth Lens Backend API is active. Web UI initializing."}
 
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     return {
