@@ -9,6 +9,6 @@ scipy==1.13.1
 reportlab==4.2.0
 requests==2.32.3
 pytest==8.2.2
-torch
-torchvision
-transformers
+torch==2.8.0
+torchvision==0.23.0
+transformers==4.57.6

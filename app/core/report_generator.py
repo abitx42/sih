@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List
@@ -44,8 +45,8 @@ class ForensicReportGenerator:
             'DocTitle',
             parent=styles['Heading1'],
             fontName='Helvetica-Bold',
-            fontSize=18,
-            leading=22,
+            fontSize=17,
+            leading=21,
             textColor=colors.HexColor("#0f172a"),
             alignment=TA_CENTER
         )
@@ -53,8 +54,8 @@ class ForensicReportGenerator:
             'DocSubtitle',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=10,
-            leading=14,
+            fontSize=9.5,
+            leading=13,
             textColor=colors.HexColor("#2563eb"),
             alignment=TA_CENTER
         )
@@ -62,18 +63,18 @@ class ForensicReportGenerator:
             'SectionHeader',
             parent=styles['Heading2'],
             fontName='Helvetica-Bold',
-            fontSize=11,
-            leading=15,
+            fontSize=10.5,
+            leading=14,
             textColor=colors.HexColor("#1e293b"),
-            spaceBefore=9,
-            spaceAfter=4
+            spaceBefore=8,
+            spaceAfter=3
         )
         body_style = ParagraphStyle(
             'BodyDark',
             parent=styles['Normal'],
             fontName='Helvetica',
-            fontSize=8.5,
-            leading=12,
+            fontSize=8,
+            leading=11.5,
             textColor=colors.HexColor("#334155")
         )
         bold_body = ParagraphStyle(
@@ -85,8 +86,8 @@ class ForensicReportGenerator:
             'TableCell',
             parent=styles['Normal'],
             fontName='Helvetica',
-            fontSize=8,
-            leading=11,
+            fontSize=7.5,
+            leading=10,
             textColor=colors.HexColor("#1e293b")
         )
         table_cell_bold = ParagraphStyle(
@@ -100,10 +101,10 @@ class ForensicReportGenerator:
         # 1. Header Banner
         story.append(Paragraph("EVIDENCE-X : FORENSIC VERIFICATION DOSSIER", title_style))
         story.append(Paragraph("DIGITAL EVIDENCE INTEGRITY & AUTOMATED FORENSIC SIGNAL ASSESSMENT", subtitle_style))
-        story.append(Spacer(1, 4))
-        story.append(Paragraph(f"Standard Compliance: ISO/IEC 27037 & SIH PS-27 Specification | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7.5, leading=10, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
-        story.append(Spacer(1, 6))
-        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2563eb"), spaceAfter=8))
+        story.append(Spacer(1, 3))
+        story.append(Paragraph(f"Standard Compliance: ISO/IEC 27037 & SIH PS-27 Specification | Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", ParagraphStyle('MetaHead', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#64748b"))))
+        story.append(Spacer(1, 5))
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#2563eb"), spaceAfter=7))
 
         # 2. Case & Evidence Summary Table
         risk_cat = forensic_result.get("risk_category", "UNKNOWN")
@@ -140,71 +141,86 @@ class ForensicReportGenerator:
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ]))
         story.append(t_case)
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 6))
 
         # 3. Cryptographic Fingerprints & Integrity Note
         story.append(Paragraph("1. File Integrity & Cryptographic Baseline (Bit-Level Verification)", section_style))
-        story.append(Paragraph("<i>Note: Cryptographic hash matching certifies bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7.5, leading=10, textColor=colors.HexColor("#64748b"))))
-        story.append(Spacer(1, 3))
+        story.append(Paragraph("<i>Note: Cryptographic hash matching certifies bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
+        story.append(Spacer(1, 2))
         hash_data = [
             [Paragraph("<b>Algorithm</b>", table_cell_bold), Paragraph("<b>Cryptographic Hash Fingerprint</b>", table_cell_bold), Paragraph("<b>Baseline Match</b>", table_cell_bold)],
-            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='7'>{evidence_data.get('sha256_hash', 'N/A')}</font>", table_cell), Paragraph(forensic_result.get("integrity_status", "VERIFIED"), table_cell_bold)],
-            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='6'>{evidence_data.get('sha512_hash', 'N/A')[:64]}...</font>", table_cell), Paragraph("MATCH", table_cell)],
-            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='7'>{evidence_data.get('md5_hash', 'N/A')}</font>", table_cell), Paragraph("MATCH", table_cell)],
+            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('sha256_hash', 'N/A')}</font>", table_cell), Paragraph(forensic_result.get("integrity_status", "VERIFIED"), table_cell_bold)],
+            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{evidence_data.get('sha512_hash', 'N/A')[:64]}...</font>", table_cell), Paragraph("MATCH", table_cell)],
+            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('md5_hash', 'N/A')}</font>", table_cell), Paragraph("MATCH", table_cell)],
         ]
         t_hash = Table(hash_data, colWidths=[65, 395, 80])
         t_hash.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ]))
         story.append(t_hash)
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 6))
 
         # 4. Machine Learning Vision Model Assessment
-        story.append(Paragraph("2. Machine Learning Vision Model Assessment", section_style))
+        story.append(Paragraph("2. Machine Learning Vision Model Assessment & Reproducibility Metadata", section_style))
         ml_model = forensic_result.get("ai_model_name", "dima806/deepfake_vs_real_image_detection")
-        ml_ver = forensic_result.get("ai_model_version") or "main"
+        ml_ver = forensic_result.get("ai_model_version") or "29e4cf9efc543845610045f6ba7e88e5cf9d9301"
         ml_status = forensic_result.get("model_status", "AVAILABLE")
         ml_indicator = forensic_result.get("ai_manipulation_indicator")
         ml_conf = forensic_result.get("model_confidence")
 
-        indicator_str = f"{round(ml_indicator * 100, 1)}%" if ml_indicator is not None else "ANALYSIS UNAVAILABLE"
+        indicator_str = f"{round(ml_indicator * 100, 1)}%" if ml_indicator is not None else ml_status
         conf_str = f"{round(ml_conf * 100, 1)}%" if ml_conf is not None else "N/A"
 
         raw_metrics = forensic_result.get("raw_metrics_json", {})
         if isinstance(raw_metrics, str):
-            import json
             try:
                 raw_metrics = json.loads(raw_metrics)
             except Exception:
                 raw_metrics = {}
 
         ml_details = raw_metrics.get("ml_detector", {})
-        runtime_dev = ml_details.get("runtime_device", "local-cpu")
+        runtime_dev = ml_details.get("runtime_device", "cpu")
+        inference_ts = ml_details.get("inference_timestamp", forensic_result.get("analyzed_at", "N/A"))[:19]
+        label_map_str = json.dumps(ml_details.get("label_mapping", {0: "REAL", 1: "FAKE"}))
 
         ml_table_data = [
-            [Paragraph("<b>Model Architecture / Repo</b>", table_cell_bold), Paragraph("<b>Revision</b>", table_cell_bold), Paragraph("<b>Model Status</b>", table_cell_bold), Paragraph("<b>AI Manipulation Indicator</b>", table_cell_bold), Paragraph("<b>Confidence</b>", table_cell_bold), Paragraph("<b>Device</b>", table_cell_bold)],
-            [Paragraph(f"<font size='7'>{ml_model}</font>", table_cell), Paragraph(f"<font size='7'>{ml_ver}</font>", table_cell), Paragraph(f"<b>{ml_status}</b>", table_cell_bold), Paragraph(f"<b>{indicator_str}</b>", table_cell_bold), Paragraph(conf_str, table_cell), Paragraph(runtime_dev, table_cell)]
+            [
+                Paragraph("<b>Model Architecture / Repo</b>", table_cell_bold),
+                Paragraph("<b>Revision (Commit)</b>", table_cell_bold),
+                Paragraph("<b>Model Status</b>", table_cell_bold),
+                Paragraph("<b>AI Indicator</b>", table_cell_bold),
+                Paragraph("<b>Confidence</b>", table_cell_bold),
+                Paragraph("<b>Device / Timestamp</b>", table_cell_bold)
+            ],
+            [
+                Paragraph(f"<font size='6.5'>{ml_model}</font>", table_cell),
+                Paragraph(f"<font size='5.5'>{ml_ver[:12]}...</font>", table_cell),
+                Paragraph(f"<b>{ml_status}</b>", table_cell_bold),
+                Paragraph(f"<b>{indicator_str}</b>", table_cell_bold),
+                Paragraph(conf_str, table_cell),
+                Paragraph(f"<font size='6'>{runtime_dev} • {inference_ts}</font>", table_cell)
+            ]
         ]
-        t_ml = Table(ml_table_data, colWidths=[170, 50, 95, 115, 60, 50])
+        t_ml = Table(ml_table_data, colWidths=[150, 65, 95, 80, 50, 100])
         t_ml.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ]))
         story.append(t_ml)
-        story.append(Spacer(1, 3))
-        story.append(Paragraph("<i>Important Notice: The AI manipulation indicator is an automated statistical classification metric produced by the local vision model, not definitive legal proof of authenticity or manipulation.</i>", ParagraphStyle('MLDisc', parent=body_style, fontSize=7, leading=9.5, textColor=colors.HexColor("#64748b"))))
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 2))
+        story.append(Paragraph(f"<i>Label Mapping: {label_map_str} | Notice: The AI manipulation indicator is an automated statistical classification metric produced by the local vision model, not definitive legal proof of authenticity or manipulation.</i>", ParagraphStyle('MLDisc', parent=body_style, fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
+        story.append(Spacer(1, 6))
 
         # 5. Executive Forensic Narrative & Recommendations
         story.append(Paragraph("3. Executive Forensic Narrative & Recommendations", section_style))
@@ -212,9 +228,9 @@ class ForensicReportGenerator:
         recom_text = forensic_result.get("recommendations") or "No further actions required."
         
         story.append(Paragraph(f"<b>Automated Findings Synthesis:</b> {summary_text}", body_style))
-        story.append(Spacer(1, 3))
+        story.append(Spacer(1, 2))
         story.append(Paragraph(f"<b>Investigator Recommendations:</b><br/>{recom_text.replace(chr(10), '<br/>')}", body_style))
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 6))
 
         # 6. Detailed Forensic Findings Breakdown
         story.append(Paragraph("4. Technical Forensic Findings Breakdown", section_style))
@@ -252,11 +268,11 @@ class ForensicReportGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ]))
         story.append(t_find)
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 6))
 
         # 7. Visual Forensic Exhibits
         ela_path = raw_metrics.get("ela_image_path")
@@ -276,9 +292,9 @@ class ForensicReportGenerator:
             for title, img_p in visual_exhibits:
                 try:
                     story.append(Paragraph(f"<b>{title}</b>", body_style))
-                    story.append(Spacer(1, 2))
-                    story.append(RLImage(img_p, width=220, height=140))
-                    story.append(Spacer(1, 4))
+                    story.append(Spacer(1, 1.5))
+                    story.append(RLImage(img_p, width=220, height=130))
+                    story.append(Spacer(1, 3))
                 except Exception:
                     pass
 
@@ -307,11 +323,11 @@ class ForensicReportGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
         ]))
         story.append(t_coc)
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 8))
 
         # 9. Legal Disclaimer & NIST Notice
         disclaimer = (
@@ -321,7 +337,7 @@ class ForensicReportGenerator:
             "are statistical classification signals and must be corroborated by qualified forensic examiners and physical "
             "corroborating evidence prior to formal submission in a court of law."
         )
-        story.append(Paragraph(disclaimer, ParagraphStyle('Disc', parent=styles['Normal'], fontSize=7, leading=9.5, textColor=colors.HexColor("#64748b"))))
+        story.append(Paragraph(disclaimer, ParagraphStyle('Disc', parent=styles['Normal'], fontSize=6.5, leading=8.5, textColor=colors.HexColor("#64748b"))))
 
         # Build PDF
         doc.build(story)

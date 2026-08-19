@@ -167,8 +167,18 @@ class ImageAnalyzer(BaseAnalyzer):
                     score=pct_val,
                     explanation=f"Local Vision Transformer classifier indicated low probability of manipulation ({pct_val}%, confidence: {conf_pct}%)."
                 ))
+        elif model_status == "ANALYSIS INCONCLUSIVE":
+            conf_pct = round(model_conf * 100, 1) if model_conf else 0
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name=f"ML Vision Classifier: ANALYSIS INCONCLUSIVE",
+                category="AI_DETECTION",
+                severity="MEDIUM",
+                score=50.0,
+                explanation=f"The loaded vision model's class labels could not be deterministically mapped to manipulation categories (confidence: {conf_pct}%). Statistical AI manipulation indicator is withheld.",
+                location_ref="Vision Transformer Output"
+            ))
         else:
-            # Model offline / unavailable - do not invent score!
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
                 signal_name=f"ML Vision Classifier: ANALYSIS UNAVAILABLE",
@@ -208,7 +218,6 @@ class ImageAnalyzer(BaseAnalyzer):
         except Exception:
             pass
 
-        # Check for editing software tags
         software = exif_data.get("Software", "")
         if software:
             lower_soft = software.lower()

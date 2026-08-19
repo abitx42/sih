@@ -15,6 +15,7 @@ class HFImageDetector:
     Runs 'dima806/deepfake_vs_real_image_detection' strictly in local memory.
     Never sends evidence images to external servers.
     If the model fails to load or inference fails, returns ANALYSIS UNAVAILABLE.
+    If model labels cannot be safely mapped, returns ANALYSIS INCONCLUSIVE.
     """
 
     def __init__(self):
@@ -93,7 +94,7 @@ class HFImageDetector:
             self._id2label = getattr(self._model.config, "id2label", {0: "REAL", 1: "FAKE"})
             self._is_loaded = True
             self._load_error = None
-            logger.info(f"Successfully loaded HF Model '{self.model_name}'. id2label: {self._id2label}")
+            logger.info(f"Successfully loaded HF Model '{self.model_name}' (rev: {self.model_revision}). id2label: {self._id2label}")
             return True
         except Exception as e:
             self._is_loaded = False
@@ -107,9 +108,9 @@ class HFImageDetector:
         Matches common synthetic vs real synonyms without blind assumptions.
         """
         clean = str(raw_label).strip().lower()
-        if any(term in clean for term in ["fake", "manipulated", "synthetic", "generated", "deepfake", "ai_generated", "label_1", "1"]):
+        if any(term in clean for term in ["fake", "manipulated", "synthetic", "generated", "deepfake", "ai_generated"]):
             return "MANIPULATED"
-        if any(term in clean for term in ["real", "authentic", "pristine", "original", "natural", "label_0", "0"]):
+        if any(term in clean for term in ["real", "authentic", "pristine", "original", "natural"]):
             return "UNMANIPULATED"
         return "UNKNOWN"
 
@@ -172,25 +173,48 @@ class HFImageDetector:
             # Defensive label resolution from id2label
             manipulated_prob = None
             unmanipulated_prob = None
+            has_recognized_mapping = False
 
             for class_idx, prob_val in enumerate(probs.tolist()):
                 raw_lbl = self._id2label.get(class_idx, str(class_idx))
                 normalized_lbl = self._classify_label_defensively(raw_lbl)
                 if normalized_lbl == "MANIPULATED":
                     manipulated_prob = prob_val
+                    has_recognized_mapping = True
                 elif normalized_lbl == "UNMANIPULATED":
                     unmanipulated_prob = prob_val
+                    has_recognized_mapping = True
 
-            # If mapping not recognized, fallback to top prediction
             top_idx = int(torch.argmax(probs).item())
             top_prob = float(probs[top_idx].item())
             top_raw_label = self._id2label.get(top_idx, str(top_idx))
-            top_normalized = self._classify_label_defensively(top_raw_label)
 
+            # If NO class in id2label maps safely to MANIPULATED or UNMANIPULATED:
+            if not has_recognized_mapping:
+                return {
+                    "ai_model_name": self.model_name,
+                    "ai_model_version": self.model_revision,
+                    "ai_manipulation_indicator": None,
+                    "model_confidence": round(top_prob, 4),
+                    "model_status": "ANALYSIS INCONCLUSIVE",
+                    "label_mapping": self._id2label,
+                    "predicted_label": "UNKNOWN",
+                    "raw_label": top_raw_label,
+                    "runtime_device": device_str,
+                    "inference_timestamp": timestamp,
+                    "error_detail": "Model class labels could not be safely mapped to manipulation categories."
+                }
+
+            # If mapping was recognized:
             if manipulated_prob is not None:
                 ai_indicator = round(float(manipulated_prob), 4)
+                predicted_lbl = "MANIPULATED" if ai_indicator >= 0.5 else "UNMANIPULATED"
+            elif unmanipulated_prob is not None:
+                ai_indicator = round(1.0 - float(unmanipulated_prob), 4)
+                predicted_lbl = "MANIPULATED" if ai_indicator >= 0.5 else "UNMANIPULATED"
             else:
-                ai_indicator = round(top_prob if top_normalized == "MANIPULATED" else (1.0 - top_prob), 4)
+                ai_indicator = None
+                predicted_lbl = "UNKNOWN"
 
             return {
                 "ai_model_name": self.model_name,
@@ -199,7 +223,7 @@ class HFImageDetector:
                 "model_confidence": round(top_prob, 4),
                 "model_status": "AVAILABLE",
                 "label_mapping": self._id2label,
-                "predicted_label": top_normalized,
+                "predicted_label": predicted_lbl,
                 "raw_label": top_raw_label,
                 "runtime_device": device_str,
                 "inference_timestamp": timestamp,

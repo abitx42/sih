@@ -10,7 +10,7 @@ Traditional deepfake detectors output a binary `"Real or Fake"` verdict or an is
 EVIDENCE-X addresses the central investigative question:  
 > **"Can an investigator trust this digital file as forensic evidence?"**
 
-By combining **Cryptographic Bitstream Integrity (SHA-256)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Provenance**, **Multi-Modal AI Manipulation Detection**, **Explainable Signal Deconstruction (ELA, FFT, Vocoder analysis)**, and an **Immutable Chain of Custody Ledger**, EVIDENCE-X provides courts and law enforcement with a defensible, multi-signal verification dossier.
+By combining **Cryptographic Bitstream Integrity (SHA-256)**, **Structural & Container Metadata Forensics**, **C2PA Content Credentials Provenance**, **Local Vision Transformer Classification (dima806/deepfake_vs_real_image_detection)**, **Explainable Heuristic Signal Deconstruction (ELA 95%, 2D FFT, PRNU Noise)**, and an **Immutable Chain of Custody Ledger**, EVIDENCE-X provides courts and law enforcement with a defensible, multi-signal verification dossier.
 
 ---
 
@@ -46,7 +46,7 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
       └─────────────────┼─────────────────┘
                         ▼
             ┌───────────────────────┐
-            │ Specialized AI Models │  (Ensemble Vision, Audio Vocoder, Temporal Net)
+            │ Local ML Classifier   │  (dima806/deepfake_vs_real_image_detection)
             └───────────┬───────────┘
                         │
                         ▼
@@ -63,30 +63,35 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
       ▼                                   ▼
 ┌─────────────────────────┐   ┌─────────────────────────┐
 │ Forensic Copilot (Qwen) │   │ Court-Ready ReportLab   │
-│ Natural Narrative / Q&A │   │ High-Integrity PDF Dossier
+│ TCET CoE Gateway / Q&A  │   │ High-Integrity PDF Dossier
 └─────────────────────────┘   └─────────────────────────┘
 ```
 
 ---
 
-## ⚡ Key Features
+## ⚡ Key Features & Reliability Principles
 
-1. **Deterministic Multi-Signal Risk Engine**:
+1. **Independent Heuristic & ML Signal Separation**:
+   - **Forensic Anomaly Score (0-100)**: Derived from physical compression artifacts (ELA 95%), 2D FFT periodic frequency spikes, PRNU sensor noise inconsistency, and EXIF modification records.
+   - **Local ML Vision Model**: `dima806/deepfake_vs_real_image_detection` running in-process via PyTorch.
+   - **Honest Failure Handling**: If the model is offline or uninstalled, the system outputs `model_status: "ANALYSIS UNAVAILABLE"`. If class labels cannot be mapped, it returns `model_status: "ANALYSIS INCONCLUSIVE"`. **Zero made-up or hallucinated scores.**
+
+2. **Deterministic Multi-Signal Risk Engine**:
    - Scores 0 - 100 with 3-tier categorization:
      - 🟢 **LOW RISK (0 - 30)**: Sound cryptographic baseline, uniform noise, authentic provenance.
-     - 🟡 **REVIEW REQUIRED (31 - 70)**: Inconclusive compression anomalies, missing metadata, or moderate synthesis signals requiring human inspection.
-     - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators (e.g., ELA boundary discrepancy + high AI probability + editing software headers).
-2. **Zero Mocked Scores**: All hashes, ELA diffs, 2D FFT spectrums, STFT spectrograms, and temporal flickers are computed mathematically on ingested bytes.
-3. **Multi-Modal Forensic Coverage**:
-   - **Images**: Error Level Analysis (ELA 95%), 2D FFT Frequency Grid artifact detection, PRNU noise residual variance, EXIF camera tags.
-   - **Videos**: Container inspection, keyframe sampling, temporal luminosity flicker analysis, inter-frame structural stability.
-   - **Audio**: STFT Spectrogram visual exhibits, acoustic splicing detection, neural vocoder high-frequency cutoff analysis.
-   - **Documents**: PDF multiple EOF incremental revision checks, embedded JavaScript/launch streams, DOCX/XLSX OOXML macro inspection.
-   - **Archives**: Zip Slip path traversal defense, archive bomb protection, and nested file SHA-256 fingerprinting.
-4. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
-5. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
-6. **Forensic Copilot (TCET CoE Gateway / Qwen 3.6)**: Context-isolated assistant for executive narrative drafting, investigator recommendations, and interactive evidence Q&A (with deterministic offline fallback).
-7. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Spectrogram), cryptographic tables, and legal disclaimers.
+     - 🟡 **REVIEW REQUIRED (31 - 70)**: Inconclusive compression anomalies, unavailable ML analysis, or moderate synthesis signals requiring human inspection.
+     - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators (e.g., ELA boundary discrepancy + high AI indicator + editing software headers).
+   - **Integrity Rule**: SHA-256 integrity is recorded strictly as file bitstream preservation; it does **not** artificially reduce AI manipulation risk or prove authenticity.
+
+3. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
+
+4. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+
+5. **Forensic Copilot (TCET CoE AI Gateway)**:
+   - Configured for `https://ai.tcetcercd.in/v1` with model `qwen3.6`.
+   - Context-isolated assistant for executive narrative drafting, investigator recommendations, and interactive evidence Q&A (with deterministic offline fallback).
+
+6. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
 
 ---
 
@@ -101,11 +106,15 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 # Clone or navigate to directory
 cd sih
 
-# Activate virtual environment
+# Create & activate virtual environment
+python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install pinned dependencies
 pip install -r requirements.txt
+
+# (Optional) Pre-download & cache local Hugging Face vision model
+PYTHONPATH=. python3 scripts/download_model.py
 ```
 
 ### 3. Running the Server
@@ -118,12 +127,26 @@ Open your browser at: **`http://localhost:8000`**
 
 ---
 
-## 🧪 Running Automated Tests
+## 🧪 Testing & CI Workflow
+
+### Local Test Execution
+Run the full test suite excluding slow tests:
 ```bash
 source venv/bin/activate
-pytest -v
+PYTHONPATH=. pytest -v -m "not slow"
 ```
-All unit tests for cryptographic integrity, risk engine weighting, security validators, analyzers, and API endpoints run automatically.
+
+To run all tests including slow real-model integration tests:
+```bash
+PYTHONPATH=. pytest -v
+```
+
+### GitHub Actions CI Workflow (`.github/workflows/tests.yml`)
+Automated continuous integration runs on every `push` and `pull_request` to branch `main`:
+- Sets up Python 3.9 on `ubuntu-latest`
+- Installs pinned dependencies from `requirements.txt`
+- Executes `PYTHONPATH=. pytest -v -m "not slow" --junitxml=pytest-report.xml`
+- Uploads `pytest-failure-report` artifact if any tests fail.
 
 ---
 

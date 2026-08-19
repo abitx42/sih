@@ -6,6 +6,8 @@ from PIL import Image
 import torch
 
 from app.analyzers.hf_image_detector import HFImageDetector
+from app.config import settings
+from app.core.risk_engine import RiskEngine
 
 def test_mock_successful_manipulated_prediction():
     """
@@ -16,7 +18,6 @@ def test_mock_successful_manipulated_prediction():
     detector._device = "cpu"
     detector._id2label = {0: "REAL", 1: "FAKE"}
     
-    # Mock processor and model
     mock_processor = MagicMock()
     mock_processor.return_tensors = "pt"
     mock_processor.return_value = {"pixel_values": torch.zeros((1, 3, 224, 224))}
@@ -24,7 +25,6 @@ def test_mock_successful_manipulated_prediction():
 
     mock_model = MagicMock()
     mock_outputs = MagicMock()
-    # Logits strongly predicting FAKE (class 1)
     mock_outputs.logits = torch.tensor([[-2.5, 4.5]])
     mock_model.return_value = mock_outputs
     detector._model = mock_model
@@ -55,7 +55,6 @@ def test_mock_successful_unmanipulated_prediction():
 
     mock_model = MagicMock()
     mock_outputs = MagicMock()
-    # Logits strongly predicting authentic (class 0)
     mock_outputs.logits = torch.tensor([[5.0, -3.0]])
     mock_model.return_value = mock_outputs
     detector._model = mock_model
@@ -67,6 +66,36 @@ def test_mock_successful_unmanipulated_prediction():
     assert res["ai_manipulation_indicator"] is not None
     assert res["ai_manipulation_indicator"] < 0.10
     assert res["predicted_label"] == "UNMANIPULATED"
+
+def test_unknown_label_map_returns_analysis_inconclusive():
+    """
+    Test that when model class labels cannot be mapped to MANIPULATED/UNMANIPULATED,
+    it returns ANALYSIS INCONCLUSIVE with ai_manipulation_indicator: None and does not guess 1 - top_prob.
+    """
+    detector = HFImageDetector()
+    detector._is_loaded = True
+    detector._device = "cpu"
+    # Unmapped arbitrary labels
+    detector._id2label = {0: "category_alpha", 1: "category_beta"}
+
+    mock_processor = MagicMock()
+    mock_processor.return_value = {"pixel_values": torch.zeros((1, 3, 224, 224))}
+    detector._processor = mock_processor
+
+    mock_model = MagicMock()
+    mock_outputs = MagicMock()
+    mock_outputs.logits = torch.tensor([[2.0, 8.0]])
+    mock_model.return_value = mock_outputs
+    detector._model = mock_model
+
+    img = Image.new("RGB", (80, 80))
+    res = detector.predict(img)
+
+    assert res["model_status"] == "ANALYSIS INCONCLUSIVE"
+    assert res["ai_manipulation_indicator"] is None
+    assert res["model_confidence"] is not None
+    assert res["predicted_label"] == "UNKNOWN"
+    assert "could not be safely mapped" in res["error_detail"]
 
 def test_model_unavailable_returns_analysis_unavailable():
     """
@@ -101,10 +130,33 @@ def test_malformed_image_input_returns_error():
     assert res["ai_manipulation_indicator"] is None
     assert res["error_detail"] is not None
 
+def test_coe_gateway_configuration_defaults():
+    """
+    Test that TCET CoE AI Gateway defaults are correctly configured.
+    """
+    assert "tcetcercd.in" in settings.LLM_API_BASE_URL
+    assert settings.LLM_MODEL == "qwen3.6"
+    assert settings.LLM_API_KEY == ""  # Never committed with actual keys
+
+def test_risk_engine_inconclusive_defaults_to_review_required():
+    """
+    Test that when model_status is ANALYSIS INCONCLUSIVE, RiskEngine defaults to REVIEW REQUIRED.
+    """
+    score, category, conf, comps = RiskEngine.calculate_risk(
+        integrity_status="VERIFIED",
+        ai_manipulation_indicator=None,
+        model_status="ANALYSIS INCONCLUSIVE",
+        forensic_anomaly_score=15.0,
+        metadata_anomaly_score=10.0,
+        provenance_status="VERIFIED",
+        findings=[]
+    )
+    assert category == "REVIEW REQUIRED"
+    assert score >= 35.0
+    assert comps["model_status"] == "ANALYSIS INCONCLUSIVE"
+    assert comps["ai_manipulation_risk"] is None
+
 def test_defensive_label_normalization():
-    """
-    Test defensive label classification with unknown or non-standard labels.
-    """
     detector = HFImageDetector()
     assert detector._classify_label_defensively("deepfake") == "MANIPULATED"
     assert detector._classify_label_defensively("Real") == "UNMANIPULATED"
@@ -122,7 +174,7 @@ def test_real_model_local_inference_smoke():
     res = detector.predict(img)
 
     assert "model_status" in res
-    assert res["model_status"] in ["AVAILABLE", "ANALYSIS UNAVAILABLE", "ERROR"]
+    assert res["model_status"] in ["AVAILABLE", "ANALYSIS UNAVAILABLE", "ANALYSIS INCONCLUSIVE", "ERROR"]
     if res["model_status"] == "AVAILABLE":
         assert isinstance(res["ai_manipulation_indicator"], float)
         assert 0.0 <= res["ai_manipulation_indicator"] <= 1.0

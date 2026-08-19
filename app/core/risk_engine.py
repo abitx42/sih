@@ -9,15 +9,16 @@ class RiskEngine:
     Principles:
     1. SHA-256 integrity only certifies bitstream fidelity against baseline,
        NOT content authenticity.
-    2. When ML classification is ANALYSIS UNAVAILABLE, default to REVIEW REQUIRED
-       (unless independent critical/high findings demand HIGH RISK), never fabricating an ML score.
+    2. When ML classification is ANALYSIS UNAVAILABLE or ANALYSIS INCONCLUSIVE,
+       default to REVIEW REQUIRED (unless independent critical/high findings demand HIGH RISK),
+       never fabricating an ML score.
     """
 
     @staticmethod
     def calculate_risk(
         integrity_status: str,
         ai_manipulation_indicator: Optional[float],  # 0.0 to 1.0 or None
-        model_status: str,  # AVAILABLE, ANALYSIS UNAVAILABLE, ERROR
+        model_status: str,  # AVAILABLE, ANALYSIS UNAVAILABLE, ANALYSIS INCONCLUSIVE, ERROR
         forensic_anomaly_score: float,  # 0.0 to 100.0 (from ELA, FFT, noise)
         metadata_anomaly_score: float,  # 0.0 to 100.0
         provenance_status: str,
@@ -56,8 +57,6 @@ class RiskEngine:
         # 5. ML Manipulation Indicator & Risk Aggregation
         if model_status == "AVAILABLE" and ai_manipulation_indicator is not None:
             ai_risk = max(0.0, min(100.0, ai_manipulation_indicator * 100.0))
-            # Weighted formula with ML active:
-            # AI ML: 40%, Heuristic Signals: 40%, Metadata: 10%, Provenance: 10%
             final_score = (
                 (ai_risk * settings.WEIGHT_AI_MANIPULATION) +
                 (heuristic_risk * settings.WEIGHT_FORENSIC_SIGNALS) +
@@ -67,8 +66,7 @@ class RiskEngine:
             is_ml_available = True
         else:
             ai_risk = None
-            # ML Unavailable: Do NOT increase heuristic weight excessively.
-            # Base risk on heuristic signals (55%), metadata (25%), provenance (20%)
+            # ML Unavailable or Inconclusive: Do NOT increase heuristic weight excessively.
             final_score = (
                 (heuristic_risk * 0.55) +
                 (meta_risk * 0.25) +
@@ -90,14 +88,14 @@ class RiskEngine:
 
         # Categorization logic
         if not is_ml_available:
-            # Rule: If ML analysis was UNAVAILABLE, default to REVIEW REQUIRED
+            # Rule: If ML analysis was UNAVAILABLE or INCONCLUSIVE, default to REVIEW REQUIRED
             # unless independent high/critical findings justify HIGH RISK.
             if final_score >= 70.0 or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
                 risk_category = "HIGH RISK"
             else:
                 risk_category = "REVIEW REQUIRED"
                 final_score = max(35.0, final_score)  # Floor at REVIEW REQUIRED threshold
-            base_confidence = 0.72  # Lower confidence due to missing ML modality
+            base_confidence = 0.70  # Lower confidence due to missing/inconclusive ML modality
         else:
             if final_score <= 30.0:
                 risk_category = "LOW RISK"

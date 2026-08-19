@@ -19,7 +19,7 @@ for directory in [STORAGE_DIR, EVIDENCE_DIR, THUMBNAILS_DIR, FORENSIC_DIR, REPOR
 class Settings:
     PROJECT_NAME: str = "EVIDENCE-X"
     TAGLINE: str = "Digital Evidence Forensic Verification Platform"
-    VERSION: str = "1.1.0"
+    VERSION: str = "1.2.0"
     PS_NUMBER: str = "SIH PS-27 (KAVACH 2023)"
     
     # Server
@@ -37,15 +37,16 @@ class Settings:
         "zip", "tar", "gz", "7z"
     }
 
-    # Hugging Face Vision Model Config (Purely Local Inference)
+    # Hugging Face Vision Model Config (Reproducibility & Local Inference)
+    # Pinned to specific model commit hash for full auditability
     HF_MODEL_NAME: str = os.getenv("HF_MODEL_NAME", "dima806/deepfake_vs_real_image_detection")
-    HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "main")
+    HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "29e4cf9efc543845610045f6ba7e88e5cf9d9301")
     HF_LOCAL_FILES_ONLY: bool = os.getenv("HF_LOCAL_FILES_ONLY", "False").lower() == "true"
 
-    # TCET CoE AI Gateway / LLM Configuration (Forensic Copilot)
-    LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "").strip()
+    # TCET CoE AI Gateway Configuration (Forensic Copilot)
+    LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "https://ai.tcetcercd.in/v1").strip()
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6-35b-a3b")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6")
     
     # Scoring Weights for Deterministic Risk Engine
     WEIGHT_AI_MANIPULATION: float = 0.40
