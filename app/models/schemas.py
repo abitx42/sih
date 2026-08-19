@@ -31,7 +31,22 @@ class EvidenceBase(BaseModel):
     uploaded_by: str
     uploaded_at: str
     status: str
+    pipeline_status: Optional[str] = "COMPLETED"
+    analysis_started_at: Optional[str] = None
+    analyzed_at: Optional[str] = None
+    error_message: Optional[str] = None
     notes: Optional[str] = None
+
+class EvidenceStatusResponse(BaseModel):
+    evidence_id: str
+    status: str
+    pipeline_status: str
+    modality: str
+    original_filename: str
+    uploaded_at: str
+    analysis_started_at: Optional[str] = None
+    analyzed_at: Optional[str] = None
+    error_message: Optional[str] = None
 
 class EvidenceListResponse(BaseModel):
     items: List[EvidenceBase]

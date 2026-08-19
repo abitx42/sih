@@ -47,12 +47,12 @@ class ProvenanceEngine:
                     pass
 
             return {
-                "status": "DETECTED (UNVERIFIED MANIFEST)",
-                "details": f"C2PA Content Credential manifest atom detected in bitstream (claim generator: {generator}). Note: Container structure detected; cryptographic X.509 signature verification is omitted.",
+                "status": "DETECTED_UNVERIFIED_MANIFEST",
+                "details": f"C2PA Content Credential manifest marker detected in bitstream (claim generator: {generator}). Note: Container atom detected; cryptographic signature and certificate chain validation omitted.",
                 "manifest_found": True,
                 "signer": generator,
-                "tool": "C2PA / Content Credentials Standard",
-                "assertions": ["C2PA/JUMBF metadata atom detected in bitstream", "Cryptographic signature validation omitted (requires external trust store)"]
+                "tool": "C2PA / Content Credentials Metadata Standard",
+                "assertions": ["C2PA/JUMBF metadata marker present", "Cryptographic signature unvalidated (requires trust store)"]
             }
         
         # Check standard EXIF / Software tags if any

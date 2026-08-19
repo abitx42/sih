@@ -211,22 +211,30 @@ function handleFileSelected(e) {
 }
 
 async function pollEvidenceStatus(evidenceId) {
-  const maxAttempts = 60;
+  const maxAttempts = 60; // 60 attempts * 2s = 120s max
+  const progressText = document.querySelector("#upload-progress-box div:first-child");
+  
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const res = await fetch(`/api/evidence/${evidenceId}/status`);
       if (res.ok) {
         const data = await res.json();
-        if (data.pipeline_status === "COMPLETED" || data.pipeline_status === "FAILED") {
-          return data;
+        if (progressText) {
+          progressText.innerText = `Analysis in progress... (${data.modality || 'DIGITAL EVIDENCE'})`;
+        }
+        if (data.status === "COMPLETED" || data.pipeline_status === "COMPLETED") {
+          return { success: true, data: data };
+        }
+        if (data.status === "FAILED" || data.pipeline_status === "FAILED") {
+          return { success: false, data: data, error: data.error_message || "Forensic analysis pipeline failed." };
         }
       }
     } catch (e) {
       console.warn("Polling status error:", e);
     }
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
   }
-  return null;
+  return { success: false, error: "Analysis timed out after 120 seconds." };
 }
 
 async function handleEvidenceUpload(e) {
@@ -254,24 +262,29 @@ async function handleEvidenceUpload(e) {
       body: formData
     });
 
-    if (!res.ok) {
+    if (!res.ok && res.status !== 202) {
       const err = await res.json();
-      alert(`Upload failed: ${err.detail || 'Unknown error'}`);
+      alert(`Upload failed: ${escapeHTML(err.detail || 'Unknown error')}`);
       form.style.display = "block";
       progress.style.display = "none";
       return;
     }
 
-    const data = await res.json();
-    
-    // Poll until async background pipeline finishes
-    await pollEvidenceStatus(data.evidence_id);
+    const uploadData = await res.json();
+    const pollResult = await pollEvidenceStatus(uploadData.evidence_id);
 
     form.style.display = "block";
     progress.style.display = "none";
-    openEvidenceInLab(data.evidence_id);
+
+    if (!pollResult.success) {
+      alert(`⚠️ Analysis Failed:\n\n${pollResult.error || 'The forensic verification pipeline failed to process this exhibit.'}\n\nA failure record has been committed to the chain of custody audit log.`);
+      loadDashboardData();
+      return;
+    }
+
+    openEvidenceInLab(uploadData.evidence_id);
   } catch (err) {
-    alert(`Upload error: ${err}`);
+    alert(`Upload error: ${escapeHTML(String(err))}`);
     form.style.display = "block";
     progress.style.display = "none";
   }
@@ -300,10 +313,10 @@ function renderLabView(data) {
   const findings = data.findings || [];
   const rawMetrics = res.raw_metrics_json || {};
 
-  document.getElementById("lab-evidence-id").innerText = ev.evidence_id;
-  document.getElementById("lab-filename").innerText = `${ev.original_filename} (${(ev.file_size_bytes / 1024).toFixed(1)} KB)`;
-  document.getElementById("lab-modality-badge").innerText = ev.modality;
-  document.getElementById("lab-sha256-snippet").innerText = `SHA-256: ${ev.sha256_hash}`;
+  document.getElementById("lab-evidence-id").textContent = ev.evidence_id;
+  document.getElementById("lab-filename").textContent = `${ev.original_filename} (${(ev.file_size_bytes / 1024).toFixed(1)} KB)`;
+  document.getElementById("lab-modality-badge").textContent = ev.modality;
+  document.getElementById("lab-sha256-snippet").textContent = `SHA-256: ${ev.sha256_hash}`;
 
   // Composite Risk Score & Category
   const riskScore = res.forensic_risk_score !== undefined ? res.forensic_risk_score : 0;
@@ -311,8 +324,8 @@ function renderLabView(data) {
   const riskBadge = document.getElementById("lab-risk-badge");
   const riskScoreEl = document.getElementById("lab-risk-score");
 
-  riskScoreEl.innerText = `${riskScore}/100`;
-  riskBadge.innerText = riskCat;
+  riskScoreEl.textContent = `${riskScore}/100`;
+  riskBadge.textContent = riskCat;
 
   if (riskCat === "HIGH RISK") {
     riskBadge.className = "badge badge-high";
@@ -327,41 +340,41 @@ function renderLabView(data) {
 
   // AI Manipulation Indicator (ML Vision Model)
   const aiScoreEl = document.getElementById("lab-ai-score");
-  const modelStatus = res.model_status || "AVAILABLE";
+  const modelStatus = (res.model_status || "ANALYSIS_UNAVAILABLE").replace('_', ' ');
   const modelIndicator = res.ai_manipulation_indicator;
 
   if (modelStatus === "AVAILABLE" && modelIndicator !== null && modelIndicator !== undefined) {
     const aiPct = (modelIndicator * 100).toFixed(1);
-    aiScoreEl.innerText = `${aiPct}%`;
+    aiScoreEl.textContent = `${aiPct}%`;
     aiScoreEl.style.color = aiPct > 70 ? "var(--risk-high)" : (aiPct > 35 ? "var(--risk-medium)" : "var(--risk-low)");
-  } else if (modelStatus === "ANALYSIS INCONCLUSIVE") {
-    aiScoreEl.innerText = "INCONCLUSIVE";
+  } else if (modelStatus.includes("INCONCLUSIVE")) {
+    aiScoreEl.textContent = "INCONCLUSIVE";
     aiScoreEl.style.color = "var(--risk-medium)";
   } else {
-    aiScoreEl.innerText = "UNAVAILABLE";
+    aiScoreEl.textContent = "UNAVAILABLE";
     aiScoreEl.style.color = "var(--text-dim)";
   }
   
   if (ev.modality === "VIDEO") {
     const sampled = rawMetrics.sampled_frames_count || 0;
     const analysed = rawMetrics.ml_detector ? rawMetrics.ml_detector.analysed_frame_count : 0;
-    document.getElementById("lab-ai-model").innerText = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames)`;
+    document.getElementById("lab-ai-model").textContent = `${res.ai_model_name || "ViT Detector"} (${analysed}/${sampled} frames sampled)`;
   } else if (ev.modality === "AUDIO") {
-    document.getElementById("lab-ai-model").innerText = "Acoustic Signal Forensics (No Local ML Model)";
+    document.getElementById("lab-ai-model").textContent = "Acoustic Signal Forensics (No Local ML Model)";
   } else if (ev.modality === "DOCUMENT" || ev.modality === "ARCHIVE") {
-    document.getElementById("lab-ai-model").innerText = "Structural Heuristics (No Local ML Model)";
+    document.getElementById("lab-ai-model").textContent = "Structural Heuristics (No Local ML Model)";
   } else {
-    document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
+    document.getElementById("lab-ai-model").textContent = res.ai_model_name || "ViT Image Detector";
   }
 
   // Heuristic Forensic Anomaly Score (ELA / FFT / Temporal / Acoustic / Noise)
   const heuristicScore = res.forensic_anomaly_score !== undefined ? res.forensic_anomaly_score : 0;
-  document.getElementById("lab-heuristic-score").innerText = `${heuristicScore}/100`;
+  document.getElementById("lab-heuristic-score").textContent = `${heuristicScore}/100`;
 
   // Provenance
   const provStatus = res.provenance_status || "NOT_AVAILABLE";
   const provDetails = rawMetrics.provenance ? rawMetrics.provenance.details : "No C2PA manifest attached.";
-  document.getElementById("lab-provenance-detail").innerText = `Provenance: ${provStatus.replace('_', ' ')} • ${provDetails.substring(0, 45)}...`;
+  document.getElementById("lab-provenance-detail").textContent = `Provenance: ${provStatus.replace(/_/g, ' ')} • ${provDetails.substring(0, 45)}...`;
 
   // Visual Exhibits
   const origImg = document.getElementById("exhibit-orig");
@@ -371,22 +384,30 @@ function renderLabView(data) {
   if (ev.modality === "IMAGE") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
-    forensicTitle.innerText = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
+    forensicTitle.textContent = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
+    origImg.style.display = "block";
     forensicImg.style.display = "block";
   } else if (ev.modality === "VIDEO") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
-    forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/video_frame`;
-    forensicTitle.innerText = `Exhibit 2: Decoded Video Keyframe (${rawMetrics.sampled_frames_count || 0} Frames Sampled)`;
-    forensicImg.style.display = "block";
+    origImg.style.display = "block";
+    if (rawMetrics.sampled_frames_count > 0) {
+      forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/video_frame`;
+      forensicTitle.textContent = `Exhibit 2: Decoded Video Keyframe (${rawMetrics.sampled_frames_count || 0} Frames Sampled)`;
+      forensicImg.style.display = "block";
+    } else {
+      forensicImg.style.display = "none";
+      forensicTitle.textContent = "Exhibit 2: No Decoded Frames Available";
+    }
   } else if (ev.modality === "AUDIO") {
     origImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/waveform`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/spectrogram`;
-    forensicTitle.innerText = `Exhibit 2: STFT Spectrogram & Splicing Analysis (${rawMetrics.sample_rate_hz || 0}Hz)`;
+    forensicTitle.textContent = `Exhibit 2: STFT Spectrogram & Splicing Analysis (${rawMetrics.sample_rate_hz || 0}Hz)`;
+    origImg.style.display = "block";
     forensicImg.style.display = "block";
   } else {
-    origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Document+Stream";
+    origImg.style.display = "none";
     forensicImg.style.display = "none";
-    forensicTitle.innerText = "Non-Visual Structural Verification";
+    forensicTitle.textContent = "Non-Visual Structural Verification";
   }
 
   // Findings Table

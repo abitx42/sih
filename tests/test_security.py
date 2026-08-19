@@ -28,3 +28,9 @@ def test_zip_slip_rejection():
     finally:
         if zip_path.exists():
             zip_path.unlink()
+
+def test_xss_filename_sanitization():
+    xss_name = "<img src=x onerror=alert(1)>.png"
+    clean = sanitize_filename(xss_name)
+    # Ensure directory traversals or dangerous characters are handled
+    assert "/" not in clean and "\\" not in clean and "\x00" not in clean

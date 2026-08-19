@@ -151,14 +151,28 @@ class ForensicReportGenerator:
         story.append(Paragraph("1. File Integrity & Cryptographic Baseline (Bit-Level Verification)", section_style))
         story.append(Paragraph("<i>Note: Cryptographic hash matching certifies bit-level data preservation since ingestion. It does not certify that the media content itself is genuine or unmanipulated.</i>", ParagraphStyle('HashNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 2))
+        sha256_val = evidence_data.get("sha256_hash")
+        sha512_val = evidence_data.get("sha512_hash")
+        md5_val = evidence_data.get("md5_hash")
+
         integrity_str = forensic_result.get("integrity_status", "VERIFIED")
-        match_status_text = "VERIFIED (MATCH)" if integrity_str == "VERIFIED" else "MISMATCH"
+        
+        def get_match_status(hash_val):
+            if not hash_val or hash_val == "N/A":
+                return "NOT PROVIDED"
+            if integrity_str == "MISMATCH":
+                return "MISMATCH"
+            elif integrity_str == "VERIFIED":
+                return "MATCH"
+            elif integrity_str == "NOT_CHECKED":
+                return "NOT CHECKED"
+            return integrity_str
 
         hash_data = [
             [Paragraph("<b>Algorithm</b>", table_cell_bold), Paragraph("<b>Cryptographic Hash Fingerprint</b>", table_cell_bold), Paragraph("<b>Baseline Match</b>", table_cell_bold)],
-            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('sha256_hash', 'N/A')}</font>", table_cell), Paragraph(match_status_text, table_cell_bold)],
-            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{evidence_data.get('sha512_hash', 'N/A')[:64]}...</font>", table_cell), Paragraph(match_status_text, table_cell)],
-            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{evidence_data.get('md5_hash', 'N/A')}</font>", table_cell), Paragraph(match_status_text, table_cell)],
+            [Paragraph("SHA-256", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{sha256_val or 'N/A'}</font>", table_cell), Paragraph(get_match_status(sha256_val), table_cell_bold)],
+            [Paragraph("SHA-512", table_cell_bold), Paragraph(f"<font face='Courier' size='5.5'>{(sha512_val[:64] + '...') if sha512_val else 'NOT PROVIDED'}</font>", table_cell), Paragraph(get_match_status(sha512_val), table_cell)],
+            [Paragraph("MD5", table_cell_bold), Paragraph(f"<font face='Courier' size='6.5'>{md5_val or 'NOT PROVIDED'}</font>", table_cell), Paragraph(get_match_status(md5_val), table_cell)],
         ]
         t_hash = Table(hash_data, colWidths=[65, 395, 80])
         t_hash.setStyle(TableStyle([

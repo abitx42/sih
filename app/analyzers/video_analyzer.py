@@ -44,13 +44,30 @@ class VideoAnalyzer(BaseAnalyzer):
 
         if sampled_count > 0:
             try:
-                keyframe_idx = sampled_count // 2
-                keyframe_img = decoded_frames[keyframe_idx]
-                video_frame_path = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
-                keyframe_img.save(video_frame_path, "JPEG", quality=90)
-                raw_metrics["video_frame_path"] = str(video_frame_path)
+                saved_frames_info = []
+                max_saved = min(4, sampled_count)
+                save_indices = [int(i * (sampled_count - 1) / max(1, max_saved - 1)) for i in range(max_saved)] if max_saved > 1 else [0]
+                for rank, idx in enumerate(save_indices):
+                    frame_img = decoded_frames[idx]
+                    f_name = f"video_frame_{evidence_id}_{rank}.jpg"
+                    f_path = FORENSIC_DIR / f_name
+                    frame_img.save(f_path, "JPEG", quality=85)
+                    ts = frame_metadata.get("frame_timestamps", [])
+                    t_val = ts[idx] if idx < len(ts) else 0.0
+                    saved_frames_info.append({
+                        "frame_index": idx,
+                        "rank": rank,
+                        "timestamp_sec": round(t_val, 2),
+                        "artifact_name": f_name
+                    })
+
+                mid_idx = sampled_count // 2
+                primary_path = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
+                decoded_frames[mid_idx].save(primary_path, "JPEG", quality=85)
+                raw_metrics["video_frame_path"] = str(primary_path)
+                raw_metrics["saved_sample_frames"] = saved_frames_info
             except Exception as e:
-                logger.warning(f"Failed to save video keyframe exhibit: {e}")
+                logger.warning(f"Failed to save video keyframe exhibits: {e}")
 
         # If no frames could be decoded, return ANALYSIS UNAVAILABLE with zero made-up scores
         if sampled_count == 0:

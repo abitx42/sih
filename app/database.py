@@ -61,6 +61,9 @@ def init_db():
             uploaded_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'INGESTED',
             pipeline_status TEXT NOT NULL DEFAULT 'PENDING',
+            analysis_started_at TEXT,
+            analyzed_at TEXT,
+            error_message TEXT,
             notes TEXT,
             FOREIGN KEY (case_id) REFERENCES cases (case_id) ON DELETE CASCADE
         )
@@ -71,6 +74,12 @@ def init_db():
         ev_columns = [col["name"] for col in cursor.fetchall()]
         if "pipeline_status" not in ev_columns:
             cursor.execute("ALTER TABLE evidence ADD COLUMN pipeline_status TEXT DEFAULT 'COMPLETED'")
+        if "analysis_started_at" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN analysis_started_at TEXT")
+        if "analyzed_at" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN analyzed_at TEXT")
+        if "error_message" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN error_message TEXT")
 
         # 3. Forensic Results Table
         cursor.execute("""

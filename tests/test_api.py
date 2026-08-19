@@ -53,7 +53,7 @@ def test_evidence_upload_and_flow():
     }
     
     upload_res = client.post("/api/evidence/upload", files=files, data=data)
-    assert upload_res.status_code == 200
+    assert upload_res.status_code == 202
     upload_data = upload_res.json()
     evidence_id = upload_data["evidence_id"]
     assert evidence_id.startswith("EV-2026-")
@@ -87,8 +87,11 @@ def test_evidence_upload_and_flow():
     # Status endpoint check
     status_res = client.get(f"/api/evidence/{evidence_id}/status")
     assert status_res.status_code == 200
-    assert status_res.json()["evidence_id"] == evidence_id
-    assert "pipeline_status" in status_res.json()
+    status_data = status_res.json()
+    assert status_data["evidence_id"] == evidence_id
+    assert status_data["status"] == "COMPLETED"
+    assert status_data["pipeline_status"] == "COMPLETED"
+    assert status_data["error_message"] is None
 
     # Raw file download check
     file_res = client.get(f"/api/evidence/{evidence_id}/file")
@@ -98,3 +101,50 @@ def test_evidence_upload_and_flow():
     ela_res = client.get(f"/api/evidence/{evidence_id}/forensic-artifact/ela")
     assert ela_res.status_code == 200
     assert "image/jpeg" in ela_res.headers["content-type"]
+
+def test_simulated_pipeline_failure():
+    from unittest.mock import patch
+    from PIL import Image
+    import io
+
+    img_io = io.BytesIO()
+    test_img = Image.new("RGB", (64, 64), color=(200, 50, 50))
+    test_img.save(img_io, "JPEG")
+    file_bytes = img_io.getvalue()
+
+    files = {"file": ("malformed_fail.jpg", file_bytes, "image/jpeg")}
+    data = {"case_id": "CASE-2026-001", "uploaded_by": "Test Investigator"}
+
+    with patch("app.api.routes_evidence.image_analyzer.analyze", side_effect=RuntimeError("Simulated Decoder Crash")):
+        upload_res = client.post("/api/evidence/upload", files=files, data=data)
+        assert upload_res.status_code == 202
+        evidence_id = upload_res.json()["evidence_id"]
+
+        status_res = client.get(f"/api/evidence/{evidence_id}/status")
+        assert status_res.status_code == 200
+        status_data = status_res.json()
+        assert status_data["status"] == "FAILED"
+        assert status_data["pipeline_status"] == "FAILED"
+        assert "RuntimeError" in status_data["error_message"]
+
+def test_cors_origins_configuration():
+    # Allowed origin
+    res_allowed = client.options(
+        "/api/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert res_allowed.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # Disallowed origin
+    res_disallowed = client.options(
+        "/api/health",
+        headers={
+            "Origin": "http://untrusted-adversary.com",
+            "Access-Control-Request-Method": "GET"
+        }
+    )
+    assert res_disallowed.headers.get("access-control-allow-origin") != "http://untrusted-adversary.com"
+    assert res_disallowed.headers.get("access-control-allow-origin") != "*"

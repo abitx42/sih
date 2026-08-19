@@ -51,6 +51,11 @@ class Settings:
         "pdf", "docx", "xlsx", "pptx", "txt",
         "zip", "tar", "gz", "7z"
     }
+    ALLOWED_ORIGINS: list = [
+        origin.strip()
+        for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000").split(",")
+        if origin.strip()
+    ]
 
     # Hugging Face Vision Model Config (Reproducibility & Local Inference)
     # Pinned to specific model commit hash for full auditability

@@ -43,8 +43,13 @@ def execute_forensic_pipeline(evidence_id: str):
     Executes the automated forensic verification pipeline for an evidence exhibit.
     Runs asynchronously via BackgroundTasks.
     """
+    analysis_started_at = datetime.utcnow().isoformat() + "Z"
     with get_db() as conn:
-        conn.execute("UPDATE evidence SET pipeline_status = 'ANALYZING' WHERE evidence_id = ?", (evidence_id,))
+        conn.execute("""
+        UPDATE evidence 
+        SET status = 'ANALYZING', pipeline_status = 'ANALYZING', analysis_started_at = ?
+        WHERE evidence_id = ?
+        """, (analysis_started_at, evidence_id))
 
     try:
         with get_db() as conn:
@@ -78,31 +83,31 @@ def execute_forensic_pipeline(evidence_id: str):
         raw_metrics["provenance"] = provenance_res
 
         # Extract model metadata strictly without heuristic fallback
-        model_status = analysis_res.get("model_status", "AVAILABLE")
+        model_status = analysis_res.get("model_status", "ANALYSIS_UNAVAILABLE")
         ai_indicator = analysis_res.get("ai_manipulation_indicator")
         model_confidence = analysis_res.get("model_confidence")
-        ai_model_name = analysis_res.get("ai_model_name", "EVIDENCE-X Ensemble")
+        ai_model_name = analysis_res.get("ai_model_name", "EVIDENCE-X Signal Engine")
         ai_model_version = analysis_res.get("ai_model_version", "1.0")
         forensic_anomaly_score = analysis_res.get("forensic_anomaly_score", analysis_res.get("signal_anomalies_score", 0.0))
 
         # Add Provenance Finding if present
-        if provenance_status == "VERIFIED" or "DETECTED" in provenance_status:
+        if provenance_status == "DETECTED_UNVERIFIED_MANIFEST" or "DETECTED" in provenance_status:
             findings.append({
                 "finding_id": f"FIND-{uuid.uuid4().hex[:8].upper()}",
                 "evidence_id": evidence_id,
-                "signal_name": "C2PA Provenance Manifest Atom Detected",
+                "signal_name": "C2PA Provenance Manifest Marker Detected (Unverified)",
                 "category": "PROVENANCE",
                 "severity": "INFO",
-                "score": 10.0,
+                "score": 25.0,
                 "explanation": provenance_res.get("details", ""),
-                "location_ref": "C2PA JUMBF Container",
+                "location_ref": "C2PA JUMBF Container Atom",
                 "created_at": datetime.utcnow().isoformat() + "Z"
             })
         elif provenance_status == "NOT_VERIFIED":
             findings.append({
                 "finding_id": f"FIND-{uuid.uuid4().hex[:8].upper()}",
                 "evidence_id": evidence_id,
-                "signal_name": "Unverified Provenance / Post-Processing Tag",
+                "signal_name": "Post-Processing Editing Suite Tag Detected",
                 "category": "PROVENANCE",
                 "severity": "MEDIUM",
                 "score": 45.0,
@@ -170,7 +175,11 @@ def execute_forensic_pipeline(evidence_id: str):
                     f["severity"], f["score"], f["explanation"], f.get("location_ref"), f["created_at"]
                 ))
 
-            cursor.execute("UPDATE evidence SET status = 'COMPLETED', pipeline_status = 'COMPLETED' WHERE evidence_id = ?", (evidence_id,))
+            cursor.execute("""
+            UPDATE evidence 
+            SET status = 'COMPLETED', pipeline_status = 'COMPLETED', analyzed_at = ?, error_message = NULL 
+            WHERE evidence_id = ?
+            """, (analyzed_at, evidence_id))
 
         # 6. Record Chain of Custody Events
         ChainOfCustodyLogger.record_event(
@@ -190,10 +199,28 @@ def execute_forensic_pipeline(evidence_id: str):
 
     except Exception as e:
         logger.error(f"Error during forensic analysis of {evidence_id}: {e}", exc_info=True)
+        failed_at = datetime.utcnow().isoformat() + "Z"
+        safe_error = f"Automated analysis failed during execution: {type(e).__name__}."
         with get_db() as conn:
-            conn.execute("UPDATE evidence SET status = 'FAILED', pipeline_status = 'FAILED' WHERE evidence_id = ?", (evidence_id,))
+            cursor = conn.cursor()
+            cursor.execute("""
+            UPDATE evidence 
+            SET status = 'FAILED', pipeline_status = 'FAILED', error_message = ?, analyzed_at = ? 
+            WHERE evidence_id = ?
+            """, (safe_error, failed_at, evidence_id))
+            cursor.execute("SELECT sha256_hash FROM evidence WHERE evidence_id = ?", (evidence_id,))
+            ev_row = cursor.fetchone()
+            recorded_hash = ev_row["sha256_hash"] if ev_row else "UNKNOWN"
 
-@router.post("/upload")
+        ChainOfCustodyLogger.record_event(
+            evidence_id=evidence_id,
+            action="ANALYSIS_FAILED",
+            actor="EVIDENCE-X Forensic Engine",
+            recorded_sha256=recorded_hash,
+            details=f"Automated pipeline processing failed: {safe_error}"
+        )
+
+@router.post("/upload", status_code=202)
 async def upload_evidence(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -233,12 +260,12 @@ async def upload_evidence(
         INSERT INTO evidence (
             evidence_id, case_id, original_filename, stored_filename, modality,
             mime_type, file_size_bytes, sha256_hash, sha512_hash, md5_hash,
-            uploaded_by, uploaded_at, status, pipeline_status, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            uploaded_by, uploaded_at, status, pipeline_status, analysis_started_at, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             evidence_id, case_id, clean_filename, stored_filename, modality,
             mime_type, file_size, hashes["sha256"], hashes["sha512"], hashes["md5"],
-            uploaded_by, uploaded_at, "ANALYZING", "PENDING", notes or ""
+            uploaded_by, uploaded_at, "ANALYZING", "ANALYZING", uploaded_at, notes or ""
         ))
 
     ChainOfCustodyLogger.record_event(
@@ -261,24 +288,58 @@ async def upload_evidence(
         "file_size_bytes": file_size,
         "sha256_hash": hashes["sha256"],
         "status": "ANALYZING",
-        "message": "Evidence ingested. Forensic analysis running in background."
+        "message": "Evidence ingested. Background forensic verification pipeline in progress."
     }
 
 @router.get("/{evidence_id}/status")
 def get_evidence_status(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT evidence_id, status, pipeline_status, modality, original_filename FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        cursor.execute("""
+        SELECT evidence_id, status, pipeline_status, modality, original_filename, 
+               uploaded_at, analysis_started_at, analyzed_at, error_message 
+        FROM evidence WHERE evidence_id = ?
+        """, (evidence_id,))
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Evidence not found.")
+        
+        status_val = row["status"]
         return {
             "evidence_id": row["evidence_id"],
-            "status": row["status"],
-            "pipeline_status": row.get("pipeline_status", "COMPLETED"),
+            "status": status_val,
+            "pipeline_status": row.get("pipeline_status", status_val),
             "modality": row["modality"],
-            "original_filename": row["original_filename"]
+            "original_filename": row["original_filename"],
+            "uploaded_at": row["uploaded_at"],
+            "analysis_started_at": row.get("analysis_started_at"),
+            "analyzed_at": row.get("analyzed_at"),
+            "error_message": row.get("error_message") if status_val == "FAILED" else None
         }
+
+@router.get("/{evidence_id}/frames")
+def get_evidence_frames(evidence_id: str):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT raw_metrics_json FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        row = cursor.fetchone()
+        if not row:
+            return {"evidence_id": evidence_id, "frames_count": 0, "frames": []}
+        try:
+            raw_metrics = json.loads(row["raw_metrics_json"])
+            saved = raw_metrics.get("saved_sample_frames", [])
+            frames = [
+                {
+                    "frame_index": f.get("frame_index", 0),
+                    "rank": f.get("rank", 0),
+                    "timestamp_sec": f.get("timestamp_sec", 0.0),
+                    "artifact_url": f"/api/evidence/{evidence_id}/forensic-artifact/video_frame_{f.get('rank', 0)}"
+                }
+                for f in saved
+            ]
+            return {"evidence_id": evidence_id, "frames_count": len(frames), "frames": frames}
+        except Exception:
+            return {"evidence_id": evidence_id, "frames_count": 0, "frames": []}
 
 @router.get("", response_model=EvidenceListResponse)
 def list_evidence(case_id: Optional[str] = None, modality: Optional[str] = None):
@@ -403,6 +464,10 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
         media = "image/png"
     elif artifact_type == "video_frame":
         p = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
+        media = "image/jpeg"
+    elif artifact_type.startswith("video_frame_") and artifact_type.replace("video_frame_", "").isdigit():
+        rank = int(artifact_type.replace("video_frame_", ""))
+        p = FORENSIC_DIR / f"video_frame_{evidence_id}_{rank}.jpg"
         media = "image/jpeg"
     else:
         raise HTTPException(status_code=400, detail="Invalid artifact type.")

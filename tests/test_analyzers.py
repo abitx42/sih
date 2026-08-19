@@ -165,8 +165,68 @@ def test_provenance_engine_c2pa_detection():
     try:
         res = ProvenanceEngine.inspect_provenance(temp_path)
         assert res["manifest_found"] is True
-        assert "DETECTED" in res["status"]
+        assert res["status"] == "DETECTED_UNVERIFIED_MANIFEST"
+        assert res["status"] != "VERIFIED"
         assert "Photoshop" in res["signer"]
     finally:
         if temp_path.exists():
             temp_path.unlink()
+
+def test_c2pa_unverified_manifest_risk_scoring():
+    from app.core.risk_engine import RiskEngine
+
+    risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(
+        integrity_status="VERIFIED",
+        ai_manipulation_indicator=0.10,
+        model_status="AVAILABLE",
+        forensic_anomaly_score=10.0,
+        metadata_anomaly_score=10.0,
+        provenance_status="DETECTED_UNVERIFIED_MANIFEST",
+        findings=[]
+    )
+    # Provenance risk must be 25.0, not the 5.0 granted to verified cryptographic signatures
+    assert comp_scores["provenance_risk"] == 25.0
+
+def test_report_generator_hash_matching_integrity_display():
+    from app.core.report_generator import ForensicReportGenerator
+
+    evidence_data = {
+        "evidence_id": "EV-TEST-PDF-001",
+        "case_id": "CASE-TEST",
+        "original_filename": "tampered_sample.png",
+        "modality": "IMAGE",
+        "mime_type": "image/png",
+        "file_size_bytes": 1024,
+        "sha256_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "sha512_hash": "",
+        "md5_hash": None,
+        "uploaded_by": "Test Examiner",
+        "uploaded_at": "2026-08-20T00:00:00Z",
+        "status": "COMPLETED"
+    }
+
+    forensic_result = {
+        "result_id": "RES-001",
+        "evidence_id": "EV-TEST-PDF-001",
+        "integrity_status": "MISMATCH",
+        "provenance_status": "DETECTED_UNVERIFIED_MANIFEST",
+        "forensic_risk_score": 100.0,
+        "risk_category": "HIGH RISK",
+        "confidence_score": 95.0,
+        "model_status": "AVAILABLE",
+        "ai_manipulation_indicator": 0.20,
+        "raw_metrics_json": {}
+    }
+
+    pdf_path = ForensicReportGenerator.generate_pdf(
+        evidence_data=evidence_data,
+        case_data={"case_id": "CASE-TEST", "title": "Test Case", "lead_investigator": "Officer"},
+        forensic_result=forensic_result,
+        findings=[],
+        custody_events=[]
+    )
+    assert pdf_path.exists()
+    assert pdf_path.stat().st_size > 1000
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+    assert pdf_bytes.startswith(b"%PDF")

@@ -108,11 +108,16 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
      - 🔴 **HIGH RISK (71 - 100)**: Compounding manipulation indicators.
    - **Integrity Rule**: SHA-256 integrity is recorded strictly as file bitstream preservation; it does **not** artificially reduce AI manipulation risk or prove authenticity.
 
-6. **C2PA / Content Credentials Provenance**: Automatic verification of cryptographic provenance manifests and post-processing signatures.
+6. **C2PA / Content Credentials Provenance**: Automatic detection of C2PA manifest container atoms and editing software metadata signatures (`DETECTED_UNVERIFIED_MANIFEST`).
 
-7. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+7. **Asynchronous Ingestion Pipeline**:
+   - `POST /api/evidence/upload` returns HTTP 202 Accepted immediately, executing forensic analysis in the background.
+   - `GET /api/evidence/{evidence_id}/status` provides real-time polling with safe failure reporting and custody event logging.
+   - `GET /api/evidence/{evidence_id}/frames` provides decoded video keyframe metadata and artifact URLs.
 
-8. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers.
+8. **Immutable Chain of Custody**: Complete ISO/IEC 27037 compliant audit trail capturing timestamp, actor identity, action taken, and recorded SHA-256 hash.
+
+9. **Court-Ready PDF Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram, Keyframes), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers. See [DEPLOYMENT.md](DEPLOYMENT.md) for full demo runbook.
 
 ---
 
