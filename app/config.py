@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from pydantic import BaseModel
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STORAGE_DIR = BASE_DIR / "storage"
@@ -10,16 +9,17 @@ THUMBNAILS_DIR = STORAGE_DIR / "thumbnails"
 FORENSIC_DIR = STORAGE_DIR / "forensic"
 REPORTS_DIR = STORAGE_DIR / "reports"
 AUDIT_DIR = STORAGE_DIR / "audit"
+MODEL_CACHE_DIR = STORAGE_DIR / "models"
 DB_PATH = STORAGE_DIR / "evidence_x.db"
 
 # Ensure directories exist
-for directory in [STORAGE_DIR, EVIDENCE_DIR, THUMBNAILS_DIR, FORENSIC_DIR, REPORTS_DIR, AUDIT_DIR]:
+for directory in [STORAGE_DIR, EVIDENCE_DIR, THUMBNAILS_DIR, FORENSIC_DIR, REPORTS_DIR, AUDIT_DIR, MODEL_CACHE_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 class Settings:
     PROJECT_NAME: str = "EVIDENCE-X"
     TAGLINE: str = "Digital Evidence Forensic Verification Platform"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.1.0"
     PS_NUMBER: str = "SIH PS-27 (KAVACH 2023)"
     
     # Server
@@ -37,15 +37,19 @@ class Settings:
         "zip", "tar", "gz", "7z"
     }
 
-    # TCET CoE AI Gateway / LLM Configuration
+    # Hugging Face Vision Model Config (Purely Local Inference)
+    HF_MODEL_NAME: str = os.getenv("HF_MODEL_NAME", "dima806/deepfake_vs_real_image_detection")
+    HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "main")
+    HF_LOCAL_FILES_ONLY: bool = os.getenv("HF_LOCAL_FILES_ONLY", "False").lower() == "true"
+
+    # TCET CoE AI Gateway / LLM Configuration (Forensic Copilot)
     LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "").strip()
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6-35b-a3b")
     
     # Scoring Weights for Deterministic Risk Engine
-    WEIGHT_INTEGRITY: float = 0.25
-    WEIGHT_AI_MANIPULATION: float = 0.30
-    WEIGHT_FORENSIC_SIGNALS: float = 0.25
+    WEIGHT_AI_MANIPULATION: float = 0.40
+    WEIGHT_FORENSIC_SIGNALS: float = 0.40
     WEIGHT_METADATA_ANOMALIES: float = 0.10
     WEIGHT_PROVENANCE: float = 0.10
 

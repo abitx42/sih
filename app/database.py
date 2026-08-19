@@ -72,8 +72,13 @@ def init_db():
             evidence_id TEXT NOT NULL UNIQUE,
             integrity_status TEXT NOT NULL,
             provenance_status TEXT NOT NULL,
-            ai_manipulation_score REAL NOT NULL,
+            ai_manipulation_score REAL,
+            ai_manipulation_indicator REAL,
             ai_model_name TEXT NOT NULL,
+            ai_model_version TEXT,
+            model_confidence REAL,
+            model_status TEXT NOT NULL DEFAULT 'AVAILABLE',
+            forensic_anomaly_score REAL NOT NULL DEFAULT 0.0,
             forensic_risk_score REAL NOT NULL,
             risk_category TEXT NOT NULL,
             confidence_score REAL NOT NULL,
@@ -84,7 +89,21 @@ def init_db():
             FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
         )
         """)
-        
+
+        # Migration helper: ensure new columns exist if table was created previously
+        cursor.execute("PRAGMA table_info(forensic_results)")
+        columns = [col["name"] for col in cursor.fetchall()]
+        if "ai_manipulation_indicator" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN ai_manipulation_indicator REAL")
+        if "ai_model_version" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN ai_model_version TEXT")
+        if "model_confidence" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN model_confidence REAL")
+        if "model_status" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN model_status TEXT DEFAULT 'AVAILABLE'")
+        if "forensic_anomaly_score" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN forensic_anomaly_score REAL DEFAULT 0.0")
+
         # 4. Findings Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS findings (

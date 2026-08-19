@@ -32,7 +32,6 @@ function switchView(viewName) {
 }
 
 function initNavigation() {
-  // Default view
   switchView("dashboard");
 }
 
@@ -48,13 +47,8 @@ async function loadDashboardData() {
     document.getElementById("stat-high-risk").innerText = data.risk_distribution["HIGH RISK"] || 0;
     document.getElementById("stat-low-risk").innerText = data.risk_distribution["LOW RISK"] || 0;
 
-    // Render Risk Chart
     renderRiskChart(data.risk_distribution);
-
-    // Render Recent Evidence
     renderDashboardEvidence(data.recent_evidence || []);
-
-    // Render Recent Custody Stream
     renderDashboardCustody(data.recent_custody_events || []);
   } catch (err) {
     console.error("Dashboard stats error:", err);
@@ -234,7 +228,6 @@ async function handleEvidenceUpload(e) {
     }
 
     const data = await res.json();
-    // Open immediately in Forensic Lab View
     openEvidenceInLab(data.evidence_id);
   } catch (err) {
     alert(`Upload error: ${err}`);
@@ -270,7 +263,7 @@ function renderLabView(data) {
   document.getElementById("lab-modality-badge").innerText = ev.modality;
   document.getElementById("lab-sha256-snippet").innerText = `SHA-256: ${ev.sha256_hash}`;
 
-  // Risk Score & Category
+  // Composite Risk Score & Category
   const riskScore = res.forensic_risk_score !== undefined ? res.forensic_risk_score : 0;
   const riskCat = res.risk_category || "UNKNOWN";
   const riskBadge = document.getElementById("lab-risk-badge");
@@ -290,22 +283,32 @@ function renderLabView(data) {
     riskScoreEl.style.color = "var(--risk-low)";
   }
 
-  // AI Probability
-  const aiScore = res.ai_manipulation_score !== undefined ? (res.ai_manipulation_score * 100).toFixed(1) : 0;
-  document.getElementById("lab-ai-score").innerText = `${aiScore}%`;
-  document.getElementById("lab-ai-model").innerText = res.ai_model_name || "Ensemble Detector";
+  // AI Manipulation Indicator (ML Vision Model)
+  const aiScoreEl = document.getElementById("lab-ai-score");
+  const modelStatus = res.model_status || "AVAILABLE";
+  const modelIndicator = res.ai_manipulation_indicator !== undefined && res.ai_manipulation_indicator !== null
+    ? res.ai_manipulation_indicator
+    : res.ai_manipulation_score;
+
+  if (modelStatus === "AVAILABLE" && modelIndicator !== null && modelIndicator !== undefined) {
+    const aiPct = (modelIndicator * 100).toFixed(1);
+    aiScoreEl.innerText = `${aiPct}%`;
+    aiScoreEl.style.color = aiPct > 70 ? "var(--risk-high)" : (aiPct > 35 ? "var(--risk-medium)" : "var(--risk-low)");
+  } else {
+    aiScoreEl.innerText = "UNAVAILABLE";
+    aiScoreEl.style.color = "var(--text-dim)";
+  }
+  document.getElementById("lab-ai-model").innerText = res.ai_model_name || "ViT Image Detector";
+
+  // Heuristic Forensic Anomaly Score (ELA / FFT / Noise)
+  const heuristicScore = res.forensic_anomaly_score !== undefined ? res.forensic_anomaly_score : 0;
+  document.getElementById("lab-heuristic-score").innerText = `${heuristicScore}/100`;
 
   // Provenance
-  const provBadge = document.getElementById("lab-provenance-badge");
   const provStatus = res.provenance_status || "NOT_AVAILABLE";
-  provBadge.innerText = provStatus.replace('_', ' ');
-  if (provStatus === "VERIFIED") provBadge.className = "badge badge-low";
-  else if (provStatus === "NOT_VERIFIED") provBadge.className = "badge badge-medium";
-  else provBadge.className = "badge badge-modality";
-
   const rawMetrics = res.raw_metrics_json || {};
   const provDetails = rawMetrics.provenance ? rawMetrics.provenance.details : "No C2PA manifest attached.";
-  document.getElementById("lab-provenance-detail").innerText = provDetails;
+  document.getElementById("lab-provenance-detail").innerText = `Provenance: ${provStatus.replace('_', ' ')} • ${provDetails.substring(0, 45)}...`;
 
   // Visual Exhibits
   const origImg = document.getElementById("exhibit-orig");
@@ -315,7 +318,7 @@ function renderLabView(data) {
   if (ev.modality === "IMAGE") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
-    forensicTitle.innerText = "Exhibit 2: Error Level Analysis (ELA Heatmap)";
+    forensicTitle.innerText = "Exhibit 2: Error Level Analysis (ELA 95% Heatmap)";
     forensicImg.style.display = "block";
   } else if (ev.modality === "AUDIO") {
     origImg.src = "https://placehold.co/400x200/111827/94a3b8?text=Audio+Waveform+Track";
@@ -377,7 +380,7 @@ async function reverifyIntegrity() {
       dot.style.background = "var(--risk-low)";
       text.innerText = "VERIFIED (MATCH)";
       text.style.color = "var(--risk-low)";
-      alert(`✅ Cryptographic Integrity Verified!\n\nRecorded Hash: ${data.recorded_sha256}\nCurrent Hash:  ${data.current_sha256}\n\nBit-level integrity is intact.`);
+      alert(`✅ Cryptographic File-Integrity Verified!\n\nRecorded Hash: ${data.recorded_sha256}\nCurrent Hash:  ${data.current_sha256}\n\nBit-level integrity is intact.\n(Note: Integrity certifies file preservation, not content authenticity.)`);
     } else {
       dot.style.background = "var(--risk-high)";
       text.innerText = "INTEGRITY MISMATCH";
@@ -404,7 +407,6 @@ async function handleCopilotChat(e) {
 
   const chatMessages = document.getElementById("copilot-chat-messages");
 
-  // Append user bubble
   const userBubble = document.createElement("div");
   userBubble.className = "chat-bubble user";
   userBubble.innerText = question;
@@ -412,10 +414,9 @@ async function handleCopilotChat(e) {
   input.value = "";
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Append loading assistant bubble
   const assistantBubble = document.createElement("div");
   assistantBubble.className = "chat-bubble assistant";
-  assistantBubble.innerText = "Consulting evidence metrics & forensic models...";
+  assistantBubble.innerText = "Consulting automated forensic signals & models...";
   chatMessages.appendChild(assistantBubble);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 

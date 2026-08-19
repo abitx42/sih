@@ -39,7 +39,7 @@ archive_analyzer = ArchiveAnalyzer()
 
 def execute_forensic_pipeline(evidence_id: str):
     """
-    Executes the full automated forensic verification pipeline for an evidence exhibit.
+    Executes the automated forensic verification pipeline for an evidence exhibit.
     """
     with get_db() as conn:
         cursor = conn.cursor()
@@ -71,6 +71,16 @@ def execute_forensic_pipeline(evidence_id: str):
     raw_metrics = analysis_res.get("raw_metrics", {})
     raw_metrics["provenance"] = provenance_res
 
+    # Extract model metadata
+    model_status = analysis_res.get("model_status", "AVAILABLE")
+    ai_indicator = analysis_res.get("ai_manipulation_indicator")
+    if ai_indicator is None and "ai_manipulation_score" in analysis_res:
+        ai_indicator = analysis_res.get("ai_manipulation_score")
+    model_confidence = analysis_res.get("model_confidence")
+    ai_model_name = analysis_res.get("ai_model_name", "EVIDENCE-X Ensemble")
+    ai_model_version = analysis_res.get("ai_model_version", "1.0")
+    forensic_anomaly_score = analysis_res.get("forensic_anomaly_score", analysis_res.get("signal_anomalies_score", 0.0))
+
     # Add Provenance Finding if present
     if provenance_status == "VERIFIED":
         findings.append({
@@ -100,8 +110,9 @@ def execute_forensic_pipeline(evidence_id: str):
     # 3. Calculate Deterministic Forensic Risk Score
     risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(
         integrity_status="VERIFIED",
-        ai_manipulation_score=analysis_res.get("ai_manipulation_score", 0.0),
-        forensic_signal_anomalies=analysis_res.get("signal_anomalies_score", 0.0),
+        ai_manipulation_indicator=ai_indicator,
+        model_status=model_status,
+        forensic_anomaly_score=forensic_anomaly_score,
         metadata_anomaly_score=analysis_res.get("metadata_anomaly_score", 0.0),
         provenance_status=provenance_status,
         findings=findings
@@ -126,25 +137,25 @@ def execute_forensic_pipeline(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Save forensic result
         cursor.execute("""
         INSERT OR REPLACE INTO forensic_results (
             result_id, evidence_id, integrity_status, provenance_status,
-            ai_manipulation_score, ai_model_name, forensic_risk_score,
-            risk_category, confidence_score, analyzed_at, raw_metrics_json,
+            ai_manipulation_score, ai_manipulation_indicator, ai_model_name,
+            ai_model_version, model_confidence, model_status,
+            forensic_anomaly_score, forensic_risk_score, risk_category,
+            confidence_score, analyzed_at, raw_metrics_json,
             summary_narrative, recommendations
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             result_id, evidence_id, "VERIFIED", provenance_status,
-            analysis_res.get("ai_manipulation_score", 0.0),
-            analysis_res.get("ai_model_name", "EVIDENCE-X Ensemble"),
-            risk_score, risk_cat, confidence, analyzed_at,
-            json.dumps(raw_metrics),
+            ai_indicator, ai_indicator, ai_model_name,
+            ai_model_version, model_confidence, model_status,
+            forensic_anomaly_score, risk_score, risk_cat,
+            confidence, analyzed_at, json.dumps(raw_metrics),
             narrative_res.get("summary", ""),
             narrative_res.get("recommendations", "")
         ))
 
-        # Clear existing findings for this evidence and insert new
         cursor.execute("DELETE FROM findings WHERE evidence_id = ?", (evidence_id,))
         for f in findings:
             cursor.execute("""
@@ -155,7 +166,6 @@ def execute_forensic_pipeline(evidence_id: str):
                 f["severity"], f["score"], f["explanation"], f.get("location_ref"), f["created_at"]
             ))
 
-        # Update evidence status
         cursor.execute("UPDATE evidence SET status = 'COMPLETED' WHERE evidence_id = ?", (evidence_id,))
 
     # 6. Record Chain of Custody Events
@@ -164,14 +174,14 @@ def execute_forensic_pipeline(evidence_id: str):
         action="FORENSIC_ANALYSIS_COMPLETED",
         actor="EVIDENCE-X Forensic Engine",
         recorded_sha256=evidence["sha256_hash"],
-        details=f"Modality ({modality}) multi-signal analysis executed. {len(findings)} findings logged."
+        details=f"Modality ({modality}) automated multi-signal analysis executed. {len(findings)} findings logged. Model status: {model_status}."
     )
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="RISK_ASSESSED",
         actor="EVIDENCE-X Risk Engine",
         recorded_sha256=evidence["sha256_hash"],
-        details=f"Calculated Forensic Risk: {risk_score}/100 ({risk_cat}) with confidence {round(confidence*100)}%."
+        details=f"Calculated Forensic Risk: {risk_score}/100 ({risk_cat}). AI manipulation indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'}."
     )
 
 @router.post("/upload")
@@ -181,15 +191,11 @@ async def upload_evidence(
     uploaded_by: str = Form("Digital Forensics Investigator"),
     notes: Optional[str] = Form("")
 ):
-    # Sanitize Filename
     clean_filename = sanitize_filename(file.filename or "evidence.bin")
-    
-    # Generate Evidence ID
     evidence_id = f"EV-2026-{uuid.uuid4().hex[:6].upper()}"
     stored_filename = f"{evidence_id}_{clean_filename}"
     target_path = EVIDENCE_DIR / stored_filename
 
-    # Save to disk
     file_size = 0
     with open(target_path, "wb") as f:
         while chunk := await file.read(64 * 1024):
@@ -200,17 +206,12 @@ async def upload_evidence(
                 raise HTTPException(status_code=400, detail="File size exceeds maximum upload limit (150 MB).")
             f.write(chunk)
 
-    # Detect true MIME and modality
     mime_type, modality = detect_mime_and_modality(target_path, clean_filename)
-
-    # Compute Cryptographic Hashes
     hashes = calculate_file_hashes(target_path)
     uploaded_at = datetime.utcnow().isoformat() + "Z"
 
-    # Insert into Database
     with get_db() as conn:
         cursor = conn.cursor()
-        # Verify case exists
         cursor.execute("SELECT case_id FROM cases WHERE case_id = ?", (case_id,))
         if not cursor.fetchone():
             cursor.execute("""
@@ -230,7 +231,6 @@ async def upload_evidence(
             uploaded_by, uploaded_at, "ANALYZING", notes or ""
         ))
 
-    # Record Ingestion in Chain of Custody
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="EVIDENCE_INGESTION",
@@ -239,7 +239,6 @@ async def upload_evidence(
         details=f"Original digital exhibit '{clean_filename}' ingested. Baseline SHA-256 fingerprint generated."
     )
 
-    # Execute forensic pipeline synchronously to deliver instant results to investigator
     try:
         execute_forensic_pipeline(evidence_id)
     except Exception as e:
@@ -281,17 +280,14 @@ def get_evidence_detail(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # 1. Evidence
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
         evidence = cursor.fetchone()
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
-        # 2. Case
         cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
         case_info = cursor.fetchone()
 
-        # 3. Forensic Results
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         res_row = cursor.fetchone()
         forensic_result = None
@@ -302,11 +298,9 @@ def get_evidence_detail(evidence_id: str):
                 res_row["raw_metrics_json"] = {}
             forensic_result = res_row
 
-        # 4. Findings
         cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
         findings = cursor.fetchall()
 
-        # 5. Chain of Custody
         cursor.execute("SELECT * FROM chain_of_custody WHERE evidence_id = ? ORDER BY timestamp ASC", (evidence_id,))
         custody = cursor.fetchall()
 
@@ -320,10 +314,6 @@ def get_evidence_detail(evidence_id: str):
 
 @router.post("/{evidence_id}/verify-integrity", response_model=IntegrityVerificationResponse)
 def verify_evidence_integrity(evidence_id: str, actor: str = "Lead Forensic Examiner"):
-    """
-    On-demand cryptographic verification check.
-    Re-hashes file on disk and compares against genesis SHA-256.
-    """
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
@@ -336,13 +326,12 @@ def verify_evidence_integrity(evidence_id: str, actor: str = "Lead Forensic Exam
 
     status = "VERIFIED" if is_valid else "MISMATCH"
 
-    # Log in Chain of Custody
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="INTEGRITY_VERIFIED" if is_valid else "INTEGRITY_VIOLATION_DETECTED",
         actor=actor,
         recorded_sha256=current_sha256,
-        details=f"On-demand cryptographic check result: {status}. {status_msg}"
+        details=f"Cryptographic hash check result: {status}. Note: File-integrity baseline check only; does not evaluate content authenticity."
     )
 
     return {
@@ -376,10 +365,6 @@ def download_evidence_file(evidence_id: str):
 
 @router.get("/{evidence_id}/forensic-artifact/{artifact_type}")
 def get_forensic_artifact(evidence_id: str, artifact_type: str):
-    """
-    Returns generated ELA, FFT spectrum, or Spectrogram image.
-    artifact_type in ['ela', 'fft', 'spectrogram']
-    """
     if artifact_type == "ela":
         p = FORENSIC_DIR / f"ela_{evidence_id}.jpg"
         media = "image/jpeg"

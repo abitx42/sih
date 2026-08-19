@@ -36,7 +36,7 @@ venv/
 .coverage
 htmlcov/
 
-# Local Storage (Keep directory structure but ignore actual generated files/database)
+# Local Storage (Keep directory structure but ignore actual generated files/database/large models)
 storage/*.db
 storage/*.sqlite3
 storage/evidence/*
@@ -49,6 +49,8 @@ storage/reports/*
 !storage/reports/.gitkeep
 storage/audit/*
 !storage/audit/.gitkeep
+storage/models/*
+!storage/models/.gitkeep
 
 # OS / Editor
 .DS_Store

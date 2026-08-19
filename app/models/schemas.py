@@ -51,12 +51,19 @@ class FindingSchema(BaseModel):
 
 # --- Forensic Results ---
 class ForensicResultResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     result_id: str
     evidence_id: str
     integrity_status: str
     provenance_status: str
-    ai_manipulation_score: float
+    ai_manipulation_score: Optional[float] = None
+    ai_manipulation_indicator: Optional[float] = None
     ai_model_name: str
+    ai_model_version: Optional[str] = None
+    model_confidence: Optional[float] = None
+    model_status: str = "AVAILABLE"
+    forensic_anomaly_score: float = 0.0
     forensic_risk_score: float
     risk_category: str
     confidence_score: float

@@ -17,7 +17,9 @@ def test_image_analyzer_execution():
 
     try:
         res = analyzer.analyze(temp_path, "EV-TEST-001")
-        assert "ai_manipulation_score" in res
+        assert "forensic_anomaly_score" in res
+        assert "model_status" in res
+        assert "ai_model_name" in res
         assert "findings" in res
         assert len(res["findings"]) > 0
         assert "raw_metrics" in res
@@ -30,7 +32,6 @@ def test_image_analyzer_execution():
 def test_document_analyzer_pdf():
     analyzer = DocumentAnalyzer()
     
-    # Create dummy PDF payload
     pdf_content = b"%PDF-1.4\n1 0 obj\n<< /Producer (ForensicTestApp) >>\nendobj\n%%EOF\n"
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         f.write(pdf_content)

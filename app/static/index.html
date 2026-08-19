@@ -39,7 +39,7 @@
     <!-- 1. DASHBOARD VIEW -->
     <section id="view-dashboard" class="view-section active">
       <h2 class="section-title">Forensic Operations Dashboard</h2>
-      <p class="section-desc">Real-time overview of active investigations, digital evidence integrity status, and forensic risk assessments.</p>
+      <p class="section-desc">Real-time overview of active investigations, digital evidence integrity status, and automated forensic risk assessments.</p>
 
       <div class="grid-cards">
         <div class="stat-card">
@@ -55,12 +55,12 @@
         <div class="stat-card">
           <div class="stat-header">High Risk Anomaly Flags</div>
           <div class="stat-value" id="stat-high-risk" style="color: var(--risk-high);">0</div>
-          <div class="stat-footer">Compounding Manipulation Indicators</div>
+          <div class="stat-footer">Compounding Manipulation Signals</div>
         </div>
         <div class="stat-card">
-          <div class="stat-header">Verified Authentic Exhibits</div>
+          <div class="stat-header">Baseline Clean Exhibits</div>
           <div class="stat-value" id="stat-low-risk" style="color: var(--risk-low);">0</div>
-          <div class="stat-footer">Sound Cryptographic Baseline</div>
+          <div class="stat-footer">Low Anomaly / Sound Baseline</div>
         </div>
       </div>
 
@@ -129,7 +129,7 @@
     <!-- 2. EVIDENCE INTAKE / UPLOAD VIEW -->
     <section id="view-upload" class="view-section">
       <h2 class="section-title">Digital Evidence Intake & Ingestion</h2>
-      <p class="section-desc">Securely upload digital media. Automatically sanitizes payload, calculates cryptographic SHA-256/SHA-512 fingerprints, registers custody baseline, and runs forensic analysis.</p>
+      <p class="section-desc">Securely upload digital media. Automatically sanitizes payload, calculates cryptographic SHA-256/SHA-512 fingerprints, registers custody baseline, and runs automated forensic verification.</p>
 
       <div style="max-width: 800px; margin: 0 auto;">
         <div class="card-panel">
@@ -181,7 +181,7 @@
           <!-- Upload Progress Loader -->
           <div id="upload-progress-box" style="display: none; text-align: center; padding: 2rem;">
             <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Running Multi-Signal Forensic Verification...</div>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">Calculating SHA-256 fingerprint, executing ELA/FFT analysis, inspecting provenance, and computing risk score.</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Calculating SHA-256 fingerprint, executing ELA/FFT analysis, running local ViT ML model, inspecting provenance, and computing risk score.</p>
           </div>
         </div>
       </div>
@@ -200,33 +200,33 @@
 
         <div style="display: flex; gap: 0.75rem;">
           <button class="btn btn-secondary" onclick="reverifyIntegrity()">🛡️ Re-Verify Hash</button>
-          <button class="btn btn-primary" onclick="downloadForensicReport()">📄 Export Court Report (PDF)</button>
+          <button class="btn btn-primary" onclick="downloadForensicReport()">📄 Export Court Dossier (PDF)</button>
         </div>
       </div>
 
-      <!-- Top Summary Cards (Integrity, Provenance, Risk) -->
+      <!-- Top Summary Cards (Integrity, ML Model, Heuristic Anomaly, Composite Risk) -->
       <div class="grid-cards">
         <div class="stat-card">
-          <div class="stat-header">Cryptographic Integrity</div>
+          <div class="stat-header">File Bitstream Integrity</div>
           <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
             <div class="status-dot" id="lab-integrity-dot"></div>
             <span id="lab-integrity-text" style="font-weight: 700; font-size: 1.1rem; color: var(--risk-low);">VERIFIED</span>
           </div>
           <div class="stat-footer hash-mono" id="lab-sha256-snippet">SHA-256: e3b0c442...</div>
+          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Fidelity check only; not authenticity proof</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-header">C2PA / Provenance Status</div>
-          <div style="margin: 0.5rem 0;">
-            <span class="badge badge-medium" id="lab-provenance-badge">NOT AVAILABLE</span>
-          </div>
-          <div class="stat-footer" id="lab-provenance-detail">No C2PA Content Credentials attached</div>
+          <div class="stat-header">AI Manipulation Indicator (ML)</div>
+          <div class="stat-value" id="lab-ai-score">--</div>
+          <div class="stat-footer" id="lab-ai-model">dima806/deepfake_vs_real_image_detection</div>
+          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Statistical signal, not proof of authenticity</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-header">AI Manipulation Probability</div>
-          <div class="stat-value" id="lab-ai-score">0.0%</div>
-          <div class="stat-footer" id="lab-ai-model">Ensemble Detector</div>
+          <div class="stat-header">Forensic Anomaly Score (Heuristic)</div>
+          <div class="stat-value" id="lab-heuristic-score" style="color: var(--accent-cyan);">0/100</div>
+          <div class="stat-footer">ELA (95%) • 2D FFT • PRNU Noise</div>
         </div>
 
         <div class="stat-card">
@@ -235,7 +235,7 @@
             <span class="stat-value" id="lab-risk-score" style="color: var(--risk-low);">0/100</span>
             <span class="badge badge-low" id="lab-risk-badge">LOW RISK</span>
           </div>
-          <div class="stat-footer">Multi-Signal Weighted Index</div>
+          <div class="stat-footer" id="lab-provenance-detail">Multi-Signal Weighted Assessment</div>
         </div>
       </div>
 
@@ -256,7 +256,7 @@
               </div>
               <div class="exhibit-box">
                 <img id="exhibit-forensic" src="" alt="Forensic Analysis Artifact">
-                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 2: Error Level Analysis (ELA)</div>
+                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 2: Error Level Analysis (ELA 95%)</div>
               </div>
             </div>
           </div>
@@ -264,7 +264,7 @@
           <!-- Structured Findings Table -->
           <div class="card-panel">
             <div class="panel-header">
-              <h3>Explainable Forensic Findings</h3>
+              <h3>Explainable Automated Forensic Findings</h3>
               <span style="font-size: 0.8rem; color: var(--text-muted);" id="lab-findings-count">0 Signals Evaluated</span>
             </div>
             <div style="overflow-x: auto;">
@@ -312,7 +312,7 @@
             <div class="chat-container">
               <div class="chat-messages" id="copilot-chat-messages">
                 <div class="chat-bubble assistant">
-                  Hello Investigator. I am your Forensic Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of voice cloning?", "What camera created this?").
+                  Hello Investigator. I am your Forensic Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of acoustic splicing?", "What did the ViT model report?").
                 </div>
               </div>
               <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
