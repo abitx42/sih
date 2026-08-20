@@ -20,20 +20,36 @@ Truth Lens is a full-stack digital forensics platform consisting of:
 
 ---
 
-## 2. Recommended Demo Mode: Localhost + Cloudflare Tunnel
+## 2. One-Command Cloudflare Demo Launcher (macOS)
 
-For hackathon jury evaluations and live demonstrations, the recommended deployment mode is running the full stack locally on the investigator workstation and exposing it through an encrypted Cloudflare Tunnel (`cloudflared`).
+For live demonstrations, hackathon presentations, and jury evaluations, launch the complete Truth Lens application and obtain an encrypted public HTTPS URL with one command:
 
+```bash
+./scripts/start_demo.sh
+```
 
+### What it does:
+1. Validates the local Python virtual environment (`venv/bin/python`) and `cloudflared` CLI installation.
+2. Verifies port `8000` availability (explaining how to resolve conflicts if occupied).
+3. Boots Truth Lens locally on `127.0.0.1:8000` in production mode.
+4. Polls `http://127.0.0.1:8000/health` until HTTP 200 is confirmed.
+5. Initializes an encrypted Cloudflare Quick Tunnel (`cloudflared tunnel --url http://127.0.0.1:8000`).
+6. Prints the generated `https://*.trycloudflare.com` URL for mobile/laptop jury evaluation.
+7. Safely terminates both the tunnel and backend server upon pressing `Ctrl+C`.
 
-### Prerequisites
-1. **Python 3.9+** with virtual environment created.
-2. **Git** and `libmagic` (standard on macOS/Linux).
-3. **Cloudflare Tunnel (`cloudflared`)** CLI (optional, for public HTTPS URL during presentations).
-   - macOS: `brew install cloudflared`
-   - Linux: `sudo apt-get install cloudflared` or download binary from Cloudflare.
+To cleanly stop demo processes at any time from another terminal:
+```bash
+./scripts/stop_demo.sh
+```
+
+> [!WARNING]
+> - **Ephemeral URL:** The `https://*.trycloudflare.com` link is temporary and generated anew each time the script is started.
+> - **Connection Keep-Alive:** The host laptop, active internet connection, and terminal process must remain running while sharing the link.
+> - **Public Demo Notice:** This demo interface has no user authentication and must not be used to process real, sensitive, or confidential evidence.
+> - **Zero Key Exposure:** The script never reads, modifies, or prints `.env` or API credentials.
 
 ---
+
 
 ## 3. Environment Setup & Configuration
 

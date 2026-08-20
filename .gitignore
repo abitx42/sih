@@ -53,8 +53,11 @@ storage/models/*
 !storage/models/.gitkeep
 storage/references/*
 !storage/references/.gitkeep
+storage/demo_run/*
+!storage/demo_run/.gitkeep
 
 # OS / Editor
+
 .DS_Store
 Thumbs.db
 .vscode/

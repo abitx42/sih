@@ -221,7 +221,23 @@ ALLOWED_EXTENSIONS=jpg,jpeg,png,webp,mp4,avi,mov,mkv,wav,mp3,pdf,docx,xlsx,pptx,
 
 ## 🚀 Quickstart
 
-### 1. Installation
+### ⚡ One-Command Cloudflare Demo (macOS)
+For instant live demonstrations and evaluator access, run from the repository root:
+```bash
+./scripts/start_demo.sh
+```
+This automatically verifies prerequisites, boots Truth Lens on `127.0.0.1:8000`, waits for the health check, generates an encrypted public `https://*.trycloudflare.com` URL, and safely terminates all services upon pressing `Ctrl+C`.
+
+To stop demo processes at any time:
+```bash
+./scripts/stop_demo.sh
+```
+
+---
+
+### Manual Setup & Execution
+
+#### 1. Installation
 ```bash
 # Clone or navigate to repository
 cd sih
@@ -234,12 +250,13 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Running the Server
+#### 2. Running the Server Locally
 ```bash
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Open your browser at: **`http://localhost:8000`**
+
 
 ---
 
