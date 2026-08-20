@@ -417,7 +417,135 @@ class ForensicReportGenerator:
         story.append(t_coc)
         story.append(Spacer(1, 8))
 
-        # 9. Legal Disclaimer
+        # 9. Forensic Confidence Matrix
+        story.append(Paragraph("7. Forensic Confidence Matrix", section_style))
+        story.append(Paragraph(
+            "<i>6-axis multi-signal evaluation grid. Derived from all collected forensic signals — no new computation performed for this section.</i>",
+            ParagraphStyle('MatrixNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))
+        ))
+        story.append(Spacer(1, 3))
+
+        manipulation_subtype = forensic_result.get("manipulation_subtype", raw_metrics.get("risk_components", {}).get("manipulation_subtype", ""))
+        if manipulation_subtype:
+            story.append(Paragraph(f"<b>Manipulation Sub-type Classification:</b> {manipulation_subtype.replace('_', ' ')}", body_style))
+            story.append(Spacer(1, 3))
+
+        try:
+            from app.core.confidence_matrix import ConfidenceMatrix
+            ensemble_agreement_json = forensic_result.get("ensemble_agreement_json") or "{}"
+            import json as _json
+            ensemble_agg = _json.loads(ensemble_agreement_json) if isinstance(ensemble_agreement_json, str) else ensemble_agreement_json
+            forensic_tax = raw_metrics.get("forensic_taxonomy") or raw_metrics.get("risk_components", {}).get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
+
+            matrix = ConfidenceMatrix.build(
+                forensic_risk_score=forensic_result.get("forensic_risk_score", 0.0),
+                risk_category=forensic_result.get("risk_category", "REVIEW REQUIRED"),
+                forensic_taxonomy=forensic_tax,
+                ensemble_agreement=ensemble_agg,
+                provenance_status=forensic_result.get("provenance_status", "NOT_AVAILABLE"),
+                findings=[dict(f) for f in findings],
+                raw_metrics=raw_metrics
+            )
+            _sig_map = {"GREEN": ("#16a34a", "✓"), "RED": ("#dc2626", "✗"), "AMBER": ("#ca8a04", "~"), "GREY": ("#94a3b8", "—")}
+
+            matrix_table_data = [
+                [
+                    Paragraph("<b>Signal Axis</b>", table_cell_bold),
+                    Paragraph("<b>→ Authentic</b>", table_cell_bold),
+                    Paragraph("<b>→ Manipulated</b>", table_cell_bold),
+                    Paragraph("<b>Note</b>", table_cell_bold),
+                ]
+            ]
+            for axis in matrix["axes"]:
+                a_col, a_sym = _sig_map.get(axis["authentic_signal"], ("#94a3b8", "—"))
+                m_col, m_sym = _sig_map.get(axis["manipulated_signal"], ("#94a3b8", "—"))
+                matrix_table_data.append([
+                    Paragraph(f"<b>{axis.get('icon', '')} {axis['label']}</b>", table_cell),
+                    Paragraph(f"<font color='{a_col}'><b>{a_sym}</b></font>", table_cell),
+                    Paragraph(f"<font color='{m_col}'><b>{m_sym}</b></font>", table_cell),
+                    Paragraph(axis.get("note", ""), table_cell),
+                ])
+            t_matrix = Table(matrix_table_data, colWidths=[110, 65, 75, 290])
+            t_matrix.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+            ]))
+            story.append(t_matrix)
+            summary = matrix.get("summary", {})
+            story.append(Spacer(1, 2))
+            story.append(Paragraph(
+                f"<b>Signal Agreement:</b> {summary.get('manipulation_signals', 0)} of {summary.get('total_axes', 6)} axes indicate manipulation; {summary.get('authentic_signals', 0)} indicate authentic.",
+                body_style
+            ))
+        except Exception as _mx_err:
+            story.append(Paragraph(f"Confidence matrix unavailable: {type(_mx_err).__name__}", body_style))
+        story.append(Spacer(1, 8))
+
+        # 10. Investigator Review
+        investigator_review = None
+        try:
+            from app.database import get_db as _get_db
+            with _get_db() as _conn:
+                _cr = _conn.cursor()
+                _cr.execute("SELECT * FROM investigator_reviews WHERE evidence_id = ? ORDER BY submitted_at DESC LIMIT 1", (evidence_data.get("evidence_id", ""),))
+                _rev = _cr.fetchone()
+                if _rev:
+                    investigator_review = dict(_rev)
+        except Exception:
+            pass
+
+        story.append(Paragraph("8. Investigator Assessment", section_style))
+        if investigator_review:
+            v = investigator_review.get("verdict", "")
+            verdict_colors = {"AGREE": "#16a34a", "DISAGREE": "#dc2626", "NEEDS_FURTHER_EXAMINATION": "#ca8a04"}
+            v_col = verdict_colors.get(v, "#64748b")
+            story.append(Paragraph(f"<b>Verdict:</b> <font color='{v_col}'><b>{v.replace('_', ' ')}</b></font>", body_style))
+            story.append(Paragraph(f"<b>Reviewed by:</b> {investigator_review.get('reviewer_name', 'N/A')} on {str(investigator_review.get('submitted_at', ''))[:19]} UTC", body_style))
+            if investigator_review.get("notes"):
+                story.append(Paragraph(f"<b>Notes:</b> {investigator_review.get('notes')}", body_style))
+        else:
+            story.append(Paragraph("No investigator review has been submitted for this exhibit.", ParagraphStyle('NoRev', parent=body_style, textColor=colors.HexColor("#64748b"))))
+        story.append(Spacer(1, 8))
+
+        # 11. Reproducibility Record
+        repro_json = forensic_result.get("reproducibility_json")
+        if repro_json:
+            try:
+                import json as _json
+                repro = _json.loads(repro_json) if isinstance(repro_json, str) else repro_json
+                story.append(Paragraph("9. Reproducibility Record", section_style))
+                story.append(Paragraph(
+                    "<i>This record enables analysis reproducibility. Re-running with the same TruthLens version, model checkpoint, and input SHA-256 should yield equivalent findings.</i>",
+                    ParagraphStyle('ReproNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))
+                ))
+                story.append(Spacer(1, 2))
+                repro_rows = [
+                    ["Platform", repro.get("platform", "Truth Lens")],
+                    ["TruthLens Version", repro.get("truthlens_version", "N/A")],
+                    ["Analysis Mode", repro.get("analysis_mode", "N/A")],
+                    ["AI Model", f"{repro.get('ai_model_name', 'N/A')} v{repro.get('ai_model_version', 'N/A')}"],
+                    ["Model Checkpoint", repro.get("ai_model_checkpoint", "N/A")],
+                    ["Specialist Count", str(repro.get("specialist_ensemble_count", "N/A"))],
+                    ["Input SHA-256", repro.get("input_sha256", "N/A")[:32] + "..."],
+                    ["Analysis Timestamp (UTC)", str(repro.get("analysis_timestamp_utc", "N/A"))[:19]],
+                ]
+                repro_table = [[Paragraph(f"<b>{r[0]}</b>", table_cell), Paragraph(str(r[1]), table_cell)] for r in repro_rows]
+                t_repro = Table(repro_table, colWidths=[150, 390])
+                t_repro.setStyle(TableStyle([
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                    ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+                ]))
+                story.append(t_repro)
+                story.append(Spacer(1, 8))
+            except Exception:
+                pass
+
+        # 12. Legal Disclaimer
         disclaimer = (
             "<b>FORENSIC & LEGAL DISCLAIMER:</b> This report was generated automatically by the Truth Lens prototype "
             "(SIH PS-27) as an investigative review aid. Outputs, anomaly scores, and model predictions are automated screening "

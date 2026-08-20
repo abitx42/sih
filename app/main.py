@@ -14,6 +14,8 @@ from app.api.routes_custody import router as custody_router
 from app.api.routes_copilot import router as copilot_router
 from app.api.routes_reports import router as reports_router
 from app.api.routes_dashboard import router as dashboard_router
+from app.api.routes_diff import router as diff_router
+from app.api.routes_review import router as review_router
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +55,8 @@ app.include_router(evidence_router)
 app.include_router(custody_router)
 app.include_router(copilot_router)
 app.include_router(reports_router)
+app.include_router(diff_router)
+app.include_router(review_router)
 
 # Mount Static Files (Web UI)
 STATIC_DIR = Path(__file__).resolve().parent / "static"

@@ -758,7 +758,335 @@ function renderLabView(data) {
     integrityText.textContent = "RECORDED (BASELINE)";
     integrityText.style.color = "var(--risk-low)";
   }
+
+  // ── NEW PANELS ──
+  // Reset chain verify badge
+  const chainBadge = document.getElementById("lab-chain-status-badge");
+  if (chainBadge) { chainBadge.textContent = "NOT VERIFIED"; chainBadge.className = "badge badge-modality"; }
+  const chainResult = document.getElementById("lab-chain-verify-result");
+  if (chainResult) chainResult.style.display = "none";
+
+  // Reset robustness panel
+  const robustnessResults = document.getElementById("lab-robustness-results");
+  if (robustnessResults) robustnessResults.style.display = "none";
+
+  // Reset diff panel
+  const diffResults = document.getElementById("lab-diff-results");
+  if (diffResults) diffResults.style.display = "none";
+
+  // Show/hide modality-specific panels
+  const robustnessPanel = document.getElementById("lab-robustness-panel");
+  const diffPanel = document.getElementById("lab-diff-panel");
+  if (robustnessPanel) robustnessPanel.style.display = ev.modality === "IMAGE" ? "block" : "none";
+  if (diffPanel) diffPanel.style.display = ev.modality === "IMAGE" ? "block" : "none";
+
+  // Load Evidence DNA (async, non-blocking)
+  if (ev.status === "COMPLETED") {
+    loadEvidenceDNA(ev.evidence_id);
+    loadConfidenceMatrix(ev.evidence_id);
+  } else {
+    const dnaPanel = document.getElementById("lab-dna-panel");
+    if (dnaPanel) dnaPanel.style.display = "none";
+    const matrixPanel = document.getElementById("lab-confidence-matrix-panel");
+    if (matrixPanel) matrixPanel.style.display = "none";
+  }
+
+  // Load existing investigator review (async)
+  loadInvestigatorReview(ev.evidence_id);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// NEW PLATFORM FEATURE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+// Load Evidence DNA fingerprint
+async function loadEvidenceDNA(evidenceId) {
+  const panel = document.getElementById("lab-dna-panel");
+  const grid = document.getElementById("lab-dna-grid");
+  const knownMatch = document.getElementById("lab-dna-known-match");
+  if (!panel || !grid) return;
+
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/dna`);
+    if (!res.ok) { panel.style.display = "none"; return; }
+    const dna = await res.json();
+    panel.style.display = "block";
+
+    const fields = [
+      ["🔑 DNA Fingerprint", (dna.dna_fingerprint || "").substring(0, 20) + "..."],
+      ["📷 Camera", dna.camera || "Not Identified"],
+      ["📐 Dimensions", dna.dimensions || "N/A"],
+      ["🗜️ Compression", dna.compression || "N/A"],
+      ["🔵 Color Space", dna.color_space || "N/A"],
+      ["📊 Metadata Fields", String(dna.metadata_field_count || 0)],
+      ["✅ Provenance", (dna.provenance_status || "N/A").replace(/_/g, " ")],
+      ["🤖 AI Signals", `${dna.ai_signals_flagged || 0} / ${dna.ai_signals_total || 0} flagged`],
+    ];
+
+    grid.innerHTML = fields.map(([label, val]) =>
+      `<div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.7rem;">
+         <div style="font-size: 0.68rem; color: var(--text-muted); margin-bottom: 2px;">${escapeHTML(label)}</div>
+         <div style="font-size: 0.82rem; font-weight: 600; color: #fff; word-break: break-all;">${escapeHTML(String(val))}</div>
+       </div>`
+    ).join("");
+
+    if (dna.known_file_match) {
+      knownMatch.style.display = "block";
+      knownMatch.innerHTML = `⚠️ <strong>Potential Duplicate Detected:</strong> This file was previously ingested as <strong>${escapeHTML(dna.known_file_match.evidence_id)}</strong> (${escapeHTML(dna.known_file_match.original_filename)}) on ${escapeHTML(dna.known_file_match.created_at || "")}.`;
+    } else {
+      knownMatch.style.display = "none";
+    }
+  } catch (err) {
+    panel.style.display = "none";
+  }
+}
+
+// Load Forensic Confidence Matrix
+async function loadConfidenceMatrix(evidenceId) {
+  const panel = document.getElementById("lab-confidence-matrix-panel");
+  const tbody = document.getElementById("lab-matrix-tbody");
+  const subtypeBadge = document.getElementById("lab-manipulation-subtype-badge");
+  const summary = document.getElementById("lab-matrix-summary");
+  if (!panel || !tbody) return;
+
+  const SIG_COLORS = { GREEN: "#16a34a", RED: "#dc2626", AMBER: "#ca8a04", GREY: "#64748b" };
+  const SIG_ICONS = { GREEN: "✓", RED: "✗", AMBER: "~", GREY: "—" };
+
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/confidence-matrix`);
+    if (!res.ok) { panel.style.display = "none"; return; }
+    const data = await res.json();
+    panel.style.display = "block";
+
+    if (subtypeBadge) {
+      subtypeBadge.textContent = (data.manipulation_subtype || "").replace(/_/g, " ") || "SUB-TYPE N/A";
+    }
+
+    const axes = data.matrix?.axes || [];
+    const matSummary = data.matrix?.summary || {};
+    if (summary) {
+      summary.textContent = `${matSummary.manipulation_signals || 0}/${matSummary.total_axes || 6} axes flag manipulation`;
+    }
+
+    tbody.innerHTML = axes.map(axis => {
+      const aC = SIG_COLORS[axis.authentic_signal] || "#64748b";
+      const mC = SIG_COLORS[axis.manipulated_signal] || "#64748b";
+      const aI = SIG_ICONS[axis.authentic_signal] || "—";
+      const mI = SIG_ICONS[axis.manipulated_signal] || "—";
+      return `<tr style="border-bottom: 1px solid var(--border-color);">
+        <td style="padding: 0.4rem 0.6rem; font-weight: 600; font-size: 0.8rem;">${escapeHTML((axis.icon || "") + " " + axis.label)}</td>
+        <td style="text-align: center; padding: 0.4rem; font-size: 1.1rem; color: ${aC};"><strong>${aI}</strong></td>
+        <td style="text-align: center; padding: 0.4rem; font-size: 1.1rem; color: ${mC};"><strong>${mI}</strong></td>
+        <td style="padding: 0.4rem 0.6rem; font-size: 0.75rem; color: var(--text-muted);">${escapeHTML(axis.note || "")}</td>
+      </tr>`;
+    }).join("");
+  } catch (err) {
+    panel.style.display = "none";
+  }
+}
+
+// Load Investigator Review
+async function loadInvestigatorReview(evidenceId) {
+  const statusBadge = document.getElementById("lab-review-status");
+  const existingDiv = document.getElementById("lab-existing-review");
+  if (!statusBadge) return;
+
+  try {
+    const res = await fetch(`/api/reviews/${evidenceId}`);
+    if (!res.ok) return;
+    const review = await res.json();
+
+    if (review) {
+      const vColors = { AGREE: "#16a34a", DISAGREE: "#dc2626", NEEDS_FURTHER_EXAMINATION: "#ca8a04" };
+      const col = vColors[review.verdict] || "#64748b";
+      if (statusBadge) { statusBadge.textContent = review.verdict.replace(/_/g, " "); statusBadge.style.background = col; statusBadge.style.color = "#fff"; }
+      if (existingDiv) {
+        existingDiv.style.display = "block";
+        existingDiv.innerHTML = `<strong>Verdict:</strong> <span style="color: ${col};">${escapeHTML(review.verdict.replace(/_/g, " "))}</span> &nbsp;|&nbsp; <strong>By:</strong> ${escapeHTML(review.reviewer_name)} &nbsp;|&nbsp; <strong>On:</strong> ${escapeHTML((review.submitted_at || "").substring(0, 10))} UTC${review.notes ? `<br><strong>Notes:</strong> ${escapeHTML(review.notes)}` : ""}`;
+      }
+    } else {
+      if (statusBadge) { statusBadge.textContent = "NO REVIEW SUBMITTED"; statusBadge.style.background = ""; statusBadge.style.color = ""; }
+      if (existingDiv) existingDiv.style.display = "none";
+    }
+  } catch (err) {
+    // silently ignore
+  }
+}
+
+// Submit Investigator Review
+async function submitInvestigatorReview() {
+  if (!currentEvidenceId) return;
+  const verdictEl = document.querySelector("input[name='inv-verdict']:checked");
+  if (!verdictEl) { alert("Please select a verdict before submitting."); return; }
+  const notes = document.getElementById("inv-review-notes")?.value?.trim() || "";
+
+  try {
+    const res = await fetch(`/api/reviews/${currentEvidenceId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ verdict: verdictEl.value, notes, reviewer_name: "Lead Forensic Examiner" })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(`Review error: ${err.detail}`);
+      return;
+    }
+    alert("✅ Investigator review submitted and added to the audit log.");
+    loadInvestigatorReview(currentEvidenceId);
+  } catch (err) {
+    alert(`Error: ${err}`);
+  }
+}
+
+// Run Adversarial Robustness Stress Test
+async function runRobustnessTest() {
+  if (!currentEvidenceId) return;
+  const btn = document.getElementById("btn-run-robustness");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Running..."; }
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/robustness-test`, { method: "POST" });
+    if (!res.ok) { const e = await res.json(); alert(`Robustness test error: ${e.detail}`); return; }
+    const data = await res.json();
+
+    const resultsDiv = document.getElementById("lab-robustness-results");
+    const labelEl = document.getElementById("lab-robustness-label");
+    const summaryEl = document.getElementById("lab-robustness-summary");
+    const tbody = document.getElementById("lab-robustness-tbody");
+    const disc = document.getElementById("lab-robustness-disclaimer");
+
+    const labelColors = { "HIGH ROBUSTNESS": "#16a34a", "MODERATE ROBUSTNESS": "#ca8a04", "LOW ROBUSTNESS": "#dc2626" };
+    if (labelEl) { labelEl.textContent = data.robustness_label || ""; labelEl.style.background = labelColors[data.robustness_label] || "#64748b"; labelEl.style.color = "#fff"; }
+    if (summaryEl) summaryEl.textContent = `${data.consistent_transforms || 0} of ${data.total_transforms || 0} transforms consistent • ${data.robustness_percentage?.toFixed(1) || 0}% robustness`;
+
+    if (tbody && Array.isArray(data.transforms)) {
+      tbody.innerHTML = data.transforms.map(t => `
+        <tr style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 0.35rem 0.5rem; font-size: 0.78rem;">${escapeHTML(t.label || t.key)}</td>
+          <td style="text-align: center; padding: 0.35rem 0.5rem; font-size: 0.78rem;">${escapeHTML(t.verdict || "N/A")}</td>
+          <td style="text-align: center; padding: 0.35rem 0.5rem;">${t.consistent ? "✅" : "❌"}</td>
+          <td style="text-align: right; padding: 0.35rem 0.5rem; font-size: 0.75rem; color: var(--text-muted);">${t.latency_ms || 0}ms</td>
+        </tr>
+      `).join("");
+    }
+
+    if (disc) disc.textContent = data.disclaimer || "Robustness tests use FFT and noise heuristics only. All transforms are applied to in-memory copies. Original file is unchanged.";
+    if (resultsDiv) resultsDiv.style.display = "block";
+  } catch (err) {
+    alert(`Error running robustness test: ${err}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "▶ Run Stress Test"; }
+  }
+}
+
+// Run Evidence Diff
+async function runEvidenceDiff() {
+  if (!currentEvidenceId) return;
+  const evBInput = document.getElementById("diff-evidence-b");
+  const evidenceBId = evBInput?.value?.trim();
+  if (!evidenceBId) { alert("Please enter the Evidence ID of the second exhibit to compare."); return; }
+  if (evidenceBId === currentEvidenceId) { alert("Please enter a different evidence ID to compare."); return; }
+
+  try {
+    const res = await fetch("/api/diff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evidence_id_a: currentEvidenceId, evidence_id_b: evidenceBId })
+    });
+    if (!res.ok) { const e = await res.json(); alert(`Diff error: ${e.detail}`); return; }
+    const data = await res.json();
+
+    const resultsDiv = document.getElementById("lab-diff-results");
+    const summaryEl = document.getElementById("lab-diff-summary");
+    const imgA = document.getElementById("diff-img-a");
+    const imgB = document.getElementById("diff-img-b");
+    const heatmapBox = document.getElementById("diff-heatmap-box");
+    const heatmapImg = document.getElementById("diff-img-heatmap");
+    const regionsEl = document.getElementById("lab-diff-regions");
+    const metaEl = document.getElementById("lab-diff-metadata-table");
+
+    if (summaryEl) summaryEl.textContent = data.summary || "Comparison complete.";
+    if (imgA) { imgA.src = `/api/evidence/${currentEvidenceId}/file`; }
+    if (imgB) { imgB.src = `/api/evidence/${evidenceBId}/file`; }
+
+    if (data.diff_heatmap_url && heatmapBox && heatmapImg) {
+      heatmapImg.src = data.diff_heatmap_url;
+      heatmapBox.style.display = "block";
+    }
+
+    // Pixel diff stats
+    if (data.pixel_diff && summaryEl) {
+      const pd = data.pixel_diff;
+      summaryEl.innerHTML = `<strong>Pixel Diff:</strong> ${pd.pct_pixels_changed?.toFixed(1)}% pixels changed • Mean Δ: ${pd.mean_absolute_difference?.toFixed(1)} • ${pd.significant_change ? "⚠️ Significant change detected" : "✓ No significant pixel change"}`;
+    }
+
+    // Change regions
+    if (regionsEl && data.pixel_diff?.change_regions?.length > 0) {
+      regionsEl.innerHTML = `<div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.3rem;">Change Regions Detected: ${data.pixel_diff.change_regions.length}</div>` +
+        data.pixel_diff.change_regions.map(r =>
+          `<span style="display: inline-block; margin: 0.2rem; font-size: 0.72rem; padding: 0.2rem 0.5rem; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 4px; color: #fca5a5;">Region ${r.grid_row + 1}-${r.grid_col + 1} (${r.changed_pct?.toFixed(0)}%)</span>`
+        ).join("");
+    } else if (regionsEl) { regionsEl.innerHTML = ""; }
+
+    // Metadata diff table
+    if (metaEl && Array.isArray(data.metadata_diff)) {
+      const changed = data.metadata_diff.filter(d => d.changed);
+      if (changed.length > 0) {
+        metaEl.innerHTML = `<table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 0.5rem;">
+          <thead><tr style="background: rgba(255,255,255,0.05);">
+            <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-muted);">Field</th>
+            <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-muted);">Exhibit A</th>
+            <th style="text-align: left; padding: 0.3rem 0.5rem; color: var(--text-muted);">Exhibit B</th>
+          </tr></thead>
+          <tbody>${changed.map(d => `<tr style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 0.3rem 0.5rem; font-weight: 600;">${escapeHTML(d.field)}</td>
+            <td style="padding: 0.3rem 0.5rem; color: #86efac;">${escapeHTML(String(d.value_a ?? "—"))}</td>
+            <td style="padding: 0.3rem 0.5rem; color: #fca5a5;">${escapeHTML(String(d.value_b ?? "—"))}</td>
+          </tr>`).join("")}</tbody></table>`;
+      } else {
+        metaEl.innerHTML = `<div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 0.4rem;">No significant metadata differences detected.</div>`;
+      }
+    }
+
+    if (resultsDiv) resultsDiv.style.display = "block";
+  } catch (err) {
+    alert(`Error running diff: ${err}`);
+  }
+}
+
+// Verify hash-chained custody chain
+async function verifyChain() {
+  if (!currentEvidenceId) return;
+  const badge = document.getElementById("lab-chain-status-badge");
+  const resultDiv = document.getElementById("lab-chain-verify-result");
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/verify-chain`);
+    if (!res.ok) { alert("Chain verify error."); return; }
+    const data = await res.json();
+
+    if (badge) {
+      badge.textContent = data.chain_valid ? "CHAIN VALID ✓" : "CHAIN BROKEN ⚠️";
+      badge.style.background = data.chain_valid ? "#16a34a" : "#dc2626";
+      badge.style.color = "#fff";
+    }
+
+    if (resultDiv) {
+      resultDiv.style.display = "block";
+      if (data.chain_valid) {
+        resultDiv.innerHTML = `<span style="color: #86efac;">✓ All ${data.total_events} custody events are correctly linked. No evidence of tampering detected.</span><br><small style="color: var(--text-dim);">Note: Hash-chaining detects modification of existing records. Adding new events is expected and does not break the chain.</small>`;
+      } else {
+        const broken = (data.broken_links || []).map(b =>
+          `<div style="color: #fca5a5;">• Event <strong>${escapeHTML(b.event_id)}</strong> (position ${b.position}): ${escapeHTML(b.reason)}</div>`
+        ).join("");
+        resultDiv.innerHTML = `<span style="color: #f87171;">⚠️ Chain integrity check failed — ${data.broken_links?.length || 0} broken link(s) detected.</span>${broken}`;
+      }
+    }
+  } catch (err) {
+    alert(`Chain verify error: ${err}`);
+  }
+}
+
 
 // 4. On-Demand Integrity Re-Verification
 async function reverifyIntegrity() {

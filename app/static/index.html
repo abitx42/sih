@@ -502,6 +502,133 @@
               </form>
             </div>
           </div>
+
+         <!-- ── FORENSIC CONFIDENCE MATRIX ── -->
+         <div class="card-panel" id="lab-confidence-matrix-panel" style="margin-top: 1.5rem; display: none;">
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+             <div>
+               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">FORENSIC CONFIDENCE MATRIX</div>
+               <span id="lab-manipulation-subtype-badge" class="badge badge-modality" style="font-size: 0.7rem; margin-left: 0;"></span>
+             </div>
+             <span id="lab-matrix-summary" class="badge badge-status-analyzing" style="font-size: 0.7rem;"></span>
+           </div>
+           <div id="lab-confidence-matrix-grid" style="width: 100%; overflow-x: auto;">
+             <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+               <thead>
+                 <tr style="background: rgba(255,255,255,0.05);">
+                   <th style="text-align: left; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Signal Axis</th>
+                   <th style="text-align: center; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Authentic</th>
+                   <th style="text-align: center; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Manipulated</th>
+                   <th style="text-align: left; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Note</th>
+                 </tr>
+               </thead>
+               <tbody id="lab-matrix-tbody"></tbody>
+             </table>
+           </div>
+         </div>
+
+         <!-- ── EVIDENCE DNA ── -->
+         <div class="card-panel" id="lab-dna-panel" style="margin-top: 1.5rem; display: none;">
+           <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">🧬 EVIDENCE DNA — FORENSIC FINGERPRINT</div>
+           <div id="lab-dna-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem;"></div>
+           <div id="lab-dna-known-match" style="display: none; margin-top: 0.75rem; padding: 0.5rem 0.8rem; background: rgba(234,179,8,0.1); border-left: 3px solid #eab308; border-radius: 4px; font-size: 0.8rem; color: #fcd34d;"></div>
+         </div>
+
+         <!-- ── INVESTIGATOR REVIEW ── -->
+         <div class="card-panel" id="lab-review-panel" style="margin-top: 1.5rem;">
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+             <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧑‍⚖️ INVESTIGATOR ASSESSMENT</div>
+             <span id="lab-review-status" class="badge badge-modality" style="font-size: 0.7rem;">NO REVIEW SUBMITTED</span>
+           </div>
+           <div id="lab-existing-review" style="display: none; margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); font-size: 0.82rem; line-height: 1.4;"></div>
+           <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="AGREE"> Agree with TruthLens assessment</label>
+               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="DISAGREE"> Disagree — Manual review required</label>
+               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="NEEDS_FURTHER_EXAMINATION"> Needs further examination</label>
+             </div>
+             <textarea id="inv-review-notes" rows="2" placeholder="Optional: Add investigator notes..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem; border-radius: 6px; font-family: inherit; font-size: 0.82rem; resize: vertical;"></textarea>
+             <button class="btn btn-secondary btn-sm" onclick="submitInvestigatorReview()" style="align-self: flex-start;">Submit Investigator Review</button>
+           </div>
+         </div>
+
+         <!-- ── ADVERSARIAL ROBUSTNESS STRESS TEST ── -->
+         <div class="card-panel" id="lab-robustness-panel" style="margin-top: 1.5rem; display: none;">
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+             <div>
+               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧪 ADVERSARIAL ROBUSTNESS STRESS TEST</div>
+               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Tests whether forensic conclusions survive common real-world transformations. Original file is never modified.</div>
+             </div>
+             <button class="btn btn-secondary btn-sm" id="btn-run-robustness" onclick="runRobustnessTest()">▶ Run Stress Test</button>
+           </div>
+           <div id="lab-robustness-results" style="display: none;">
+             <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+               <span id="lab-robustness-label" class="badge badge-modality" style="font-size: 0.72rem;"></span>
+               <span id="lab-robustness-summary" style="font-size: 0.82rem; color: var(--text-muted);"></span>
+             </div>
+             <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+               <thead>
+                 <tr style="background: rgba(255,255,255,0.05);">
+                   <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Transform</th>
+                   <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Verdict</th>
+                   <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Consistent</th>
+                   <th style="text-align: right; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Latency</th>
+                 </tr>
+               </thead>
+               <tbody id="lab-robustness-tbody"></tbody>
+             </table>
+             <div id="lab-robustness-disclaimer" style="margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-dim); font-style: italic; line-height: 1.3;"></div>
+           </div>
+         </div>
+
+         <!-- ── EVIDENCE DIFF MODE ── -->
+         <div class="card-panel" id="lab-diff-panel" style="margin-top: 1.5rem; display: none;">
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+             <div>
+               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔬 EVIDENCE DIFF — COMPARE TWO EXHIBITS</div>
+               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Upload a second image exhibit to the same case, then compare pixel-by-pixel.</div>
+             </div>
+           </div>
+           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem;">
+             <input type="text" id="diff-evidence-b" placeholder="Evidence ID B (e.g. EV-2026-XXXXXX)" style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.82rem;">
+             <button class="btn btn-secondary btn-sm" onclick="runEvidenceDiff()">▶ Compare</button>
+           </div>
+           <div id="lab-diff-results" style="display: none;">
+             <div id="lab-diff-summary" style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; border-left: 3px solid var(--accent-cyan);"></div>
+             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: flex-start;">
+               <div style="flex: 1; min-width: 160px; text-align: center;">
+                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">ORIGINAL (A)</div>
+                 <img id="diff-img-a" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence A">
+               </div>
+               <div style="flex: 1; min-width: 160px; text-align: center;">
+                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">COMPARISON (B)</div>
+                 <img id="diff-img-b" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence B">
+               </div>
+               <div style="flex: 1; min-width: 160px; text-align: center;" id="diff-heatmap-box" style="display: none;">
+                 <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">DIFFERENCE HEATMAP</div>
+                 <img id="diff-img-heatmap" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid rgba(248,113,113,0.4);" alt="Difference Heatmap">
+               </div>
+             </div>
+             <div id="lab-diff-regions" style="margin-bottom: 0.75rem;"></div>
+             <div id="lab-diff-metadata-table" style="overflow-x: auto;"></div>
+           </div>
+         </div>
+
+         <!-- ── CHAIN OF CUSTODY VERIFICATION ── -->
+         <div class="card-panel" id="lab-chain-verify-panel" style="margin-top: 1.5rem;">
+           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+             <div>
+               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔒 HASH-CHAINED AUDIT LOG</div>
+               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Each custody event records a hash of the previous event. Tampering becomes detectable.</div>
+             </div>
+             <div style="display: flex; align-items: center; gap: 0.5rem;">
+               <span id="lab-chain-status-badge" class="badge badge-modality" style="font-size: 0.7rem;">NOT VERIFIED</span>
+               <button class="btn btn-secondary btn-sm" onclick="verifyChain()">Verify Chain</button>
+             </div>
+           </div>
+           <div id="lab-chain-verify-result" style="display: none; margin-top: 0.75rem; font-size: 0.8rem; line-height: 1.4;"></div>
+         </div>
+
         </div>
       </div>
     </section>

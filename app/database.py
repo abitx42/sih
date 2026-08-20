@@ -84,6 +84,8 @@ def init_db():
             cursor.execute("ALTER TABLE evidence ADD COLUMN analysis_mode TEXT DEFAULT 'FULL_ANALYSIS'")
         if "pipeline_stages_json" not in ev_columns:
             cursor.execute("ALTER TABLE evidence ADD COLUMN pipeline_stages_json TEXT DEFAULT '{}'")
+        if "dna_fingerprint" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN dna_fingerprint TEXT")
 
         # 3. Forensic Results Table
         cursor.execute("""
@@ -125,6 +127,10 @@ def init_db():
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN forensic_anomaly_score REAL DEFAULT 0.0")
         if "ensemble_agreement_json" not in columns:
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN ensemble_agreement_json TEXT DEFAULT '{}'")
+        if "manipulation_subtype" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN manipulation_subtype TEXT DEFAULT 'INCONCLUSIVE'")
+        if "reproducibility_json" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN reproducibility_json TEXT DEFAULT '{}'")
 
         # 4. Findings Table
         cursor.execute("""
@@ -141,7 +147,7 @@ def init_db():
             FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
         )
         """)
-        
+
         # 5. Chain of Custody Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS chain_of_custody (
@@ -155,7 +161,26 @@ def init_db():
             FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
         )
         """)
-        
+
+        # Migration: add previous_event_hash for hash-chained audit log
+        cursor.execute("PRAGMA table_info(chain_of_custody)")
+        coc_columns = [col["name"] for col in cursor.fetchall()]
+        if "previous_event_hash" not in coc_columns:
+            cursor.execute("ALTER TABLE chain_of_custody ADD COLUMN previous_event_hash TEXT DEFAULT ''")
+
+        # 6. Investigator Reviews Table (Phase 3B)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS investigator_reviews (
+            review_id TEXT PRIMARY KEY,
+            evidence_id TEXT NOT NULL,
+            verdict TEXT NOT NULL,
+            notes TEXT,
+            reviewer_name TEXT NOT NULL,
+            submitted_at TEXT NOT NULL,
+            FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
+        )
+        """)
+
         # Insert default demo case if no cases exist
         cursor.execute("SELECT COUNT(*) as count FROM cases")
         if cursor.fetchone()["count"] == 0:
@@ -171,6 +196,7 @@ def init_db():
                 "ACTIVE"
             ))
             logger.info("Initialized default case CASE-2026-001")
+
 
 def reconcile_orphaned_jobs() -> int:
     """

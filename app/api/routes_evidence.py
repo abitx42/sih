@@ -17,6 +17,10 @@ from app.core.risk_engine import RiskEngine
 from app.core.chain_of_custody import ChainOfCustodyLogger
 from app.core.copilot import ForensicCopilot
 from app.core.explainability import ForensicCorrelationBuilder
+from app.core.evidence_dna import EvidenceDNA
+from app.core.confidence_matrix import ConfidenceMatrix
+from app.core.robustness_tester import RobustnessTester
+from app.core.reproducibility import ReproducibilityEngine
 from app.core.detector_ensemble import (
     SpatialVisionSpecialist, FrequencyDomainSpecialist, SyntheticNoiseSpecialist,
     LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, ExternalDetectorAdapter, EnsembleAgreementEngine
@@ -267,6 +271,7 @@ def execute_forensic_pipeline(evidence_id: str):
         # 11. Persist Results & Findings to SQLite
         result_id = f"RES-{uuid.uuid4().hex[:8].upper()}"
         analyzed_at = datetime.utcnow().isoformat() + "Z"
+        manipulation_subtype = comp_scores.get("manipulation_subtype", "INCONCLUSIVE")
 
         def _json_safe(obj):
             if hasattr(obj, "tolist"):
@@ -277,28 +282,82 @@ def execute_forensic_pipeline(evidence_id: str):
                 return int(obj)
             return str(obj)
 
+        # Build Evidence DNA fingerprint
+        dna_record = EvidenceDNA.build_dna(
+            evidence_id=evidence_id,
+            sha256_hash=evidence["sha256_hash"],
+            original_filename=evidence["original_filename"],
+            modality=modality,
+            file_size_bytes=evidence["file_size_bytes"],
+            raw_metrics=raw_metrics,
+            provenance_result=provenance_res
+        )
+        raw_metrics["evidence_dna"] = dna_record
+
+        # Build reproducibility record
+        reproducibility_record = ReproducibilityEngine.build_record(
+            evidence_id=evidence_id,
+            input_sha256=evidence["sha256_hash"],
+            modality=modality,
+            analysis_mode=analysis_mode,
+            model_name=ai_model_name,
+            model_version=ai_model_version,
+            forensic_anomaly_score=forensic_anomaly_score,
+            ensemble_specialist_count=len(specialists)
+        )
+
         with get_db() as conn:
             cursor = conn.cursor()
-            
-            cursor.execute("""
-            INSERT OR REPLACE INTO forensic_results (
-                result_id, evidence_id, integrity_status, provenance_status,
-                ai_manipulation_score, ai_manipulation_indicator, ai_model_name,
-                ai_model_version, model_confidence, model_status,
-                forensic_anomaly_score, forensic_risk_score, risk_category,
-                confidence_score, analyzed_at, raw_metrics_json,
-                summary_narrative, recommendations, ensemble_agreement_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                result_id, evidence_id, "VERIFIED", provenance_status,
-                ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
-                ai_model_version, model_confidence, model_status,
-                forensic_anomaly_score, risk_score, risk_cat,
-                confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
-                narrative_res.get("summary", ""),
-                narrative_res.get("recommendations", ""),
-                json.dumps(ensemble_agreement, default=_json_safe)
-            ))
+
+            # Check columns available
+            cursor.execute("PRAGMA table_info(forensic_results)")
+            fr_cols = [c["name"] for c in cursor.fetchall()]
+            has_manip_subtype = "manipulation_subtype" in fr_cols
+            has_repro = "reproducibility_json" in fr_cols
+
+            if has_manip_subtype and has_repro:
+                cursor.execute("""
+                INSERT OR REPLACE INTO forensic_results (
+                    result_id, evidence_id, integrity_status, provenance_status,
+                    ai_manipulation_score, ai_manipulation_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, forensic_risk_score, risk_category,
+                    confidence_score, analyzed_at, raw_metrics_json,
+                    summary_narrative, recommendations, ensemble_agreement_json,
+                    manipulation_subtype, reproducibility_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    result_id, evidence_id, "VERIFIED", provenance_status,
+                    ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, risk_score, risk_cat,
+                    confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
+                    narrative_res.get("summary", ""),
+                    narrative_res.get("recommendations", ""),
+                    json.dumps(ensemble_agreement, default=_json_safe),
+                    manipulation_subtype,
+                    json.dumps(reproducibility_record, default=_json_safe)
+                ))
+            else:
+                cursor.execute("""
+                INSERT OR REPLACE INTO forensic_results (
+                    result_id, evidence_id, integrity_status, provenance_status,
+                    ai_manipulation_score, ai_manipulation_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, forensic_risk_score, risk_category,
+                    confidence_score, analyzed_at, raw_metrics_json,
+                    summary_narrative, recommendations, ensemble_agreement_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    result_id, evidence_id, "VERIFIED", provenance_status,
+                    ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, risk_score, risk_cat,
+                    confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
+                    narrative_res.get("summary", ""),
+                    narrative_res.get("recommendations", ""),
+                    json.dumps(ensemble_agreement, default=_json_safe)
+                ))
 
             cursor.execute("DELETE FROM findings WHERE evidence_id = ?", (evidence_id,))
             for f in findings:
@@ -310,9 +369,18 @@ def execute_forensic_pipeline(evidence_id: str):
                     f["severity"], f["score"], f["explanation"], f.get("location_ref"), f["created_at"]
                 ))
 
+            # Store DNA fingerprint on evidence row
+            cursor.execute("PRAGMA table_info(evidence)")
+            ev_cols = [c["name"] for c in cursor.fetchall()]
+            if "dna_fingerprint" in ev_cols:
+                cursor.execute(
+                    "UPDATE evidence SET dna_fingerprint = ? WHERE evidence_id = ?",
+                    (dna_record["dna_fingerprint"], evidence_id)
+                )
+
             cursor.execute("""
-            UPDATE evidence 
-            SET status = 'COMPLETED', pipeline_status = 'COMPLETED', analyzed_at = ?, error_message = NULL 
+            UPDATE evidence
+            SET status = 'COMPLETED', pipeline_status = 'COMPLETED', analyzed_at = ?, error_message = NULL
             WHERE evidence_id = ?
             """, (analyzed_at, evidence_id))
 
@@ -322,7 +390,7 @@ def execute_forensic_pipeline(evidence_id: str):
             action="FORENSIC_ANALYSIS_COMPLETED",
             actor="Truth Lens Forensic Engine",
             recorded_sha256=evidence["sha256_hash"],
-            details=f"Multi-specialist analysis executed ({analysis_mode}). {len(findings)} findings logged. Agreement: {ensemble_agreement['consensus_label']}."
+            details=f"Multi-specialist analysis executed ({analysis_mode}). {len(findings)} findings logged. Agreement: {ensemble_agreement['consensus_label']}. Sub-type: {manipulation_subtype}."
         )
         ChainOfCustodyLogger.record_event(
             evidence_id=evidence_id,
@@ -331,6 +399,7 @@ def execute_forensic_pipeline(evidence_id: str):
             recorded_sha256=evidence["sha256_hash"],
             details=f"Forensic Assessment: {forensic_taxonomy.replace('_', ' ')} (Score: {risk_score}/100 - {risk_cat})."
         )
+
 
     except Exception as e:
         logger.error(f"Error during forensic analysis of {evidence_id}: {e}", exc_info=True)
@@ -832,3 +901,176 @@ def explain_evidence(evidence_id: str, actor: str = "Lead Forensic Examiner"):
         source=explanation_data.get("source", "Local Deterministic Engine"),
         timestamp=explanation_data.get("timestamp", datetime.utcnow().isoformat() + "Z")
     )
+
+
+@router.get("/{evidence_id}/dna")
+def get_evidence_dna(evidence_id: str):
+    """
+    Returns the Evidence DNA forensic fingerprint for this exhibit.
+    Includes camera provenance, compression, metadata richness, and signal summary counts.
+    Also checks if the same file was seen in a prior upload.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        forensic_result = cursor.fetchone()
+
+    raw_metrics = {}
+    provenance_res = {}
+    if forensic_result:
+        try:
+            raw_metrics = json.loads(forensic_result.get("raw_metrics_json") or "{}")
+        except Exception:
+            pass
+        provenance_res = raw_metrics.get("provenance", {})
+
+    # Check for existing DNA in evidence row first
+    stored_dna_fp = evidence.get("dna_fingerprint")
+
+    # Build fresh (or from stored metrics)
+    dna = EvidenceDNA.build_dna(
+        evidence_id=evidence_id,
+        sha256_hash=evidence["sha256_hash"],
+        original_filename=evidence["original_filename"],
+        modality=evidence["modality"],
+        file_size_bytes=evidence["file_size_bytes"],
+        raw_metrics=raw_metrics,
+        provenance_result=provenance_res
+    )
+
+    # Check for known/duplicate file
+    dna_fp = stored_dna_fp or dna["dna_fingerprint"]
+    known_match = EvidenceDNA.check_known_file(dna_fp, evidence_id)
+    dna["known_file_match"] = known_match
+
+    return dna
+
+
+@router.get("/{evidence_id}/confidence-matrix")
+def get_confidence_matrix(evidence_id: str):
+    """
+    Returns the 6-axis Forensic Confidence Matrix (AI Models, Pixel Forensics, Metadata,
+    Provenance, Region Analysis, Signal Agreement). No new computation — derived from existing results.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        forensic_result = cursor.fetchone()
+        if not forensic_result:
+            raise HTTPException(status_code=400, detail="Forensic analysis has not completed for this evidence.")
+
+        cursor.execute("SELECT * FROM findings WHERE evidence_id = ? ORDER BY score DESC", (evidence_id,))
+        findings = cursor.fetchall()
+
+    try:
+        raw_metrics = json.loads(forensic_result.get("raw_metrics_json") or "{}")
+    except Exception:
+        raw_metrics = {}
+
+    try:
+        ensemble_agreement = json.loads(forensic_result.get("ensemble_agreement_json") or "{}")
+    except Exception:
+        ensemble_agreement = {}
+
+    forensic_taxonomy = raw_metrics.get("forensic_taxonomy") or raw_metrics.get("risk_components", {}).get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
+
+    matrix = ConfidenceMatrix.build(
+        forensic_risk_score=forensic_result.get("forensic_risk_score", 0.0),
+        risk_category=forensic_result.get("risk_category", "REVIEW REQUIRED"),
+        forensic_taxonomy=forensic_taxonomy,
+        ensemble_agreement=ensemble_agreement,
+        provenance_status=forensic_result.get("provenance_status", "NOT_AVAILABLE"),
+        findings=[dict(f) for f in findings],
+        raw_metrics=raw_metrics
+    )
+
+    return {
+        "evidence_id": evidence_id,
+        "risk_category": forensic_result.get("risk_category"),
+        "forensic_taxonomy": forensic_taxonomy,
+        "manipulation_subtype": forensic_result.get("manipulation_subtype", "INCONCLUSIVE"),
+        "matrix": matrix
+    }
+
+
+@router.post("/{evidence_id}/robustness-test")
+def run_robustness_test(evidence_id: str):
+    """
+    Run the Adversarial Robustness Stress Test on an IMAGE evidence item.
+    Applies 7 transforms (JPEG compression, resize, blur, sharpen, screenshot simulation,
+    social media compression) and tests whether forensic signals persist.
+    Original file is never modified.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        if evidence.get("modality") != "IMAGE":
+            raise HTTPException(status_code=400, detail="Robustness stress test is only available for IMAGE modality evidence.")
+
+        if evidence.get("status") != "COMPLETED":
+            raise HTTPException(status_code=400, detail="Forensic analysis must be completed before running robustness test.")
+
+        cursor.execute("SELECT forensic_risk_score, risk_category FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        fr = cursor.fetchone()
+
+    file_path = EVIDENCE_DIR / evidence["stored_filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Evidence file not found on disk.")
+
+    original_verdict = fr["risk_category"] if fr else "REVIEW REQUIRED"
+    original_score = float(fr["forensic_risk_score"]) if fr else 0.0
+
+    result = RobustnessTester.run(
+        file_path=file_path,
+        evidence_id=evidence_id,
+        original_verdict=original_verdict,
+        original_score=original_score
+    )
+
+    # Store result as a forensic artifact
+    try:
+        import json as _json
+        rob_path = FORENSIC_DIR / f"{evidence_id}_robustness.json"
+        with open(rob_path, "w") as rf:
+            _json.dump(result, rf, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to persist robustness result: {e}")
+
+    ChainOfCustodyLogger.record_event(
+        evidence_id=evidence_id,
+        action="ROBUSTNESS_TEST_EXECUTED",
+        actor="Truth Lens Robustness Engine",
+        recorded_sha256=evidence["sha256_hash"],
+        details=f"Adversarial robustness test: {result.get('consistent_transforms', 0)}/{result.get('total_transforms', 0)} transforms consistent. Robustness: {result.get('robustness_label', 'N/A')}."
+    )
+
+    return result
+
+
+@router.get("/{evidence_id}/verify-chain")
+def verify_custody_chain(evidence_id: str):
+    """
+    Walk the hash-chained custody audit log for this evidence item and verify each link.
+    Returns CHAIN_VALID or CHAIN_BROKEN with details of any detected tampering.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT evidence_id FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+    return ChainOfCustodyLogger.verify_chain(evidence_id)

@@ -198,6 +198,15 @@ class RiskEngine:
             ensemble_agreement=ensemble_agreement
         )
 
+        # 7. Manipulation Sub-type Classification
+        manipulation_subtype = RiskEngine.classify_manipulation_subtype(
+            forensic_taxonomy=forensic_taxonomy,
+            findings=findings,
+            ai_manipulation_indicator=ai_manipulation_indicator,
+            model_status=model_status,
+            forensic_anomaly_score=forensic_anomaly_score
+        )
+
         component_scores = {
             "integrity_risk": round(integrity_risk, 1),
             "ai_manipulation_risk": round(ai_risk, 1) if ai_risk is not None else None,
@@ -206,6 +215,7 @@ class RiskEngine:
             "provenance_risk": round(provenance_risk, 1),
             "model_status": model_status,
             "forensic_taxonomy": forensic_taxonomy,
+            "manipulation_subtype": manipulation_subtype,
             "has_signal_conflict": has_conflict
         }
 
@@ -213,3 +223,60 @@ class RiskEngine:
             component_scores["ensemble_agreement"] = ensemble_agreement
 
         return final_score, risk_category, base_confidence, component_scores
+
+    @staticmethod
+    def classify_manipulation_subtype(
+        forensic_taxonomy: str,
+        findings: List[Dict[str, Any]],
+        ai_manipulation_indicator: Optional[float],
+        model_status: str,
+        forensic_anomaly_score: float
+    ) -> str:
+        """
+        Emits a specific manipulation sub-type label alongside the 5-tier taxonomy.
+        Derived purely from existing signal findings — no new ML calls.
+        """
+        if forensic_taxonomy == "LIKELY_AUTHENTIC":
+            return "NO_MANIPULATION_DETECTED"
+
+        if forensic_taxonomy == "ANALYSIS_INCONCLUSIVE":
+            return "INCONCLUSIVE"
+
+        # Keyword signal matching
+        signal_names = " ".join(f.get("signal_name", "").lower() for f in findings)
+        explanations = " ".join(f.get("explanation", "").lower() for f in findings)
+        combined = signal_names + " " + explanations
+        cats = [f.get("category", "") for f in findings]
+
+        has_localized = "LOCALIZED_MANIPULATION" in cats
+        has_face_signal = any(kw in combined for kw in ("face", "facial", "face region"))
+        has_inpainting = any(kw in combined for kw in ("inpainting", "generative fill", "synthetic object", "eyewear", "sunglasses"))
+        has_splice = any(kw in combined for kw in ("splice", "splicing", "copy-move", "copy move", "cloning"))
+        has_software_edit = any(kw in combined for kw in ("photoshop", "lightroom", "gimp", "editing suite", "post-processing"))
+        has_reencode = any(kw in combined for kw in ("reencod", "recompress", "resave", "re-encoded"))
+        is_ml_high = model_status == "AVAILABLE" and ai_manipulation_indicator is not None and ai_manipulation_indicator >= 0.70
+
+        if forensic_taxonomy == "LIKELY_AI_GENERATED":
+            return "AI_GENERATED"
+
+        if forensic_taxonomy in ("LIKELY_AI_ASSISTED_MANIPULATION", "LIKELY_TRADITIONAL_MANIPULATION"):
+            if has_inpainting and has_face_signal:
+                return "FACE_REGION_INPAINTING"
+            if has_inpainting:
+                return "OBJECT_INSERTION"
+            if has_face_signal and is_ml_high:
+                return "FACE_SWAP"
+            if has_splice:
+                return "IMAGE_SPLICE"
+            if has_software_edit and forensic_anomaly_score >= 40.0:
+                return "TRADITIONAL_EDIT"
+            if has_localized:
+                return "AI_ASSISTED_EDIT"
+            if has_reencode:
+                return "RE_ENCODED"
+            if forensic_taxonomy == "LIKELY_AI_ASSISTED_MANIPULATION":
+                return "AI_ASSISTED_EDIT"
+            return "TRADITIONAL_EDIT"
+
+        return "INCONCLUSIVE"
+
