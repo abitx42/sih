@@ -42,6 +42,18 @@ function switchView(viewName) {
   if (viewName === "cases") loadCasesList();
 }
 
+// Lab Sub-Tab Navigation Router
+function switchLabTab(tabName) {
+  document.querySelectorAll(".lab-tab-content").forEach(tab => tab.classList.remove("active"));
+  document.querySelectorAll(".lab-tab-btn").forEach(btn => btn.classList.remove("active"));
+
+  const targetTab = document.getElementById(`lab-tab-${tabName}`);
+  if (targetTab) targetTab.classList.add("active");
+
+  const targetBtn = document.getElementById(`tab-btn-${tabName}`);
+  if (targetBtn) targetBtn.classList.add("active");
+}
+
 function initNavigation() {
   switchView("dashboard");
 }
@@ -485,6 +497,7 @@ async function handleEvidenceUpload(e) {
 async function openEvidenceInLab(evidenceId) {
   currentEvidenceId = evidenceId;
   switchView("lab");
+  switchLabTab("overview");
 
   try {
     const res = await fetch(`/api/evidence/${evidenceId}`);
@@ -1258,11 +1271,41 @@ async function loadCasesDropdown() {
 }
 
 function openNewCaseModal() {
-  const caseTitle = prompt("Enter Investigation Case Title:");
-  if (!caseTitle) return;
-  const leadInvestigator = prompt("Enter Lead Forensic Investigator Name:", "Insp. Rajesh Verma (Digital Forensics Unit)");
-  if (!leadInvestigator) return;
+  // Create a clean inline modal instead of browser prompts
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.id = "new-case-modal";
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-title">🗂️ Create New Investigation Case</div>
+      <div class="modal-field">
+        <label class="modal-label">Investigation Title</label>
+        <input type="text" id="new-case-title" class="modal-input" placeholder="e.g. Operation CyberShield 2026" autofocus>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Lead Forensic Investigator</label>
+        <input type="text" id="new-case-lead" class="modal-input" value="Insp. Rajesh Verma (Digital Forensics Unit)">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="document.getElementById('new-case-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitNewCaseModal()">Create Case</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  document.getElementById("new-case-title").focus();
+}
 
+function submitNewCaseModal() {
+  const caseTitle = document.getElementById("new-case-title")?.value?.trim();
+  const leadInvestigator = document.getElementById("new-case-lead")?.value?.trim();
+  const overlay = document.getElementById("new-case-modal");
+  if (!caseTitle) { alert("Please enter an investigation title."); return; }
+  if (!leadInvestigator) { alert("Please enter a lead investigator name."); return; }
+  if (overlay) overlay.remove();
   fetch("/api/cases", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

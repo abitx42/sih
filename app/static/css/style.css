@@ -43,16 +43,17 @@ body {
 
 /* App Header */
 .app-header {
-  background: rgba(17, 24, 39, 0.95);
+  background: rgba(17, 24, 39, 0.97);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  padding: 0.85rem 2rem;
+  padding: 0.7rem 1.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 100;
+  gap: 0.5rem;
 }
 
 .brand-container {
@@ -93,22 +94,23 @@ body {
 
 .nav-links {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .nav-item {
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.85rem;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 0.88rem;
+  font-size: 0.83rem;
   font-weight: 500;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .nav-item:hover {
@@ -145,7 +147,7 @@ body {
 /* Main Container */
 .main-content {
   flex: 1;
-  padding: 1.75rem 2rem;
+  padding: 1.5rem 1.75rem;
   max-width: 1440px;
   margin: 0 auto;
   width: 100%;
@@ -228,8 +230,8 @@ body {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 .panel-header {
@@ -1020,6 +1022,9 @@ body {
   .exhibit-container {
     grid-template-columns: 1fr;
   }
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1042,4 +1047,231 @@ body {
   .mode-selector-group {
     grid-template-columns: 1fr;
   }
+  .app-header {
+    flex-wrap: wrap;
+    padding: 0.65rem 1rem;
+  }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+}
+
+/* ── Lab Tab Navigation System ── */
+.lab-tabs-bar {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.35rem;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+}
+
+.lab-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.lab-tab-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-card);
+}
+
+.lab-tab-btn.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.3);
+}
+
+.lab-tab-content {
+  display: none;
+  animation: fadeIn 0.25s ease;
+}
+
+.lab-tab-content.active {
+  display: block;
+}
+
+/* ── Dashboard bottom 2-col: better ratio for laptops ── */
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Compact stat card for lab ── */
+.stat-card-compact {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+
+/* ── Slim hero ── */
+.hero-banner {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(6, 182, 212, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.25rem;
+}
+
+.hero-content {
+  max-width: 700px;
+}
+
+.hero-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.4rem;
+}
+
+.hero-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.25;
+  margin-bottom: 0.5rem;
+}
+
+.hero-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin-bottom: 1rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* ── Flow pipeline grid ── */
+.flow-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.flow-step-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+
+.flow-step-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.flow-step-num {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-blue);
+  opacity: 0.5;
+  margin-bottom: 0.35rem;
+}
+
+.flow-step-card h4 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.flow-step-card p {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── New Case Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+}
+
+.modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1.25rem;
+}
+
+.modal-field {
+  margin-bottom: 1rem;
+}
+
+.modal-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.modal-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: #fff;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
 }

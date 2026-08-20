@@ -26,11 +26,11 @@
     </div>
 
     <nav class="nav-links">
-      <button class="nav-item active" onclick="switchView('dashboard')">📊 Dashboard</button>
+      <button class="nav-item active" onclick="switchView('dashboard')">Dashboard</button>
       <button class="nav-item" onclick="switchView('cases')">📁 Cases</button>
-      <button class="nav-item" onclick="switchView('upload')">📤 Evidence Intake</button>
-      <button class="nav-item" onclick="switchView('lab')">🔬 Forensic Lab</button>
-      <button class="nav-item" onclick="switchView('custody')">⛓️ Custody Log</button>
+      <button class="nav-item" onclick="switchView('upload')">📤 Ingest</button>
+      <button class="nav-item" onclick="switchView('lab')">🔬 Lab</button>
+      <button class="nav-item" onclick="switchView('custody')">⛓ Custody</button>
     </nav>
 
     <div class="header-status">
@@ -47,14 +47,14 @@
       <!-- Hero Banner -->
       <div class="hero-banner">
         <div class="hero-content">
-          <div class="hero-tag">SIH PS-27 • KAVACH SPECIFICATION</div>
+          <div class="hero-tag">SIH PS-27 · KAVACH</div>
           <h2 class="hero-title">See the signals. Review the evidence.</h2>
           <p class="hero-desc">
-            Automated multi-signal forensic verification decoupling bitstream cryptographic preservation (SHA-256) from physical compression heuristics, local Vision Transformer classification, and tamper-evident documentation.
+            Multi-signal forensic verification: SHA-256 baseline, local Vision Transformer ensemble, ELA/FFT heuristics, and tamper-evident PDF reports — 100% offline.
           </p>
           <div class="hero-actions">
-            <button class="btn btn-primary" onclick="switchView('upload')">📤 Ingest New Evidence Exhibit</button>
-            <button class="btn btn-secondary" onclick="switchView('custody')">📜 View Application Custody Log</button>
+            <button class="btn btn-primary" onclick="switchView('upload')">📤 Ingest Evidence</button>
+            <button class="btn btn-secondary" onclick="switchView('cases')">📁 Cases</button>
           </div>
         </div>
       </div>
@@ -64,22 +64,22 @@
         <div class="flow-step-card">
           <div class="flow-step-num">01</div>
           <h4>Cryptographic Baseline</h4>
-          <p>Calculates SHA-256, SHA-512, and MD5 fingerprints at intake; logs genesis custody record.</p>
+          <p>SHA-256, SHA-512 & MD5 fingerprints; genesis custody record logged.</p>
         </div>
         <div class="flow-step-card">
           <div class="flow-step-num">02</div>
           <h4>Multi-Signal Heuristics</h4>
-          <p>Extracts ELA 95%, 2D FFT spectral peaks, sensor-noise consistency, and STFT acoustic flux.</p>
+          <p>ELA 95%, 2D FFT spectral peaks, sensor-noise consistency, STFT acoustic flux.</p>
         </div>
         <div class="flow-step-card">
           <div class="flow-step-num">03</div>
-          <h4>Local ML Vision Model</h4>
-          <p>In-process ViT inference on sampled video keyframes and images with defensive label normalization.</p>
+          <h4>Neural Vision Ensemble</h4>
+          <p>Dual local models: Swin Transformer (generative AI) + ViT (facial deepfakes).</p>
         </div>
         <div class="flow-step-card">
           <div class="flow-step-num">04</div>
           <h4>Forensic Assessment</h4>
-          <p>Computes 3-tier risk classification and compiles PDF assessment reports with disclaimers.</p>
+          <p>3-tier risk classification and PDF dossier with calibration disclaimers.</p>
         </div>
       </div>
 
@@ -90,28 +90,28 @@
           <div class="stat-footer">Under Active Investigation</div>
         </div>
         <div class="stat-card">
-          <div class="stat-header">Total Evidence Exhibits</div>
+          <div class="stat-header">Total Exhibits</div>
           <div class="stat-value" id="stat-evidence">0</div>
           <div class="stat-footer">Preserved & Fingerprinted</div>
         </div>
         <div class="stat-card">
-          <div class="stat-header">High Risk Anomaly Flags</div>
+          <div class="stat-header">High Risk Flags</div>
           <div class="stat-value" id="stat-high-risk" style="color: var(--risk-high);">0</div>
-          <div class="stat-footer">Compounding Manipulation Signals</div>
+          <div class="stat-footer">Compounding Anomaly Signals</div>
         </div>
         <div class="stat-card">
-          <div class="stat-header">Baseline Clean Exhibits</div>
+          <div class="stat-header">Baseline Clean</div>
           <div class="stat-value" id="stat-low-risk" style="color: var(--risk-low);">0</div>
           <div class="stat-footer">Low Anomaly / Sound Baseline</div>
         </div>
       </div>
 
       <!-- Charts & Tables Panel -->
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-        <div class="card-panel">
+      <div class="dashboard-bottom-grid">
+        <div class="card-panel" style="margin-bottom: 0;">
           <div class="panel-header">
-            <h3>Recent Digital Evidence Ingestions</h3>
-            <button class="btn btn-primary btn-sm" onclick="switchView('upload')">+ New Ingestion</button>
+            <h3>Recent Evidence Ingestions</h3>
+            <button class="btn btn-primary btn-sm" onclick="switchView('upload')">+ New</button>
           </div>
           <div style="overflow-x: auto;">
             <table class="forensic-table">
@@ -120,8 +120,8 @@
                   <th>Evidence ID</th>
                   <th>File Name</th>
                   <th>Modality</th>
-                  <th>SHA-256 Hash</th>
-                  <th>Forensic Risk</th>
+                  <th>SHA-256</th>
+                  <th>Risk</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -132,11 +132,11 @@
           </div>
         </div>
 
-        <div class="card-panel">
+        <div class="card-panel" style="margin-bottom: 0;">
           <div class="panel-header">
-            <h3>Risk Classification</h3>
+            <h3>Risk Distribution</h3>
           </div>
-          <div style="height: 220px; display: flex; align-items: center; justify-content: center;">
+          <div style="height: 200px; display: flex; align-items: center; justify-content: center;">
             <canvas id="riskChart"></canvas>
           </div>
         </div>
@@ -145,7 +145,7 @@
       <!-- Live Chain of Custody Stream -->
       <div class="card-panel">
         <div class="panel-header">
-          <h3>Application Custody Log Stream</h3>
+          <h3>Custody Log Stream</h3>
           <button class="btn btn-secondary btn-sm" onclick="switchView('custody')">View Full Log</button>
         </div>
         <div style="overflow-x: auto;">
@@ -156,7 +156,7 @@
                 <th>Evidence ID</th>
                 <th>Action</th>
                 <th>Actor</th>
-                <th>Recorded Fingerprint</th>
+                <th>Fingerprint</th>
                 <th>Details</th>
               </tr>
             </thead>
@@ -270,435 +270,451 @@
 
     <!-- 3. FORENSIC LAB / DEEP DIVE VIEW -->
     <section id="view-lab" class="view-section">
+      <!-- Lab Header -->
       <div class="lab-header">
         <div>
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
             <span class="badge badge-modality" id="lab-modality-badge">IMAGE</span>
-            <h2 id="lab-evidence-id" style="font-size: 1.4rem;">EV-2026-XXXXXX</h2>
+            <h2 id="lab-evidence-id" style="font-size: 1.3rem;">EV-2026-XXXXXX</h2>
           </div>
-          <p id="lab-filename" style="color: var(--text-muted); font-size: 0.85rem;">filename.jpg</p>
+          <p id="lab-filename" style="color: var(--text-muted); font-size: 0.82rem;">filename.jpg</p>
         </div>
-
-        <div style="display: flex; gap: 0.75rem;">
+        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
           <button class="btn btn-secondary" onclick="reverifyIntegrity()">🛡️ Re-Verify Hash</button>
-          <button class="btn btn-primary" onclick="downloadForensicReport()">📄 Export Forensic Report (PDF)</button>
+          <button class="btn btn-primary" onclick="downloadForensicReport()">📄 Export PDF</button>
         </div>
       </div>
 
-      <!-- Signal Conflict Alert Banner (shown when specialists clash) -->
-      <div id="lab-conflict-banner" style="display: none; background: rgba(234, 179, 8, 0.12); border-left: 4px solid #eab308; padding: 0.85rem 1rem; margin-bottom: 1.25rem; border-radius: 6px;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; color: #eab308; font-weight: 700; font-size: 0.92rem; margin-bottom: 0.25rem;">
-          <span>⚠️</span> Conflicting Forensic Signals Detected
+      <!-- Signal Conflict Alert -->
+      <div id="lab-conflict-banner" style="display: none; background: rgba(234, 179, 8, 0.1); border-left: 4px solid #eab308; padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: 6px;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: #eab308; font-weight: 700; font-size: 0.88rem; margin-bottom: 0.2rem;">
+          ⚠️ Conflicting Forensic Signals Detected
         </div>
-        <div id="lab-conflict-text" style="font-size: 0.82rem; color: var(--text-main); line-height: 1.4;">
-          Independent specialists disagree. Vision model flagged synthetic patterns, but PRNU sensor noise and camera EXIF indicate authentic photographic capture.
-        </div>
+        <div id="lab-conflict-text" style="font-size: 0.8rem; color: var(--text-main); line-height: 1.4;"></div>
       </div>
 
-      <!-- Visible Forensic Disclaimer Banner -->
-      <div style="background: rgba(30, 41, 59, 0.7); border-left: 3px solid var(--accent-cyan); padding: 0.6rem 0.9rem; margin-bottom: 1rem; border-radius: 6px; font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
-        ℹ️ <strong>Investigator Review Aid:</strong> Automated anomaly scores, model predictions, and risk ratings are automated screening indicators, not legal determinations or certified proof. All findings require independent qualified forensic and legal review.
+      <!-- Forensic Disclaimer -->
+      <div style="background: rgba(30, 41, 59, 0.7); border-left: 3px solid var(--accent-cyan); padding: 0.5rem 0.85rem; margin-bottom: 1rem; border-radius: 6px; font-size: 0.76rem; color: var(--text-muted); line-height: 1.4;">
+        ℹ️ <strong>Investigator Review Aid:</strong> Anomaly scores and model predictions are automated screening indicators, not legal determinations. All findings require qualified forensic and legal review.
       </div>
 
-      <!-- Multi-Specialist Consensus Agreement Card -->
-      <div class="card-panel" id="lab-consensus-panel" style="margin-bottom: 1.5rem; display: none;">
-        <div class="panel-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
-          <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-            <span>🧠</span> Multi-Specialist Forensic AI & Physical Ensemble
-          </h3>
-          <span class="badge badge-low" id="lab-consensus-badge">5 / 6 Specialists Agree</span>
-        </div>
-        
-        <!-- Agreement Meter Progress -->
-        <div style="margin-bottom: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.4rem;">
-            <span style="color: var(--text-muted);" id="lab-consensus-summary-text">Consensus Strength: Strong Consensus (83.3%)</span>
-            <span style="font-weight: 700; color: #fff;" id="lab-consensus-ratio-text">5 Manipulated • 1 Authentic</span>
-          </div>
-          <div class="agreement-meter-bar">
-            <div class="agreement-fill-manipulated" id="meter-fill-manipulated" style="width: 83.3%;"></div>
-            <div class="agreement-fill-authentic" id="meter-fill-authentic" style="width: 16.7%;"></div>
-          </div>
-        </div>
-
-        <!-- Specialist Cards Grid -->
-        <div class="specialists-grid" id="lab-specialists-grid"></div>
-      </div>
-
-      <!-- Top Summary Cards (Integrity, ML Model, Heuristic Anomaly, Composite Risk) -->
-      <div class="grid-cards">
+      <!-- Summary KPIs -->
+      <div class="grid-cards" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1rem;">
         <div class="stat-card">
-          <div class="stat-header">Bitstream Fidelity (Recorded Baseline)</div>
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0;">
+          <div class="stat-header">Bitstream Fidelity</div>
+          <div style="display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0;">
             <div class="status-dot" id="lab-integrity-dot"></div>
-            <span id="lab-integrity-text" style="font-weight: 700; font-size: 1.1rem; color: var(--risk-low);">RECORDED</span>
+            <span id="lab-integrity-text" style="font-weight: 700; font-size: 1rem; color: var(--risk-low);">RECORDED</span>
           </div>
           <div class="stat-footer hash-mono" id="lab-sha256-snippet">SHA-256: e3b0c442...</div>
-          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Fidelity check against recorded baseline; not proof of authenticity</div>
+          <div style="font-size: 0.65rem; color: var(--text-dim); margin-top: 0.2rem;">*Against recorded baseline; not proof of authenticity</div>
         </div>
-
         <div class="stat-card">
-          <div class="stat-header">Forensic Authenticity Taxonomy</div>
-          <div style="margin: 0.4rem 0;">
+          <div class="stat-header">Forensic Taxonomy</div>
+          <div style="margin: 0.25rem 0;">
             <span class="taxonomy-badge taxonomy-likely-authentic" id="lab-taxonomy-badge">🔍 LIKELY AUTHENTIC</span>
           </div>
-          <div class="stat-footer" id="lab-ai-model">Multi-Signal Grounded Determination</div>
-          <div style="font-size: 0.68rem; color: var(--text-dim); margin-top: 0.3rem;">*Correlates localized patches, physical noise, and ML models</div>
+          <div class="stat-footer" id="lab-ai-model">Multi-Signal Determination</div>
         </div>
-
         <div class="stat-card">
-          <div class="stat-header">Forensic Anomaly Score (Heuristic)</div>
+          <div class="stat-header">Anomaly Score</div>
           <div class="stat-value" id="lab-heuristic-score" style="color: var(--accent-cyan);">0/100</div>
-          <div class="stat-footer">ELA (95%) • 2D FFT • Patch Localizer</div>
+          <div class="stat-footer">ELA · FFT · Patch Localizer</div>
         </div>
-
         <div class="stat-card">
-          <div class="stat-header">Composite Forensic Risk</div>
-          <div style="display: flex; align-items: baseline; gap: 0.5rem; margin: 0.4rem 0;">
+          <div class="stat-header">Composite Risk</div>
+          <div style="display: flex; align-items: baseline; gap: 0.4rem; margin: 0.25rem 0;">
             <span class="stat-value" id="lab-risk-score" style="color: var(--risk-low);">0/100</span>
             <span class="badge badge-low" id="lab-risk-badge">LOW RISK</span>
           </div>
-          <div class="stat-footer" id="lab-provenance-detail">Multi-Signal Weighted Assessment</div>
+          <div class="stat-footer" id="lab-provenance-detail">Multi-Signal Weighted</div>
         </div>
       </div>
 
-      <!-- Multi-Signal "WHY + WHERE + HOW" Evidence Correlation Card -->
-      <div class="correlation-matrix-card" id="lab-correlation-card" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.6rem; margin-bottom: 0.5rem;">
-          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
-            <span>🔬</span> Multi-Signal "WHY + WHERE + HOW" Forensic Correlation Matrix
-          </h3>
-          <span class="badge badge-modality" id="wwh-signals-count">0 Signals Correlated</span>
+      <!-- Tab Bar -->
+      <div class="lab-tabs-bar">
+        <button id="tab-btn-overview" class="lab-tab-btn active" onclick="switchLabTab('overview')">📊 Overview</button>
+        <button id="tab-btn-exhibits" class="lab-tab-btn" onclick="switchLabTab('exhibits')">🖼️ Exhibits</button>
+        <button id="tab-btn-specialists" class="lab-tab-btn" onclick="switchLabTab('specialists')">🧠 Ensemble</button>
+        <button id="tab-btn-localization" class="lab-tab-btn" onclick="switchLabTab('localization')">📍 Localization</button>
+        <button id="tab-btn-copilot" class="lab-tab-btn" onclick="switchLabTab('copilot')">🤖 Copilot</button>
+        <button id="tab-btn-advanced" class="lab-tab-btn" onclick="switchLabTab('advanced')">🧪 Advanced</button>
+        <button id="tab-btn-custody" class="lab-tab-btn" onclick="switchLabTab('custody')">🔒 Custody</button>
+      </div>
+
+      <!-- ── TAB: Overview ── -->
+      <div id="lab-tab-overview" class="lab-tab-content active">
+        <!-- WHY + WHERE + HOW Correlation Card -->
+        <div class="correlation-matrix-card" id="lab-correlation-card" style="display: none; margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+            <h3 style="font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+              🔬 Multi-Signal Forensic Correlation
+            </h3>
+            <span class="badge badge-modality" id="wwh-signals-count">0 Signals</span>
+          </div>
+          <div class="why-where-how-grid">
+            <div class="wwh-col">
+              <div class="wwh-col-title">📍 WHERE (Spatial ROI)</div>
+              <div class="wwh-col-content" id="wwh-where-content">Global Frame</div>
+            </div>
+            <div class="wwh-col">
+              <div class="wwh-col-title">🔎 WHAT (Anomalies)</div>
+              <div class="wwh-col-content" id="wwh-what-content">Baseline physical signals intact.</div>
+            </div>
+            <div class="wwh-col">
+              <div class="wwh-col-title">⚙️ HOW (Mechanism)</div>
+              <div class="wwh-col-content" id="wwh-how-content">Optical sensor imaging pipeline.</div>
+            </div>
+            <div class="wwh-col">
+              <div class="wwh-col-title">⚖️ WHY (Assessment)</div>
+              <div class="wwh-col-content" id="wwh-why-content">No manipulation indicators detected.</div>
+            </div>
+          </div>
         </div>
-        <div class="why-where-how-grid">
-          <div class="wwh-col">
-            <div class="wwh-col-title">📍 WHERE (Spatial ROI)</div>
-            <div class="wwh-col-content" id="wwh-where-content">Global Frame (Uniform Distribution)</div>
+
+        <!-- Structured Findings Table -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Forensic Signal Findings</h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted);" id="lab-findings-count">0 Signals Evaluated</span>
           </div>
-          <div class="wwh-col">
-            <div class="wwh-col-title">🔎 WHAT (Observed Anomalies)</div>
-            <div class="wwh-col-content" id="wwh-what-content">Baseline physical signals intact.</div>
+          <div style="overflow-x: auto;">
+            <table class="forensic-table">
+              <thead>
+                <tr>
+                  <th>Signal</th>
+                  <th>Category</th>
+                  <th>Severity</th>
+                  <th>Score</th>
+                  <th>Explanation</th>
+                </tr>
+              </thead>
+              <tbody id="lab-findings-table">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-dim);">Select an evidence exhibit to view findings.</td></tr>
+              </tbody>
+            </table>
           </div>
-          <div class="wwh-col">
-            <div class="wwh-col-title">⚙️ HOW (Inferred Mechanism)</div>
-            <div class="wwh-col-content" id="wwh-how-content">Continuous optical sensor imaging pipeline.</div>
+        </div>
+
+        <!-- Evidence DNA -->
+        <div class="card-panel" id="lab-dna-panel" style="display: none;">
+          <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.65rem;">🧬 EVIDENCE DNA — FORENSIC FINGERPRINT</div>
+          <div id="lab-dna-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem;"></div>
+          <div id="lab-dna-known-match" style="display: none; margin-top: 0.65rem; padding: 0.5rem 0.8rem; background: rgba(234,179,8,0.1); border-left: 3px solid #eab308; border-radius: 4px; font-size: 0.8rem; color: #fcd34d;"></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Exhibits ── -->
+      <div id="lab-tab-exhibits" class="lab-tab-content">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>Forensic Exhibits & Signal Visualization</h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">ELA 95% · 2D FFT · Spatial Heatmap</span>
           </div>
-          <div class="wwh-col">
-            <div class="wwh-col-title">⚖️ WHY (Forensic Assessment)</div>
-            <div class="wwh-col-content" id="wwh-why-content">No localized or generative manipulation indicators detected.</div>
+          <div class="exhibit-container" id="lab-exhibits-box" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+            <div class="exhibit-box">
+              <img id="exhibit-orig" src="" alt="Original Evidence">
+              <div class="exhibit-title">Exhibit 1: Original Media</div>
+            </div>
+            <div class="exhibit-box" id="box-exhibit-heatmap" style="display: none;">
+              <img id="exhibit-heatmap" src="" alt="Spatial Anomaly Heatmap">
+              <div class="exhibit-title">Exhibit 2: Spatial Anomaly Heatmap</div>
+            </div>
+            <div class="exhibit-box" id="box-exhibit-forensic">
+              <img id="exhibit-forensic" src="" alt="Forensic Artifact">
+              <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 3: Error Level Analysis (ELA 95%)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidence Diff Mode -->
+        <div class="card-panel" id="lab-diff-panel" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔬 EVIDENCE DIFF — COMPARE TWO EXHIBITS</div>
+              <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Upload a second image to the same case, then compare pixel-by-pixel.</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem;">
+            <input type="text" id="diff-evidence-b" placeholder="Evidence ID B (e.g. EV-2026-XXXXXX)" style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.82rem;">
+            <button class="btn btn-secondary btn-sm" onclick="runEvidenceDiff()">▶ Compare</button>
+          </div>
+          <div id="lab-diff-results" style="display: none;">
+            <div id="lab-diff-summary" style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; border-left: 3px solid var(--accent-cyan);"></div>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: flex-start;">
+              <div style="flex: 1; min-width: 160px; text-align: center;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">ORIGINAL (A)</div>
+                <img id="diff-img-a" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence A">
+              </div>
+              <div style="flex: 1; min-width: 160px; text-align: center;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">COMPARISON (B)</div>
+                <img id="diff-img-b" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence B">
+              </div>
+              <div style="flex: 1; min-width: 160px; text-align: center;" id="diff-heatmap-box" style="display: none;">
+                <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">DIFFERENCE HEATMAP</div>
+                <img id="diff-img-heatmap" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid rgba(248,113,113,0.4);" alt="Difference Heatmap">
+              </div>
+            </div>
+            <div id="lab-diff-regions" style="margin-bottom: 0.75rem;"></div>
+            <div id="lab-diff-metadata-table" style="overflow-x: auto;"></div>
           </div>
         </div>
       </div>
 
-      <!-- Deep Dive Grid (Exhibits & Findings) -->
-      <div class="lab-grid">
-        <div>
-          <!-- Visual Exhibits Section -->
-          <div class="card-panel">
-            <div class="panel-header">
-              <h3>Forensic Exhibits & Signal Visualization</h3>
-              <span style="font-size: 0.8rem; color: var(--text-muted);">Spatial Heatmap • ELA 95% • 2D FFT Spectrum</span>
+      <!-- ── TAB: Specialist Ensemble ── -->
+      <div id="lab-tab-specialists" class="lab-tab-content">
+        <div class="card-panel" id="lab-consensus-panel" style="display: none;">
+          <div class="panel-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+            <h3 style="display: flex; align-items: center; gap: 0.5rem;">🧠 Multi-Specialist Forensic Ensemble</h3>
+            <span class="badge badge-low" id="lab-consensus-badge">Evaluating...</span>
+          </div>
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.35rem;">
+              <span style="color: var(--text-muted);" id="lab-consensus-summary-text">Consensus Strength</span>
+              <span style="font-weight: 700; color: #fff;" id="lab-consensus-ratio-text">—</span>
             </div>
+            <div class="agreement-meter-bar">
+              <div class="agreement-fill-manipulated" id="meter-fill-manipulated" style="width: 50%;"></div>
+              <div class="agreement-fill-authentic" id="meter-fill-authentic" style="width: 50%;"></div>
+            </div>
+          </div>
+          <div class="specialists-grid" id="lab-specialists-grid"></div>
+        </div>
 
-            <div class="exhibit-container" id="lab-exhibits-box" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-              <div class="exhibit-box">
-                <img id="exhibit-orig" src="" alt="Original Evidence">
-                <div class="exhibit-title">Exhibit 1: Original Ingested Media</div>
-              </div>
-              <div class="exhibit-box" id="box-exhibit-heatmap" style="display: none;">
-                <img id="exhibit-heatmap" src="" alt="Spatial Anomaly Heatmap">
-                <div class="exhibit-title">Exhibit 2: Spatial Patch Manipulation Heatmap</div>
-              </div>
-              <div class="exhibit-box" id="box-exhibit-forensic">
-                <img id="exhibit-forensic" src="" alt="Forensic Analysis Artifact">
-                <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 3: Error Level Analysis (ELA 95%)</div>
-              </div>
+        <!-- Forensic Confidence Matrix -->
+        <div class="card-panel" id="lab-confidence-matrix-panel" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">FORENSIC CONFIDENCE MATRIX</div>
+              <span id="lab-manipulation-subtype-badge" class="badge badge-modality" style="font-size: 0.7rem; margin-left: 0;"></span>
+            </div>
+            <span id="lab-matrix-summary" class="badge badge-status-analyzing" style="font-size: 0.7rem;"></span>
+          </div>
+          <div id="lab-confidence-matrix-grid" style="width: 100%; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.05);">
+                  <th style="text-align: left; padding: 0.4rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Signal Axis</th>
+                  <th style="text-align: center; padding: 0.4rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Baseline</th>
+                  <th style="text-align: center; padding: 0.4rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Alteration Flagged</th>
+                  <th style="text-align: left; padding: 0.4rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Note (Unvalidated)</th>
+                </tr>
+              </thead>
+              <tbody id="lab-matrix-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="lab-consensus-empty" class="card-panel" style="text-align: center; color: var(--text-dim); padding: 2rem;">
+          Select an evidence exhibit to view specialist ensemble results.
+        </div>
+      </div>
+
+      <!-- ── TAB: Localization ── -->
+      <div id="lab-tab-localization" class="lab-tab-content">
+        <div class="card-panel" id="lab-localization-panel" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">LOCALIZED ALTERATION ANALYSIS</div>
+              <span id="lab-policy-outcome-badge" class="badge badge-modality" style="font-size: 0.75rem; margin-left: 0;">POLICY: EVALUATING</span>
+            </div>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+              <span class="badge" style="background: rgba(234,179,8,0.15); color: #fcd34d; border: 1px solid rgba(234,179,8,0.3); font-size: 0.68rem;">CALIBRATION: UNVALIDATED</span>
+              <span id="lab-loc-status-badge" class="badge badge-status-analyzing" style="font-size: 0.7rem;">STATUS: INITIALIZING</span>
+            </div>
+          </div>
+          <div id="lab-policy-description" style="font-size: 0.79rem; color: var(--text-dim); margin-bottom: 0.85rem; padding: 0.45rem 0.7rem; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 3px solid var(--accent-cyan); line-height: 1.4;"></div>
+
+          <!-- Visual Maps Grid -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; align-items: flex-start;">
+            <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+              <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">EXHIBIT IMAGE</div>
+              <img id="loc-img-orig" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Exhibit Original">
+            </div>
+            <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+              <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">ANOMALY HEATMAP</div>
+              <img id="loc-img-mask" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Anomaly Heatmap">
+            </div>
+            <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+              <div style="font-size: 0.7rem; color: #34d399; margin-bottom: 0.3rem;">SIGNAL AGREEMENT MAP</div>
+              <img id="loc-img-reliability" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Signal Agreement Map">
+            </div>
+            <div id="loc-ref-diff-box" style="display: none; text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(234,179,8,0.4);">
+              <div style="font-size: 0.7rem; color: #fbbf24; margin-bottom: 0.3rem;">REFERENCE DIFF MAP</div>
+              <img id="loc-img-ref-diff" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Reference Diff Map">
             </div>
           </div>
 
-          <!-- Structured Findings Table -->
-          <div class="card-panel">
-            <div class="panel-header">
-              <h3>Explainable Automated Forensic Findings</h3>
-              <span style="font-size: 0.8rem; color: var(--text-muted);" id="lab-findings-count">0 Signals Evaluated</span>
-            </div>
+          <!-- Suspicious Regions Table -->
+          <div id="loc-regions-wrapper" style="margin-bottom: 1rem;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.4rem;">Bounded Anomaly Regions (Statistical Concentration)</div>
             <div style="overflow-x: auto;">
-              <table class="forensic-table">
+              <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
                 <thead>
-                  <tr>
-                    <th>Signal</th>
-                    <th>Category</th>
-                    <th>Severity</th>
-                    <th>Score</th>
-                    <th>Technical Forensic Explanation</th>
+                  <tr style="background: rgba(255,255,255,0.05);">
+                    <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Region ID</th>
+                    <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Area %</th>
+                    <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Evidence Strength</th>
+                    <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Signal Agreement</th>
+                    <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Neutral Description</th>
                   </tr>
                 </thead>
-                <tbody id="lab-findings-table">
-                  <tr><td colspan="5" style="text-align: center; color: var(--text-dim);">No findings recorded.</td></tr>
-                </tbody>
+                <tbody id="loc-regions-tbody"></tbody>
               </table>
             </div>
           </div>
+
+          <!-- Reference Comparison -->
+          <div style="padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 6px; margin-bottom: 0.85rem;">
+            <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.2rem;">Optional: Attach Comparison Reference Image</div>
+            <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.5rem;">Compares structural pixel differences against investigator-supplied baseline. Does not identify editing tool or method.</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <input type="file" id="loc-ref-file-input" accept="image/*" style="font-size: 0.78rem; color: var(--text-dim);">
+              <button class="btn btn-secondary btn-sm" onclick="submitReferenceComparison()">▶ Compare</button>
+            </div>
+            <div id="loc-ref-result-msg" style="display: none; margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.4;"></div>
+          </div>
+
+          <div style="font-size: 0.72rem; color: #fbbf24; background: rgba(234,179,8,0.08); padding: 0.45rem 0.7rem; border-radius: 4px; border-left: 3px solid #eab308; line-height: 1.35;">
+            <b>Forensic Limitation:</b> Statistical anomaly concentrations do not constitute pixel-level proof of manipulation or AI usage. Findings require qualified investigator review.
+          </div>
         </div>
+        <div id="lab-localization-empty" class="card-panel" style="text-align: center; color: var(--text-dim); padding: 2rem; display: none;">
+          Localization data not available for this exhibit.
+        </div>
+      </div>
 
-        <!-- Right Side: Forensic Copilot & Investigation Assistant -->
-        <div>
-          <div class="card-panel">
-            <div class="panel-header">
-              <h3>🤖 Forensic Copilot Assistant</h3>
-              <span class="badge badge-modality" id="copilot-source-badge">CoE Gateway (Qwen 3.6)</span>
+      <!-- ── TAB: Copilot ── -->
+      <div id="lab-tab-copilot" class="lab-tab-content">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3>🤖 Forensic Copilot Assistant</h3>
+            <span class="badge badge-modality" id="copilot-source-badge">CoE Gateway (Qwen 3.6)</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Grounded Analysis & Investigator Q&A</span>
+            <button class="btn btn-secondary btn-sm" id="btn-ai-explain" onclick="generateAIExplanation()">⚡ Generate AI Explanation</button>
+          </div>
+
+          <div id="ai-explanation-container" style="display: none; margin-bottom: 1rem; background: rgba(15, 23, 42, 0.6); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h4 style="font-size: 0.8rem; color: var(--accent-cyan); text-transform: uppercase;">AI Forensic Synthesis</h4>
+              <span class="badge badge-modality" id="ai-expl-source-badge" style="font-size: 0.68rem;">CoE Gateway</span>
             </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">Grounded Analysis & Investigator Q&A</span>
-              <button class="btn btn-secondary btn-sm" id="btn-ai-explain" onclick="generateAIExplanation()">⚡ Generate AI Explanation</button>
-            </div>
-
-            <div id="ai-explanation-container" style="display: none; margin-bottom: 1rem; background: rgba(15, 23, 42, 0.6); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h4 style="font-size: 0.82rem; color: var(--accent-cyan); text-transform: uppercase;">Structured AI Forensic Synthesis</h4>
-                <span class="badge badge-modality" id="ai-expl-source-badge" style="font-size: 0.68rem;">CoE Gateway</span>
-              </div>
-              <div style="font-size: 0.83rem; line-height: 1.4; color: var(--text-main); margin-bottom: 0.6rem;" id="ai-expl-summary"></div>
-              
-              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Technical Findings Requiring Review:</div>
-              <div id="ai-expl-findings" style="font-size: 0.8rem; line-height: 1.35; color: #fca5a5; margin-bottom: 0.6rem;"></div>
-
-              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Physical Limitations:</div>
-              <div id="ai-expl-limitations" style="font-size: 0.78rem; line-height: 1.35; color: var(--text-dim); margin-bottom: 0.6rem;"></div>
-
-              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.25rem;">Recommended Next Steps:</div>
-              <div id="ai-expl-steps" style="font-size: 0.8rem; line-height: 1.35; color: #93c5fd; margin-bottom: 0.6rem;"></div>
-
-              <div style="font-size: 0.68rem; color: var(--text-dim); font-style: italic; border-top: 1px solid var(--border-color); pt: 0.4rem; margin-top: 0.4rem;" id="ai-expl-disclaimer">
-                AI-assisted interpretation only. This does not determine authenticity, manipulation, or legal admissibility.
-              </div>
-            </div>
-
-            <div style="margin-bottom: 1rem;">
-              <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem;">Executive Narrative</h4>
-              <p id="copilot-narrative" style="font-size: 0.85rem; line-height: 1.4; color: var(--text-main); background: var(--bg-card); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
-                Select an evidence exhibit to view forensic synthesis.
-              </p>
-            </div>
-
-            <div style="margin-bottom: 1.25rem;">
-              <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.35rem;">Investigator Recommendations</h4>
-              <div id="copilot-recommendations" style="font-size: 0.82rem; line-height: 1.4; color: #93c5fd; background: rgba(37, 99, 235, 0.08); padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                • Cryptographic baseline is intact.<br>• Document evidentiary logs in case file.
-              </div>
-            </div>
-
-            <!-- Interactive Copilot Chat Box -->
-            <div class="chat-container">
-              <div class="chat-messages" id="copilot-chat-messages">
-                <div class="chat-bubble assistant">
-                  Hello Investigator. I am Truth Lens Copilot. You can ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "Is there evidence of acoustic splicing?", "What did the ViT model report?").
-                </div>
-              </div>
-              <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
-                <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Truth Lens Copilot a question...">
-                <button type="submit" class="btn btn-primary btn-sm">Send</button>
-              </form>
+            <div style="font-size: 0.83rem; line-height: 1.4; color: var(--text-main); margin-bottom: 0.5rem;" id="ai-expl-summary"></div>
+            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">Technical Findings Requiring Review:</div>
+            <div id="ai-expl-findings" style="font-size: 0.8rem; line-height: 1.35; color: #fca5a5; margin-bottom: 0.5rem;"></div>
+            <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.2rem;">Recommended Next Steps:</div>
+            <div id="ai-expl-steps" style="font-size: 0.8rem; line-height: 1.35; color: #93c5fd; margin-bottom: 0.5rem;"></div>
+            <div id="ai-expl-limitations" style="font-size: 0.76rem; color: var(--text-dim); line-height: 1.35; margin-bottom: 0.5rem;"></div>
+            <div style="font-size: 0.68rem; color: var(--text-dim); font-style: italic; border-top: 1px solid var(--border-color); padding-top: 0.4rem;" id="ai-expl-disclaimer">
+              AI-assisted interpretation only. Does not determine authenticity or legal admissibility.
             </div>
           </div>
 
-         <!-- ── LOCALIZED ALTERATION FORENSICS FOUNDATION ── -->
-         <div class="card-panel" id="lab-localization-panel" style="margin-top: 1.5rem; display: none;">
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-             <div>
-               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">LOCALIZED ALTERATION ANALYSIS</div>
-               <span id="lab-policy-outcome-badge" class="badge badge-modality" style="font-size: 0.75rem; margin-left: 0;">POLICY: EVALUATING</span>
-             </div>
-             <div style="display: flex; gap: 0.4rem; align-items: center;">
-               <span class="badge" style="background: rgba(234,179,8,0.15); color: #fcd34d; border: 1px solid rgba(234,179,8,0.3); font-size: 0.68rem;">CALIBRATION: UNVALIDATED</span>
-               <span id="lab-loc-status-badge" class="badge badge-status-analyzing" style="font-size: 0.7rem;">STATUS: INITIALIZING</span>
-             </div>
-           </div>
+          <div style="margin-bottom: 1rem;">
+            <h4 style="font-size: 0.83rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.3rem;">Executive Narrative</h4>
+            <p id="copilot-narrative" style="font-size: 0.85rem; line-height: 1.4; color: var(--text-main); background: var(--bg-card); padding: 0.7rem; border-radius: 8px; border: 1px solid var(--border-color);">
+              Select an evidence exhibit to view forensic synthesis.
+            </p>
+          </div>
 
-           <!-- Policy Description -->
-           <div id="lab-policy-description" style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.85rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 3px solid var(--accent-cyan); line-height: 1.4;"></div>
+          <div style="margin-bottom: 1.25rem;">
+            <h4 style="font-size: 0.83rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.3rem;">Investigator Recommendations</h4>
+            <div id="copilot-recommendations" style="font-size: 0.82rem; line-height: 1.4; color: #93c5fd; background: rgba(37, 99, 235, 0.08); padding: 0.7rem; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
+              • Cryptographic baseline is intact.<br>• Document evidentiary logs in case file.
+            </div>
+          </div>
 
-           <!-- Visual Maps Grid -->
-           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; align-items: flex-start;">
-             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
-               <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">EXHIBIT IMAGE</div>
-               <img id="loc-img-orig" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Exhibit Original">
-             </div>
-             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
-               <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">LOCALIZED ANOMALY HEATMAP</div>
-               <img id="loc-img-mask" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Anomaly Heatmap">
-             </div>
-             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
-               <div style="font-size: 0.7rem; color: #34d399; margin-bottom: 0.3rem;">SIGNAL AGREEMENT MAP</div>
-               <img id="loc-img-reliability" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Signal Agreement Map">
-             </div>
-             <div id="loc-ref-diff-box" style="display: none; text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(234,179,8,0.4);">
-               <div style="font-size: 0.7rem; color: #fbbf24; margin-bottom: 0.3rem;">REFERENCE DIFF MAP</div>
-               <img id="loc-img-ref-diff" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Reference Diff Map">
-             </div>
-           </div>
+          <div class="chat-container">
+            <div class="chat-messages" id="copilot-chat-messages">
+              <div class="chat-bubble assistant">
+                Hello Investigator. I am Truth Lens Copilot. Ask me specific questions about this evidence (e.g., "Why was ELA flagged?", "What did the neural model report?").
+              </div>
+            </div>
+            <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
+              <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Copilot a question...">
+              <button type="submit" class="btn btn-primary btn-sm">Send</button>
+            </form>
+          </div>
+        </div>
 
-           <!-- Suspicious Regions Table -->
-           <div id="loc-regions-wrapper" style="margin-bottom: 1rem;">
-             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.4rem;">Bounded Anomaly Regions (Statistical Concentration)</div>
-             <div style="overflow-x: auto;">
-               <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
-                 <thead>
-                   <tr style="background: rgba(255,255,255,0.05);">
-                     <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Region ID</th>
-                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Area %</th>
-                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Evidence Strength</th>
-                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Signal Agreement</th>
-                     <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Neutral Description</th>
-                   </tr>
-                 </thead>
-                 <tbody id="loc-regions-tbody"></tbody>
-               </table>
-             </div>
-           </div>
+        <!-- Investigator Review -->
+        <div class="card-panel" id="lab-review-panel">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧑‍⚖️ INVESTIGATOR ASSESSMENT</div>
+            <span id="lab-review-status" class="badge badge-modality" style="font-size: 0.7rem;">NO REVIEW SUBMITTED</span>
+          </div>
+          <div id="lab-existing-review" style="display: none; margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); font-size: 0.82rem; line-height: 1.4;"></div>
+          <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="AGREE"> Agree with TruthLens assessment</label>
+              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="DISAGREE"> Disagree — Manual review required</label>
+              <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="NEEDS_FURTHER_EXAMINATION"> Needs further examination</label>
+            </div>
+            <textarea id="inv-review-notes" rows="2" placeholder="Optional: Add investigator notes..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem; border-radius: 6px; font-family: inherit; font-size: 0.82rem; resize: vertical;"></textarea>
+            <button class="btn btn-secondary btn-sm" onclick="submitInvestigatorReview()" style="align-self: flex-start;">Submit Assessment</button>
+          </div>
+        </div>
+      </div>
 
-           <!-- Trusted-Reference Comparison Sub-Panel -->
-           <div style="padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 6px; margin-bottom: 0.85rem;">
-             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">Optional: Attach Investigator-Supplied Comparison Reference for Pixel-Level Comparison</div>
-             <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.6rem;">Compares structural pixel differences against an investigator-supplied baseline image. Does not establish which editing tool or method caused the difference.</div>
-             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-               <input type="file" id="loc-ref-file-input" accept="image/*" style="font-size: 0.78rem; color: var(--text-dim);">
-               <button class="btn btn-secondary btn-sm" onclick="submitReferenceComparison()">▶ Compare with Reference</button>
-             </div>
-             <div id="loc-ref-result-msg" style="display: none; margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.4;"></div>
-           </div>
+      <!-- ── TAB: Advanced ── -->
+      <div id="lab-tab-advanced" class="lab-tab-content">
+        <!-- Adversarial Robustness Stress Test -->
+        <div class="card-panel" id="lab-robustness-panel" style="display: none;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧪 ADVERSARIAL ROBUSTNESS STRESS TEST</div>
+              <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Tests whether forensic conclusions survive common real-world transformations. Original file is never modified.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-run-robustness" onclick="runRobustnessTest()">▶ Run Stress Test</button>
+          </div>
+          <div id="lab-robustness-results" style="display: none;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+              <span id="lab-robustness-label" class="badge badge-modality" style="font-size: 0.72rem;"></span>
+              <span id="lab-robustness-summary" style="font-size: 0.82rem; color: var(--text-muted);"></span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.05);">
+                  <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Transform</th>
+                  <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Verdict</th>
+                  <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Consistent</th>
+                  <th style="text-align: right; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Latency</th>
+                </tr>
+              </thead>
+              <tbody id="lab-robustness-tbody"></tbody>
+            </table>
+            <div id="lab-robustness-disclaimer" style="margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-dim); font-style: italic; line-height: 1.3;"></div>
+          </div>
+        </div>
 
-           <!-- Limitation Notice -->
-           <div style="font-size: 0.72rem; color: #fbbf24; background: rgba(234,179,8,0.08); padding: 0.5rem 0.75rem; border-radius: 4px; border-left: 3px solid #eab308; line-height: 1.35;">
-             <b>Forensic Limitation:</b> Image-only analysis is probabilistic and UNVALIDATED. Statistical anomaly concentrations do not constitute pixel-level proof of manipulation, nor do they determine editing tool or AI usage. Findings require qualified investigator review.
-           </div>
-         </div>
+        <div id="lab-advanced-empty" class="card-panel" style="text-align: center; color: var(--text-dim); padding: 2rem;">
+          Select an evidence exhibit to enable advanced analysis tools.
+        </div>
+      </div>
 
-         <!-- ── FORENSIC CONFIDENCE MATRIX ── -->
-         <div class="card-panel" id="lab-confidence-matrix-panel" style="margin-top: 1.5rem; display: none;">
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-             <div>
-               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">FORENSIC CONFIDENCE MATRIX</div>
-               <span id="lab-manipulation-subtype-badge" class="badge badge-modality" style="font-size: 0.7rem; margin-left: 0;"></span>
-             </div>
-             <span id="lab-matrix-summary" class="badge badge-status-analyzing" style="font-size: 0.7rem;"></span>
-           </div>
-           <div id="lab-confidence-matrix-grid" style="width: 100%; overflow-x: auto;">
-             <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
-               <thead>
-                 <tr style="background: rgba(255,255,255,0.05);">
-                   <th style="text-align: left; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Signal Axis</th>
-                   <th style="text-align: center; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Baseline</th>
-                   <th style="text-align: center; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">→ Alteration Flagged</th>
-                   <th style="text-align: left; padding: 0.45rem 0.6rem; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color);">Note (Unvalidated)</th>
-                 </tr>
-               </thead>
-               <tbody id="lab-matrix-tbody"></tbody>
-             </table>
-           </div>
-         </div>
+      <!-- ── TAB: Custody ── -->
+      <div id="lab-tab-custody" class="lab-tab-content">
+        <div class="card-panel" id="lab-chain-verify-panel">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔒 HASH-CHAINED AUDIT LOG</div>
+              <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Each custody event records a hash of the previous event. Tampering becomes detectable.</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span id="lab-chain-status-badge" class="badge badge-modality" style="font-size: 0.7rem;">NOT VERIFIED</span>
+              <button class="btn btn-secondary btn-sm" onclick="verifyChain()">Verify Chain</button>
+            </div>
+          </div>
+          <div id="lab-chain-verify-result" style="display: none; margin-top: 0.75rem; font-size: 0.8rem; line-height: 1.4;"></div>
+        </div>
+      </div>
 
+    </section>
 
-         <!-- ── EVIDENCE DNA ── -->
-         <div class="card-panel" id="lab-dna-panel" style="margin-top: 1.5rem; display: none;">
-           <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">🧬 EVIDENCE DNA — FORENSIC FINGERPRINT</div>
-           <div id="lab-dna-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.6rem;"></div>
-           <div id="lab-dna-known-match" style="display: none; margin-top: 0.75rem; padding: 0.5rem 0.8rem; background: rgba(234,179,8,0.1); border-left: 3px solid #eab308; border-radius: 4px; font-size: 0.8rem; color: #fcd34d;"></div>
-         </div>
-
-         <!-- ── INVESTIGATOR REVIEW ── -->
-         <div class="card-panel" id="lab-review-panel" style="margin-top: 1.5rem;">
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-             <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧑‍⚖️ INVESTIGATOR ASSESSMENT</div>
-             <span id="lab-review-status" class="badge badge-modality" style="font-size: 0.7rem;">NO REVIEW SUBMITTED</span>
-           </div>
-           <div id="lab-existing-review" style="display: none; margin-bottom: 1rem; padding: 0.6rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.03); font-size: 0.82rem; line-height: 1.4;"></div>
-           <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="AGREE"> Agree with TruthLens assessment</label>
-               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="DISAGREE"> Disagree — Manual review required</label>
-               <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; font-size: 0.82rem;"><input type="radio" name="inv-verdict" value="NEEDS_FURTHER_EXAMINATION"> Needs further examination</label>
-             </div>
-             <textarea id="inv-review-notes" rows="2" placeholder="Optional: Add investigator notes..." style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem; border-radius: 6px; font-family: inherit; font-size: 0.82rem; resize: vertical;"></textarea>
-             <button class="btn btn-secondary btn-sm" onclick="submitInvestigatorReview()" style="align-self: flex-start;">Submit Investigator Review</button>
-           </div>
-         </div>
-
-         <!-- ── ADVERSARIAL ROBUSTNESS STRESS TEST ── -->
-         <div class="card-panel" id="lab-robustness-panel" style="margin-top: 1.5rem; display: none;">
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-             <div>
-               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🧪 ADVERSARIAL ROBUSTNESS STRESS TEST</div>
-               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Tests whether forensic conclusions survive common real-world transformations. Original file is never modified.</div>
-             </div>
-             <button class="btn btn-secondary btn-sm" id="btn-run-robustness" onclick="runRobustnessTest()">▶ Run Stress Test</button>
-           </div>
-           <div id="lab-robustness-results" style="display: none;">
-             <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
-               <span id="lab-robustness-label" class="badge badge-modality" style="font-size: 0.72rem;"></span>
-               <span id="lab-robustness-summary" style="font-size: 0.82rem; color: var(--text-muted);"></span>
-             </div>
-             <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
-               <thead>
-                 <tr style="background: rgba(255,255,255,0.05);">
-                   <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Transform</th>
-                   <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Verdict</th>
-                   <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Consistent</th>
-                   <th style="text-align: right; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Latency</th>
-                 </tr>
-               </thead>
-               <tbody id="lab-robustness-tbody"></tbody>
-             </table>
-             <div id="lab-robustness-disclaimer" style="margin-top: 0.6rem; font-size: 0.72rem; color: var(--text-dim); font-style: italic; line-height: 1.3;"></div>
-           </div>
-         </div>
-
-         <!-- ── EVIDENCE DIFF MODE ── -->
-         <div class="card-panel" id="lab-diff-panel" style="margin-top: 1.5rem; display: none;">
-           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
-             <div>
-               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔬 EVIDENCE DIFF — COMPARE TWO EXHIBITS</div>
-               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Upload a second image exhibit to the same case, then compare pixel-by-pixel.</div>
-             </div>
-           </div>
-           <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem;">
-             <input type="text" id="diff-evidence-b" placeholder="Evidence ID B (e.g. EV-2026-XXXXXX)" style="flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border-color); color: #fff; padding: 0.5rem 0.7rem; border-radius: 6px; font-size: 0.82rem;">
-             <button class="btn btn-secondary btn-sm" onclick="runEvidenceDiff()">▶ Compare</button>
-           </div>
-           <div id="lab-diff-results" style="display: none;">
-             <div id="lab-diff-summary" style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.04); border-radius: 6px; border-left: 3px solid var(--accent-cyan);"></div>
-             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: flex-start;">
-               <div style="flex: 1; min-width: 160px; text-align: center;">
-                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">ORIGINAL (A)</div>
-                 <img id="diff-img-a" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence A">
-               </div>
-               <div style="flex: 1; min-width: 160px; text-align: center;">
-                 <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">COMPARISON (B)</div>
-                 <img id="diff-img-b" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid var(--border-color);" alt="Evidence B">
-               </div>
-               <div style="flex: 1; min-width: 160px; text-align: center;" id="diff-heatmap-box" style="display: none;">
-                 <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">DIFFERENCE HEATMAP</div>
-                 <img id="diff-img-heatmap" src="" style="max-width: 100%; border-radius: 6px; border: 1px solid rgba(248,113,113,0.4);" alt="Difference Heatmap">
-               </div>
-             </div>
-             <div id="lab-diff-regions" style="margin-bottom: 0.75rem;"></div>
-             <div id="lab-diff-metadata-table" style="overflow-x: auto;"></div>
-           </div>
-         </div>
-
-         <!-- ── CHAIN OF CUSTODY VERIFICATION ── -->
-         <div class="card-panel" id="lab-chain-verify-panel" style="margin-top: 1.5rem;">
-           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-             <div>
-               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted);">🔒 HASH-CHAINED AUDIT LOG</div>
-               <div style="font-size: 0.78rem; color: var(--text-dim); margin-top: 2px;">Each custody event records a hash of the previous event. Tampering becomes detectable.</div>
-             </div>
-             <div style="display: flex; align-items: center; gap: 0.5rem;">
-               <span id="lab-chain-status-badge" class="badge badge-modality" style="font-size: 0.7rem;">NOT VERIFIED</span>
-               <button class="btn btn-secondary btn-sm" onclick="verifyChain()">Verify Chain</button>
-             </div>
-           </div>
+iv>
            <div id="lab-chain-verify-result" style="display: none; margin-top: 0.75rem; font-size: 0.8rem; line-height: 1.4;"></div>
          </div>
 
