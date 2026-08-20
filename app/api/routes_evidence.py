@@ -25,7 +25,8 @@ from app.core.localization_policy import PolicyEngine, OUTCOME_INCONCLUSIVE
 from app.analyzers.localization_analyzer import LocalizationAnalyzer
 from app.core.detector_ensemble import (
     SpatialVisionSpecialist, FrequencyDomainSpecialist, SyntheticNoiseSpecialist,
-    LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, EnsembleAgreementEngine,
+    LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, OpticalPhysicsSpecialist,
+    EnsembleAgreementEngine,
     SIGNAL_ALTERATION_DETECTED, SIGNAL_NO_STRONG_ANOMALY, SIGNAL_INCONCLUSIVE
 )
 
@@ -54,6 +55,7 @@ localization_analyzer = LocalizationAnalyzer()
 spatial_specialist = SpatialVisionSpecialist()
 frequency_specialist = FrequencyDomainSpecialist()
 synthetic_noise_specialist = SyntheticNoiseSpecialist()
+optical_physics_specialist = OpticalPhysicsSpecialist()
 localized_patch_specialist = LocalizedPatchSpecialist()
 provenance_metadata_specialist = ProvenanceMetadataSpecialist()
 
@@ -205,23 +207,28 @@ def execute_forensic_pipeline(evidence_id: str):
         specialists = []
         if modality == "IMAGE":
             vit_verdict = (
-                SIGNAL_ALTERATION_DETECTED if (ai_indicator or 0) >= 0.65
+                SIGNAL_ALTERATION_DETECTED if (ai_indicator or 0) >= settings.GENERATIVE_INDICATOR_THRESHOLD
                 else (SIGNAL_NO_STRONG_ANOMALY if (ai_indicator or 0) <= 0.35 else SIGNAL_INCONCLUSIVE)
             )
             specialists.append({
-                "name": "Spatial Vision Classifier (ViT)",
+                "name": "Neural Vision Classifier Ensemble",
                 "specialist_type": "SPATIAL_VISION",
                 "category": "AI_MODEL",
                 "status": "COMPLETED" if model_status == "AVAILABLE" else model_status,
                 "verdict": vit_verdict,
                 "indicator": ai_indicator,
-                "evidence_strength": "HIGH" if (ai_indicator or 0) >= 0.85 else ("MODERATE" if (ai_indicator or 0) >= 0.65 else "LOW"),
+                "evidence_strength": "HIGH" if (ai_indicator or 0) >= 0.80 else ("MODERATE" if (ai_indicator or 0) >= settings.GENERATIVE_INDICATOR_THRESHOLD else "LOW"),
                 "calibration_status": "UNVALIDATED",
-                "focus": "Global facial & spatial scene semantics",
-                "details": f"ViT screening signal: {vit_verdict} (Statistical indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'})"
+                "focus": "Generative diffusion artifacts & facial deepfake semantics",
+                "details": f"Vision Ensemble signal: {vit_verdict} (Statistical indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'})"
             })
             specialists.append(frequency_specialist.analyze(None, float(raw_metrics.get("fft_anomaly_score", 0.0)), float(raw_metrics.get("checkerboard_score", 0.0))))
             specialists.append(synthetic_noise_specialist.analyze(None, float(raw_metrics.get("noise_anomaly_score", 0.0))))
+            specialists.append(optical_physics_specialist.analyze(
+                float(raw_metrics.get("chromatic_aberration_score", 20.0)),
+                float(raw_metrics.get("cfa_anomaly_score", 20.0)),
+                float(raw_metrics.get("ca_radial_dispersion", 1.8))
+            ))
             specialists.append(localized_patch_specialist.analyze({
                 "max_patch_anomaly": raw_metrics.get("max_patch_anomaly", 0.0),
                 "localized_regions": localized_regions

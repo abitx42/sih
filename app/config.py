@@ -58,10 +58,13 @@ class Settings:
         if origin.strip()
     ]
 
-    # Hugging Face Vision Model Config (Reproducibility & Local Inference)
-    # Pinned to specific model commit hash for full auditability
-    HF_MODEL_NAME: str = os.getenv("HF_MODEL_NAME", "dima806/deepfake_vs_real_image_detection")
-    HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "29e4cf9efc543845610045f6ba7e88e5cf9d9301")
+    # Multi-Model Hugging Face Vision Ensemble Config (Local Zero-Cloud Inference)
+    # Primary Generative Model: Swin Transformer for Diffusion/Generative AI images (DALL-E, Midjourney, SD, Flux)
+    HF_GENERATIVE_MODEL_NAME: str = os.getenv("HF_GENERATIVE_MODEL_NAME", "umm-maybe/AI-image-detector")
+    # Secondary Facial Model: Vision Transformer for facial deepfakes and face swaps
+    HF_DEEPFAKE_MODEL_NAME: str = os.getenv("HF_DEEPFAKE_MODEL_NAME", "dima806/deepfake_vs_real_image_detection")
+    HF_MODEL_NAME: str = os.getenv("HF_MODEL_NAME", "umm-maybe/AI-image-detector")
+    HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "")
     HF_LOCAL_FILES_ONLY: bool = os.getenv("HF_LOCAL_FILES_ONLY", "False").lower() == "true"
 
     # TCET CoE AI Gateway Configuration (Forensic Copilot Text Explanation Engine Only)

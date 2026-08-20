@@ -2,7 +2,7 @@ import os
 import io
 import math
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, Optional
 from PIL import Image, ImageChops, ImageEnhance, ExifTags
 import numpy as np
 from scipy import ndimage
@@ -123,7 +123,28 @@ class ImageAnalyzer(BaseAnalyzer):
                 location_ref="Spatial Noise Domain"
             ))
 
-        # E. Spatial Patch Analysis & Localized Manipulation Localization
+        # E. Optical Lens Chromatic Aberration (CA) Radial Dispersion
+        ca_score, ca_details = self._analyze_chromatic_aberration(img)
+        raw_metrics["chromatic_aberration_score"] = ca_score
+        raw_metrics["ca_radial_dispersion"] = ca_details.get("radial_dispersion", 0.0)
+
+        if ca_score > 65:
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Non-Optical Color Alignment (Zero/Irregular Lens Dispersion)",
+                category="SIGNAL_ANALYSIS",
+                severity="HIGH",
+                score=ca_score,
+                explanation="Physical camera lenses exhibit radial chromatic aberration (R-B color channel fringing increasing away from optical center). This exhibit shows synthetic non-optical alignment characteristic of generative rendering.",
+                location_ref="Optical Color Channels (R-G-B)"
+            ))
+
+        # F. Bayer CFA Demosaicing Inconsistency
+        cfa_score, cfa_details = self._analyze_cfa_periodicity(img)
+        raw_metrics["cfa_anomaly_score"] = cfa_score
+        raw_metrics["cfa_periodicity_ratio"] = cfa_details.get("periodicity_ratio", 0.0)
+
+        # G. Spatial Patch Analysis & Localized Manipulation Localization
         patch_res = self.patch_localizer.analyze_patches(img, enhanced_diff, evidence_id)
         raw_metrics["manipulation_heatmap_path"] = patch_res.get("heatmap_path")
         raw_metrics["localized_regions"] = patch_res.get("localized_regions", [])
@@ -154,13 +175,15 @@ class ImageAnalyzer(BaseAnalyzer):
                 explanation="Patch-level spatial analysis shows uniform sensor noise, consistent error level, and seamless boundary gradients across all sub-regions. No isolated manipulation patches detected."
             ))
 
-        # Heuristic Forensic Anomaly Score (0.0 - 100.0)
+        # Comprehensive Multi-Signal Forensic Anomaly Score (0.0 - 100.0)
         max_patch_anom = patch_res.get("max_patch_anomaly", 0.0)
         forensic_anomaly_score = round(
-            (ela_score * 0.25) +
-            (fft_score * 0.25) +
-            (noise_score * 0.20) +
-            (max_patch_anom * 0.30),
+            (ela_score * 0.20) +
+            (fft_score * 0.20) +
+            (noise_score * 0.15) +
+            (ca_score * 0.15) +
+            (cfa_score * 0.10) +
+            (max_patch_anom * 0.20),
             1
         )
         raw_metrics["forensic_anomaly_score"] = forensic_anomaly_score
@@ -392,3 +415,83 @@ class ImageAnalyzer(BaseAnalyzer):
             return round(score, 1), {"noise_std": float(np.mean(stds)), "inconsistency": inconsistency}
         except Exception:
             return 20.0, {"noise_std": 0, "inconsistency": 0}
+
+    def _analyze_chromatic_aberration(self, img: Image.Image) -> Tuple[float, Dict[str, Any]]:
+        """
+        Evaluates Optical Chromatic Aberration (CA) Radial Consistency.
+        Real refractive camera lenses cause radial lateral chromatic dispersion (color shift between R and B away from optical center).
+        Pure generative AI images exhibit synthetic or non-optical channel alignment.
+        """
+        try:
+            res_img = img.resize((384, 384), Image.Resampling.BILINEAR)
+            r, g, b = res_img.split()
+            arr_r = np.array(r, dtype=np.float32)
+            arr_g = np.array(g, dtype=np.float32)
+            arr_b = np.array(b, dtype=np.float32)
+
+            # High-pass gradient of each channel
+            grad_r = np.hypot(ndimage.sobel(arr_r, axis=0), ndimage.sobel(arr_r, axis=1))
+            grad_b = np.hypot(ndimage.sobel(arr_b, axis=0), ndimage.sobel(arr_b, axis=1))
+
+            # Channel gradient difference
+            diff_rb = np.abs(grad_r - grad_b)
+            center = 192
+            y, x = np.ogrid[:384, :384]
+            radius = np.sqrt((x - center)**2 + (y - center)**2)
+
+            center_mask = radius < 70
+            corner_mask = radius > 140
+
+            center_disp = float(np.mean(diff_rb[center_mask])) if np.any(center_mask) else 1.0
+            corner_disp = float(np.mean(diff_rb[corner_mask])) if np.any(corner_mask) else 1.0
+
+            # Radial dispersion ratio (Corner vs Center)
+            radial_ratio = corner_disp / (center_disp + 1e-5)
+
+            # In natural optical photography, radial_ratio is typically 1.2 to 2.8.
+            # In synthetic/AI images, color channels are mathematically synchronized or artificially flat (ratio < 1.05 or > 4.5).
+            if radial_ratio < 1.05:
+                # Unnaturally uniform color alignment across radial distance
+                ca_anomaly = min(100.0, (1.05 - radial_ratio) * 150.0 + 35.0)
+            elif radial_ratio > 4.0:
+                ca_anomaly = min(100.0, (radial_ratio - 4.0) * 20.0 + 50.0)
+            else:
+                ca_anomaly = max(10.0, min(35.0, abs(radial_ratio - 1.8) * 15.0))
+
+            return round(ca_anomaly, 1), {"radial_dispersion": round(radial_ratio, 3), "corner_disp": round(corner_disp, 2), "center_disp": round(center_disp, 2)}
+        except Exception as e:
+            return 20.0, {"error": str(e)}
+
+    def _analyze_cfa_periodicity(self, img: Image.Image) -> Tuple[float, Dict[str, Any]]:
+        """
+        Evaluates Bayer Color Filter Array (CFA) Demosaicing Residuals.
+        Camera sensors interpolate color via Bayer pattern grids. Generative AI images lack physical Bayer sensor periodicity.
+        """
+        try:
+            res_img = img.convert("L").resize((256, 256), Image.Resampling.BILINEAR)
+            arr = np.array(res_img, dtype=np.float32)
+
+            # Second-order demosaicing kernel difference: G(x,y) - [G(x-1,y)+G(x+1,y)+G(x,y-1)+G(x,y+1)]/4
+            kernel = np.array([[0, 0.25, 0], [0.25, -1.0, 0.25], [0, 0.25, 0]], dtype=np.float32)
+            cfa_res = ndimage.convolve(arr, kernel)
+
+            # Check 2x2 grid variance
+            q00 = cfa_res[0::2, 0::2]
+            q01 = cfa_res[0::2, 1::2]
+            q10 = cfa_res[1::2, 0::2]
+            q11 = cfa_res[1::2, 1::2]
+
+            var_means = [float(np.mean(np.abs(q))) for q in [q00, q01, q10, q11]]
+            grid_disp = float(np.std(var_means) / (np.mean(var_means) + 1e-6))
+
+            # Optical sensor captures display higher demosaicing periodicity variance (> 0.12)
+            # Synthetic images have homogeneous interpolation (grid_disp < 0.05)
+            if grid_disp < 0.05:
+                cfa_score = min(100.0, (0.05 - grid_disp) * 800.0 + 40.0)
+            else:
+                cfa_score = max(10.0, min(30.0, (0.15 - grid_disp) * 100.0))
+
+            return round(cfa_score, 1), {"periodicity_ratio": round(grid_disp, 4)}
+        except Exception as e:
+            return 20.0, {"error": str(e)}
+

@@ -30,6 +30,8 @@ def test_image_analyzer_execution():
         assert "raw_metrics" in res
         assert "ela_image_path" in res["raw_metrics"]
         assert "fft_image_path" in res["raw_metrics"]
+        assert "chromatic_aberration_score" in res["raw_metrics"]
+        assert "cfa_anomaly_score" in res["raw_metrics"]
     finally:
         if temp_path.exists():
             temp_path.unlink()

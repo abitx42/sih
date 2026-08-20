@@ -159,9 +159,22 @@ def test_risk_engine_inconclusive_defaults_to_review_required():
 def test_defensive_label_normalization():
     detector = HFImageDetector()
     assert detector._classify_label_defensively("deepfake") == "MANIPULATED"
+    assert detector._classify_label_defensively("artificial") == "MANIPULATED"
     assert detector._classify_label_defensively("Real") == "UNMANIPULATED"
+    assert detector._classify_label_defensively("human") == "UNMANIPULATED"
     assert detector._classify_label_defensively("AI_Generated") == "MANIPULATED"
     assert detector._classify_label_defensively("CustomClassXYZ") == "UNKNOWN"
+
+def test_multi_model_vision_ensemble_structure():
+    """
+    Verifies that HFImageDetector instantiates dual specialized sub-model runners:
+    Generative Diffusion and Facial Deepfake.
+    """
+    detector = HFImageDetector()
+    assert hasattr(detector, "gen_runner")
+    assert hasattr(detector, "deepfake_runner")
+    assert detector.gen_runner.role == "GENERATIVE_DIFFUSION"
+    assert detector.deepfake_runner.role == "FACIAL_DEEPFAKE"
 
 @pytest.mark.slow
 def test_real_model_local_inference_smoke():
@@ -178,5 +191,6 @@ def test_real_model_local_inference_smoke():
     if res["model_status"] == "AVAILABLE":
         assert isinstance(res["ai_manipulation_indicator"], float)
         assert 0.0 <= res["ai_manipulation_indicator"] <= 1.0
+        assert "sub_models" in res
     else:
         assert res["ai_manipulation_indicator"] is None

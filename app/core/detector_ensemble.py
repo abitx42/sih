@@ -196,6 +196,53 @@ class SyntheticNoiseSpecialist(BaseSpecialist):
         }
 
 
+class OpticalPhysicsSpecialist(BaseSpecialist):
+    """
+    Optical Lens & Sensor Physics Specialist.
+    Measures Chromatic Aberration radial lateral dispersion and Bayer CFA demosaicing residuals.
+    """
+    def __init__(self):
+        super().__init__(
+            name="Optical Lens & Bayer CFA Specialist",
+            specialist_type="OPTICAL_PHYSICS",
+            category="PHYSICAL_SIGNAL"
+        )
+
+    def analyze(self, ca_score: float, cfa_score: float, radial_dispersion: float = 0.0) -> Dict[str, Any]:
+        t0 = time.time()
+        combined_score = round(max(0.0, min(100.0, (ca_score * 0.60) + (cfa_score * 0.40))), 1)
+        latency_ms = round((time.time() - t0) * 1000, 1)
+
+        if combined_score >= 55.0 or ca_score >= 65.0:
+            verdict = SIGNAL_ALTERATION_DETECTED
+            strength = "HIGH" if combined_score >= 75.0 else "MODERATE"
+            details = f"Non-optical color channel alignment or absent Bayer sensor demosaicing ({combined_score}/100 anomaly)."
+        elif combined_score <= 35.0:
+            verdict = SIGNAL_NO_STRONG_ANOMALY
+            strength = "MODERATE"
+            details = "Natural radial chromatic lens dispersion and Bayer CFA periodicity consistent with optical camera capture."
+        else:
+            verdict = SIGNAL_INCONCLUSIVE
+            strength = "LOW"
+            details = f"Intermediate optical dispersion signature ({combined_score}/100)."
+
+        return {
+            "name": self.name,
+            "specialist_type": self.specialist_type,
+            "category": self.category,
+            "status": "COMPLETED",
+            "verdict": verdict,
+            "indicator": round(combined_score / 100.0, 3),
+            "evidence_strength": strength,
+            "calibration_status": CALIBRATION_STATUS,
+            "latency_ms": latency_ms,
+            "focus": "Optical lens chromatic aberration & Bayer sensor demosaicing",
+            "score": combined_score,
+            "radial_dispersion": radial_dispersion,
+            "details": details
+        }
+
+
 class LocalizedPatchSpecialist(BaseSpecialist):
     """
     Localized Anomaly & Spatial Patch Specialist.
