@@ -21,6 +21,8 @@ from app.core.evidence_dna import EvidenceDNA
 from app.core.confidence_matrix import ConfidenceMatrix
 from app.core.robustness_tester import RobustnessTester
 from app.core.reproducibility import ReproducibilityEngine
+from app.core.localization_policy import PolicyEngine, OUTCOME_INCONCLUSIVE
+from app.analyzers.localization_analyzer import LocalizationAnalyzer
 from app.core.detector_ensemble import (
     SpatialVisionSpecialist, FrequencyDomainSpecialist, SyntheticNoiseSpecialist,
     LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, ExternalDetectorAdapter, EnsembleAgreementEngine
@@ -46,6 +48,7 @@ video_analyzer = VideoAnalyzer()
 audio_analyzer = AudioAnalyzer()
 document_analyzer = DocumentAnalyzer()
 archive_analyzer = ArchiveAnalyzer()
+localization_analyzer = LocalizationAnalyzer()
 
 spatial_specialist = SpatialVisionSpecialist()
 frequency_specialist = FrequencyDomainSpecialist()
@@ -174,6 +177,28 @@ def execute_forensic_pipeline(evidence_id: str):
         else:
             _update_stage(evidence_id, "LOCAL_REGION_ANALYSIS", "COMPLETED", "Uniform patch distribution across frame")
 
+        # Stage 5b: Multi-Signal Localization Analysis (IMAGE only)
+        localization_result = None
+        if modality == "IMAGE":
+            _update_stage(evidence_id, "LOCALIZATION_ANALYSIS", "ANALYZING", "Running multi-signal spatial localization (ELA grid, noise map, FFT block, patch heatmap)...")
+            try:
+                from PIL import Image as _PILImage
+                _img_for_loc = _PILImage.open(file_path).convert("RGB")
+                localization_result = localization_analyzer.analyze(file_path, evidence_id, img=_img_for_loc)
+                loc_status = localization_result.get("localization_status", "UNAVAILABLE")
+                n_regions = len(localization_result.get("localized_regions", []))
+                raw_metrics["localization"] = localization_result
+                _update_stage(
+                    evidence_id, "LOCALIZATION_ANALYSIS", "COMPLETED",
+                    f"Localization: {loc_status} — {n_regions} suspicious region(s) mapped."
+                )
+            except Exception as _loc_err:
+                localization_result = None
+                raw_metrics["localization"] = {"localization_status": "ERROR", "error_detail": str(type(_loc_err).__name__)}
+                _update_stage(evidence_id, "LOCALIZATION_ANALYSIS", "COMPLETED", "Localization unavailable for this exhibit.")
+        else:
+            raw_metrics["localization"] = {"localization_status": "UNAVAILABLE", "error_detail": "Localization is only available for IMAGE exhibits."}
+
         # Stage 6: External Independent Detectors (Copyleaks Adapter)
         _update_stage(evidence_id, "EXTERNAL_DETECTORS", "ANALYZING", "Checking independent cloud detector adapter...")
         if modality == "IMAGE" and analysis_mode in ("FULL_ANALYSIS", "ADVANCED_INVESTIGATION"):
@@ -243,6 +268,18 @@ def execute_forensic_pipeline(evidence_id: str):
         raw_metrics["risk_components"] = comp_scores
         forensic_taxonomy = comp_scores.get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
         raw_metrics["forensic_taxonomy"] = forensic_taxonomy
+
+        # 8b. Evaluate Evidence-Result Policy (transparent 6-tier outcome)
+        policy_result = PolicyEngine.evaluate(
+            provenance_status=provenance_status,
+            reference_comparison=None,  # populated post-hoc if reference is submitted
+            localization_result=localization_result,
+            ai_manipulation_indicator=ai_indicator,
+            model_status=model_status,
+            findings=findings,
+            ensemble_agreement=ensemble_agreement,
+        )
+        raw_metrics["policy_outcome"] = policy_result
 
         # 9. Generate Multi-Signal 'Why + Where + How' Correlation Matrix
         correlation_matrix = ForensicCorrelationBuilder.build_correlation(
@@ -314,8 +351,45 @@ def execute_forensic_pipeline(evidence_id: str):
             fr_cols = [c["name"] for c in cursor.fetchall()]
             has_manip_subtype = "manipulation_subtype" in fr_cols
             has_repro = "reproducibility_json" in fr_cols
+            has_localization = "localization_status" in fr_cols and "localization_json" in fr_cols and "policy_outcome" in fr_cols
 
-            if has_manip_subtype and has_repro:
+            localization_status_val = (
+                localization_result.get("localization_status", "UNAVAILABLE")
+                if localization_result else "UNAVAILABLE"
+            )
+            localization_json_val = json.dumps(
+                localization_result if localization_result else {}, default=_json_safe
+            )
+            policy_outcome_val = policy_result.get("outcome", OUTCOME_INCONCLUSIVE)
+
+            if has_manip_subtype and has_repro and has_localization:
+                cursor.execute("""
+                INSERT OR REPLACE INTO forensic_results (
+                    result_id, evidence_id, integrity_status, provenance_status,
+                    ai_manipulation_score, ai_manipulation_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, forensic_risk_score, risk_category,
+                    confidence_score, analyzed_at, raw_metrics_json,
+                    summary_narrative, recommendations, ensemble_agreement_json,
+                    manipulation_subtype, reproducibility_json,
+                    localization_status, localization_json, policy_outcome
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    result_id, evidence_id, "VERIFIED", provenance_status,
+                    ai_indicator if ai_indicator is not None else 0.0, ai_indicator, ai_model_name,
+                    ai_model_version, model_confidence, model_status,
+                    forensic_anomaly_score, risk_score, risk_cat,
+                    confidence, analyzed_at, json.dumps(raw_metrics, default=_json_safe),
+                    narrative_res.get("summary", ""),
+                    narrative_res.get("recommendations", ""),
+                    json.dumps(ensemble_agreement, default=_json_safe),
+                    manipulation_subtype,
+                    json.dumps(reproducibility_record, default=_json_safe),
+                    localization_status_val,
+                    localization_json_val,
+                    policy_outcome_val,
+                ))
+            elif has_manip_subtype and has_repro:
                 cursor.execute("""
                 INSERT OR REPLACE INTO forensic_results (
                     result_id, evidence_id, integrity_status, provenance_status,
@@ -338,6 +412,7 @@ def execute_forensic_pipeline(evidence_id: str):
                     manipulation_subtype,
                     json.dumps(reproducibility_record, default=_json_safe)
                 ))
+
             else:
                 cursor.execute("""
                 INSERT OR REPLACE INTO forensic_results (

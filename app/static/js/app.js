@@ -777,18 +777,24 @@ function renderLabView(data) {
   // Show/hide modality-specific panels
   const robustnessPanel = document.getElementById("lab-robustness-panel");
   const diffPanel = document.getElementById("lab-diff-panel");
+  const locPanel = document.getElementById("lab-localization-panel");
   if (robustnessPanel) robustnessPanel.style.display = ev.modality === "IMAGE" ? "block" : "none";
   if (diffPanel) diffPanel.style.display = ev.modality === "IMAGE" ? "block" : "none";
+  if (locPanel) locPanel.style.display = ev.modality === "IMAGE" ? "block" : "none";
 
-  // Load Evidence DNA (async, non-blocking)
+  // Load Evidence DNA & Localization (async, non-blocking)
   if (ev.status === "COMPLETED") {
     loadEvidenceDNA(ev.evidence_id);
     loadConfidenceMatrix(ev.evidence_id);
+    if (ev.modality === "IMAGE") {
+      loadLocalizationPanel(ev, res);
+    }
   } else {
     const dnaPanel = document.getElementById("lab-dna-panel");
     if (dnaPanel) dnaPanel.style.display = "none";
     const matrixPanel = document.getElementById("lab-confidence-matrix-panel");
     if (matrixPanel) matrixPanel.style.display = "none";
+    if (locPanel) locPanel.style.display = "none";
   }
 
   // Load existing investigator review (async)
@@ -1543,6 +1549,182 @@ async function generateAIExplanation() {
       btn.innerText = origBtnText;
       btn.disabled = false;
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOCALIZED ALTERATION FORENSICS & REFERENCE COMPARISON
+// ═══════════════════════════════════════════════════════════════
+
+async function loadLocalizationPanel(ev, res) {
+  const panel = document.getElementById("lab-localization-panel");
+  if (!panel) return;
+
+  const rawMetrics = res.raw_metrics_json || {};
+  const locData = rawMetrics.localization || {};
+  const policyOut = rawMetrics.policy_outcome || {};
+
+  panel.style.display = "block";
+
+  // Policy Outcome Badge & Description
+  const policyBadge = document.getElementById("lab-policy-outcome-badge");
+  const locStatusBadge = document.getElementById("lab-loc-status-badge");
+  const policyDesc = document.getElementById("lab-policy-description");
+
+  const pLabel = policyOut.label || "Policy: Inconclusive";
+  const pOutcome = policyOut.outcome || "INCONCLUSIVE";
+  if (policyBadge) {
+    policyBadge.textContent = pLabel;
+    if (pOutcome === "HIGH_RISK_LOCALIZED_ALTERATION" || pOutcome === "REFERENCE_DIFFERENCE_CONFIRMED") {
+      policyBadge.className = "badge badge-risk-high";
+    } else if (pOutcome === "GENERATIVE_IMAGE_INDICATOR") {
+      policyBadge.className = "badge badge-risk-medium";
+    } else if (pOutcome === "VERIFIED_PROVENANCE") {
+      policyBadge.className = "badge badge-risk-low";
+    } else {
+      policyBadge.className = "badge badge-modality";
+    }
+  }
+
+  const locStatus = locData.localization_status || "UNAVAILABLE";
+  if (locStatusBadge) {
+    locStatusBadge.textContent = `LOCALIZATION: ${locStatus}`;
+    locStatusBadge.className = locStatus === "AVAILABLE" ? "badge badge-status-completed" : "badge badge-status-analyzing";
+  }
+
+  if (policyDesc) {
+    policyDesc.innerHTML = `<strong>${escapeHTML(pLabel)}</strong>: ${escapeHTML(policyOut.description || "Forensic evaluation completed.")}`;
+  }
+
+  // Visual Maps
+  const origImg = document.getElementById("loc-img-orig");
+  const maskImg = document.getElementById("loc-img-mask");
+  const relImg = document.getElementById("loc-img-reliability");
+
+  if (origImg) origImg.src = `/api/evidence/${ev.evidence_id}/download`;
+  if (maskImg) maskImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/manipulation_heatmap`;
+  if (relImg) relImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/reliability_map`;
+
+  // Populate Bounded Suspicious Regions Table
+  const tbody = document.getElementById("loc-regions-tbody");
+  const regionsWrapper = document.getElementById("loc-regions-wrapper");
+  const regions = locData.localized_regions || [];
+
+  if (tbody) {
+    if (regions.length > 0) {
+      if (regionsWrapper) regionsWrapper.style.display = "block";
+      tbody.innerHTML = regions.map(r => {
+        const sev = r.severity || "MEDIUM";
+        const sevColor = sev === "HIGH" ? "#dc2626" : (sev === "MEDIUM" ? "#d97706" : "#16a34a");
+        const rel = typeof r.reliability === "number" ? r.reliability.toFixed(2) : "0.00";
+        return `
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 0.4rem 0.5rem; font-weight: 600;">${escapeHTML(r.region_id || "ROI")}</td>
+            <td style="padding: 0.4rem 0.5rem; text-align: center;">${r.affected_area_pct || 0}%</td>
+            <td style="padding: 0.4rem 0.5rem; text-align: center; font-weight: 600; color: ${sevColor};">${escapeHTML(sev)}</td>
+            <td style="padding: 0.4rem 0.5rem; text-align: center;">${rel}</td>
+            <td style="padding: 0.4rem 0.5rem; color: var(--text-main); font-size: 0.76rem;">${escapeHTML(r.neutral_description || "Potential anomaly concentration; method undetermined.")}</td>
+          </tr>
+        `;
+      }).join("");
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="padding: 0.6rem 0.5rem; text-align: center; color: var(--text-dim); font-style: italic;">
+            ${locStatus === "AVAILABLE" ? "No distinct localized anomaly clusters detected above threshold (uniform spatial distribution)." : "Localization unavailable for this exhibit."}
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  // Check for existing Reference Comparison
+  try {
+    const refRes = await fetch(`/api/evidence/${ev.evidence_id}/reference-compare`);
+    if (refRes.ok) {
+      const refData = await refRes.json();
+      if (refData && refData.comparison_status) {
+        const refDiffBox = document.getElementById("loc-ref-diff-box");
+        const refDiffImg = document.getElementById("loc-img-ref-diff");
+        const refMsg = document.getElementById("loc-ref-result-msg");
+
+        if (refDiffBox && refDiffImg) {
+          refDiffBox.style.display = "block";
+          refDiffImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/reference_diff?t=${Date.now()}`;
+        }
+        if (refMsg) {
+          refMsg.style.display = "block";
+          const isConfirmed = refData.comparison_status === "REFERENCE_DIFFERENCE_CONFIRMED";
+          refMsg.innerHTML = `
+            <div style="padding: 0.4rem 0.6rem; border-radius: 4px; background: ${isConfirmed ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isConfirmed ? '#ef4444' : 'var(--border-color)'};">
+              <strong>${escapeHTML(refData.comparison_status.replace(/_/g, ' '))}</strong><br>
+              <span style="color: var(--text-dim);">Reference: ${escapeHTML(refData.reference_filename || 'reference')} • SSIM: ${(refData.ssim_score || 0).toFixed(3)} • Changed Regions: ${refData.changed_region_count || 0}</span>
+            </div>
+          `;
+        }
+      }
+    }
+  } catch (err) {
+    console.debug("No existing reference comparison:", err);
+  }
+}
+
+async function submitReferenceComparison() {
+  if (!currentEvidenceId) return;
+
+  const fileInput = document.getElementById("loc-ref-file-input");
+  const resultMsg = document.getElementById("loc-ref-result-msg");
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    alert("Please select a reference image file to compare.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append("reference_original", file);
+  formData.append("submitted_by", "Investigator");
+
+  if (resultMsg) {
+    resultMsg.style.display = "block";
+    resultMsg.innerHTML = "<em>Analyzing and aligning reference image against exhibit...</em>";
+  }
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/reference-compare`, {
+      method: "POST",
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      if (resultMsg) resultMsg.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHTML(err.detail || "Comparison failed")}</span>`;
+      return;
+    }
+
+    const data = await res.json();
+    const isConfirmed = data.comparison_status === "REFERENCE_DIFFERENCE_CONFIRMED";
+    
+    // Update difference map display
+    const refDiffBox = document.getElementById("loc-ref-diff-box");
+    const refDiffImg = document.getElementById("loc-img-ref-diff");
+    if (refDiffBox && refDiffImg) {
+      refDiffBox.style.display = "block";
+      refDiffImg.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/reference_diff?t=${Date.now()}`;
+    }
+
+    if (resultMsg) {
+      resultMsg.style.display = "block";
+      resultMsg.innerHTML = `
+        <div style="padding: 0.5rem 0.75rem; border-radius: 4px; background: ${isConfirmed ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isConfirmed ? '#ef4444' : 'var(--border-color)'};">
+          <strong style="color: ${isConfirmed ? '#ef4444' : '#60a5fa'};">${escapeHTML(data.comparison_status.replace(/_/g, ' '))}</strong><br>
+          <span style="font-size: 0.74rem; color: var(--text-dim);">
+            SSIM Alignment: ${(data.ssim_score || 0).toFixed(3)} | Changed Regions: ${data.changed_region_count || 0} | Pixels Changed: ${data.pct_pixels_changed || 0}%<br>
+            <em>${escapeHTML(data.disclaimer || '')}</em>
+          </span>
+        </div>
+      `;
+    }
+  } catch (err) {
+    if (resultMsg) resultMsg.innerHTML = `<span style="color: #ef4444;">Network error: ${escapeHTML(String(err))}</span>`;
   }
 }
 

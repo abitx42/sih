@@ -131,6 +131,12 @@ def init_db():
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN manipulation_subtype TEXT DEFAULT 'INCONCLUSIVE'")
         if "reproducibility_json" not in columns:
             cursor.execute("ALTER TABLE forensic_results ADD COLUMN reproducibility_json TEXT DEFAULT '{}'")
+        if "localization_status" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN localization_status TEXT DEFAULT 'UNAVAILABLE'")
+        if "localization_json" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN localization_json TEXT DEFAULT '{}'")
+        if "policy_outcome" not in columns:
+            cursor.execute("ALTER TABLE forensic_results ADD COLUMN policy_outcome TEXT DEFAULT 'INCONCLUSIVE'")
 
         # 4. Findings Table
         cursor.execute("""
@@ -177,6 +183,24 @@ def init_db():
             notes TEXT,
             reviewer_name TEXT NOT NULL,
             submitted_at TEXT NOT NULL,
+            FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
+        )
+        """)
+
+        # 7. Reference Comparisons Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reference_comparisons (
+            comparison_id TEXT PRIMARY KEY,
+            evidence_id TEXT NOT NULL,
+            reference_sha256 TEXT NOT NULL,
+            reference_filename TEXT NOT NULL,
+            comparison_status TEXT NOT NULL,
+            ssim_score REAL,
+            alignment_succeeded INTEGER NOT NULL DEFAULT 0,
+            difference_map_path TEXT,
+            changed_region_count INTEGER NOT NULL DEFAULT 0,
+            submitted_at TEXT NOT NULL,
+            submitted_by TEXT NOT NULL DEFAULT 'Investigator',
             FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
         )
         """)

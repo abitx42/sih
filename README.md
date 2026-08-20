@@ -121,6 +121,20 @@ DIGITAL EVIDENCE FILE (Image, Video, Audio, Document, Archive)
 
 9. **Forensic Assessment Reports**: High-integrity multi-page PDF generation featuring embedded visual exhibits (ELA, FFT, Waveform, Spectrogram, Keyframes), model reproducibility metadata (revision commit, runtime device, label mapping), and legal disclaimers. See [DEPLOYMENT.md](DEPLOYMENT.md) for full demo runbook.
 
+10. **Localized Image Alteration Forensics & Policy Engine**:
+    - **Global Detection vs. Localization vs. Reference Comparison**:
+      - *Global Detection (ViT classifier)*: Analyzes whole-image scene semantics and high-level texture distributions to output a probabilistic indicator (not proof of AI generation).
+      - *Localized Alteration Forensics (`TruthLens-LocalELA-v1`)*: Uses spatial ELA grids, noise residual variance maps, FFT block-boundary discontinuity detectors, and patch anomaly heatmaps to identify *where* potential alterations concentrate. Regions are reported with neutral descriptions (e.g. `Signal concentrated in upper-central region; method of alteration undetermined`).
+      - *Trusted-Reference Comparison (`POST /api/evidence/{id}/reference-compare`)*: Performs pixel-level structural alignment against an investigator-supplied original reference. Confirms image differences without claiming which tool made the modification.
+    - **Transparent Decision Policy**:
+      - `VERIFIED PROVENANCE`: Only after real cryptographic C2PA validation.
+      - `REFERENCE DIFFERENCE CONFIRMED`: When SSIM alignment $\ge 0.60$ and structural pixel differences are confirmed against a supplied reference.
+      - `HIGH-RISK LOCALIZED ALTERATION`: Localization reliability $\ge 0.72$ corroborated by $\ge 1$ independent supporting signal.
+      - `GENERATIVE-IMAGE INDICATOR`: Global AI model score $\ge 0.75$ with active local model.
+      - `INCONCLUSIVE`: Conflicting signals, weak compression quality, or unavailable model assets.
+      - `NO STRONG INDICATOR FOUND`: Never labelled "authentic" or "real".
+
+
 ---
 
 ## ⚠️ Prototype Limitations

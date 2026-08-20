@@ -373,18 +373,73 @@ class ForensicReportGenerator:
         if video_frame_path and os.path.exists(video_frame_path):
             visual_exhibits.append(("Exhibit F: Decoded Video Keyframe Exhibit", video_frame_path))
 
-        if visual_exhibits:
-            story.append(Paragraph("6. Visual Forensic Exhibits", section_style))
-            for title, img_p in visual_exhibits:
-                try:
-                    story.append(Paragraph(f"<b>{title}</b>", body_style))
-                    story.append(Spacer(1, 1.5))
-                    story.append(RLImage(img_p, width=220, height=110))
-                    story.append(Spacer(1, 3))
-                except Exception:
-                    pass
+        # 5. Localized Alteration Analysis
+        loc_data = raw_metrics.get("localization") or {}
+        policy_out = raw_metrics.get("policy_outcome") or {}
+        if loc_data or policy_out:
+            story.append(Paragraph("5. Localized Alteration Analysis", section_style))
+            
+            # Policy Outcome Banner
+            p_label = policy_out.get("label", "Inconclusive")
+            p_desc = policy_out.get("description", "")
+            p_trigger = policy_out.get("trigger", "")
+            
+            story.append(Paragraph(f"<b>Policy Decision Outcome:</b> <font color='#2563eb'><b>{p_label}</b></font>", body_style))
+            if p_desc:
+                story.append(Paragraph(f"<i>{p_desc}</i>", ParagraphStyle('PolDesc', parent=body_style, fontSize=7.5, leading=9.5, textColor=colors.HexColor("#475569"))))
+            if p_trigger:
+                story.append(Paragraph(f"<b>Rule Trigger:</b> <font size='7' color='#64748b'>{p_trigger}</font>", body_style))
+            story.append(Spacer(1, 3))
 
-        # 8. Application Custody Log (Workflow Documentation)
+            # Regions Table
+            regions = loc_data.get("localized_regions", [])
+            if regions:
+                story.append(Paragraph("<b>Bounded Suspicious Regions (Heuristic Anomaly Clusters):</b>", body_style))
+                loc_table_data = [
+                    [
+                        Paragraph("<b>Region ID</b>", table_cell_bold),
+                        Paragraph("<b>Area %</b>", table_cell_bold),
+                        Paragraph("<b>Severity</b>", table_cell_bold),
+                        Paragraph("<b>Reliability</b>", table_cell_bold),
+                        Paragraph("<b>Neutral Location & Description</b>", table_cell_bold),
+                    ]
+                ]
+                for r in regions:
+                    rel_val = r.get("reliability", 0.0)
+                    sev_val = r.get("severity", "MEDIUM")
+                    s_color = "#dc2626" if sev_val == "HIGH" else ("#d97706" if sev_val == "MEDIUM" else "#16a34a")
+                    loc_table_data.append([
+                        Paragraph(f"<b>{r.get('region_id', 'ROI')}</b>", table_cell),
+                        Paragraph(f"{r.get('affected_area_pct', 0.0)}%", table_cell),
+                        Paragraph(f"<font color='{s_color}'><b>{sev_val}</b></font>", table_cell),
+                        Paragraph(f"{rel_val:.2f}", table_cell),
+                        Paragraph(r.get("neutral_description", "Potential anomaly concentration; method undetermined."), table_cell),
+                    ])
+                t_loc = Table(loc_table_data, colWidths=[65, 45, 55, 55, 320])
+                t_loc.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                    ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+                ]))
+                story.append(t_loc)
+                story.append(Spacer(1, 3))
+            elif loc_data.get("localization_status") == "AVAILABLE":
+                story.append(Paragraph("<i>No distinct localized anomaly clusters detected above threshold (uniform spatial distribution).</i>", body_style))
+                story.append(Spacer(1, 3))
+            else:
+                story.append(Paragraph(f"<i>Localization status: {loc_data.get('localization_status', 'UNAVAILABLE')}. {loc_data.get('error_detail', '')}</i>", body_style))
+                story.append(Spacer(1, 3))
+
+            # Limitation notice
+            story.append(Paragraph(
+                "<b>LIMITATION:</b> <i>Image-only analysis is probabilistic. Signals indicate potential alteration — not confirmed manipulation. Findings require qualified investigator review.</i>",
+                ParagraphStyle('LocLimit', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#b45309"))
+            ))
+            story.append(Spacer(1, 6))
+
+        # 6. Application Custody Log (Workflow Documentation)
         story.append(Paragraph("6. Application Custody Log (Workflow Documentation)", section_style))
         story.append(Paragraph("<i>Note: Append-only application custody log stored in local SQLite database. Designed to support forensic workflow documentation; not an independent cryptographic proof or replacement for formal evidence-management procedures.</i>", ParagraphStyle('CocNote', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#64748b"))))
         story.append(Spacer(1, 2))

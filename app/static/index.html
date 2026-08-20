@@ -503,6 +503,75 @@
             </div>
           </div>
 
+         <!-- ── LOCALIZED ALTERATION FORENSICS FOUNDATION ── -->
+         <div class="card-panel" id="lab-localization-panel" style="margin-top: 1.5rem; display: none;">
+           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+             <div>
+               <div class="card-label" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px;">LOCALIZED ALTERATION ANALYSIS</div>
+               <span id="lab-policy-outcome-badge" class="badge badge-modality" style="font-size: 0.75rem; margin-left: 0;">POLICY: EVALUATING</span>
+             </div>
+             <span id="lab-loc-status-badge" class="badge badge-status-analyzing" style="font-size: 0.7rem;">STATUS: INITIALIZING</span>
+           </div>
+
+           <!-- Policy Description -->
+           <div id="lab-policy-description" style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.85rem; padding: 0.5rem 0.75rem; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 3px solid var(--accent-cyan); line-height: 1.4;"></div>
+
+           <!-- Visual Maps Grid -->
+           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; align-items: flex-start;">
+             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+               <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">EXHIBIT IMAGE</div>
+               <img id="loc-img-orig" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Exhibit Original">
+             </div>
+             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+               <div style="font-size: 0.7rem; color: #f87171; margin-bottom: 0.3rem;">MANIPULATION HEATMAP</div>
+               <img id="loc-img-mask" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Manipulation Heatmap">
+             </div>
+             <div style="text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+               <div style="font-size: 0.7rem; color: #34d399; margin-bottom: 0.3rem;">RELIABILITY MAP</div>
+               <img id="loc-img-reliability" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Reliability Map">
+             </div>
+             <div id="loc-ref-diff-box" style="display: none; text-align: center; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(234,179,8,0.4);">
+               <div style="font-size: 0.7rem; color: #fbbf24; margin-bottom: 0.3rem;">REFERENCE DIFF MAP</div>
+               <img id="loc-img-ref-diff" src="" style="max-width: 100%; max-height: 160px; border-radius: 4px; object-fit: contain;" alt="Reference Diff Map">
+             </div>
+           </div>
+
+           <!-- Suspicious Regions Table -->
+           <div id="loc-regions-wrapper" style="margin-bottom: 1rem;">
+             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.4rem;">Bounded Suspicious Regions (Anomaly Concentrations)</div>
+             <div style="overflow-x: auto;">
+               <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+                 <thead>
+                   <tr style="background: rgba(255,255,255,0.05);">
+                     <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Region ID</th>
+                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Area %</th>
+                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Severity</th>
+                     <th style="text-align: center; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Reliability</th>
+                     <th style="text-align: left; padding: 0.4rem 0.5rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">Neutral Description</th>
+                   </tr>
+                 </thead>
+                 <tbody id="loc-regions-tbody"></tbody>
+               </table>
+             </div>
+           </div>
+
+           <!-- Trusted-Reference Comparison Sub-Panel -->
+           <div style="padding: 0.75rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border-color); border-radius: 6px; margin-bottom: 0.85rem;">
+             <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.25rem;">Optional: Attach Trusted Reference Original for Pixel-Level Comparison</div>
+             <div style="font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.6rem;">Compares structural pixel differences against an investigator-supplied baseline image. Does not claim which tool altered the exhibit.</div>
+             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+               <input type="file" id="loc-ref-file-input" accept="image/*" style="font-size: 0.78rem; color: var(--text-dim);">
+               <button class="btn btn-secondary btn-sm" onclick="submitReferenceComparison()">▶ Compare with Reference</button>
+             </div>
+             <div id="loc-ref-result-msg" style="display: none; margin-top: 0.5rem; font-size: 0.78rem; line-height: 1.4;"></div>
+           </div>
+
+           <!-- Limitation Notice -->
+           <div style="font-size: 0.72rem; color: #fbbf24; background: rgba(234,179,8,0.08); padding: 0.5rem 0.75rem; border-radius: 4px; border-left: 3px solid #eab308; line-height: 1.35;">
+             <b>Forensic Limitation:</b> Image-only analysis is probabilistic. Signals indicate potential alteration — not confirmed manipulation. Findings require qualified investigator review.
+           </div>
+         </div>
+
          <!-- ── FORENSIC CONFIDENCE MATRIX ── -->
          <div class="card-panel" id="lab-confidence-matrix-panel" style="margin-top: 1.5rem; display: none;">
            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">

@@ -85,4 +85,26 @@ class Settings:
     WEIGHT_METADATA_ANOMALIES: float = 0.10
     WEIGHT_PROVENANCE: float = 0.10
 
+    # ── Localization Policy Thresholds ──────────────────────────────────────
+    # These constants define the EXACT conditions for each evidence-result outcome.
+    # Changing a threshold changes the policy globally — no magic numbers in code.
+
+    # Minimum per-region reliability score (0–1) to allow HIGH-RISK LOCALIZED ALTERATION label.
+    # Below this value: outcome is INCONCLUSIVE regardless of other signals.
+    LOCALIZATION_HIGH_RELIABILITY_THRESHOLD: float = float(os.getenv("LOCALIZATION_HIGH_RELIABILITY_THRESHOLD", "0.72"))
+
+    # Number of independent supporting signals (besides the localization heatmap itself)
+    # required to issue HIGH-RISK LOCALIZED ALTERATION. Prevents single-signal overclaiming.
+    LOCALIZATION_MIN_SUPPORTING_SIGNALS: int = int(os.getenv("LOCALIZATION_MIN_SUPPORTING_SIGNALS", "1"))
+
+    # Minimum SSIM score (0–1) after alignment for reference comparison to be considered
+    # aligned enough to produce a meaningful difference map.
+    REFERENCE_COMPARISON_ALIGNMENT_THRESHOLD: float = float(os.getenv("REFERENCE_COMPARISON_ALIGNMENT_THRESHOLD", "0.60"))
+
+    # Maximum reference image upload size in bytes
+    REFERENCE_MAX_SIZE_BYTES: int = int(os.getenv("REFERENCE_MAX_SIZE_MB", "50")) * 1024 * 1024
+
+    # Global AI model score threshold above which GENERATIVE-IMAGE INDICATOR is asserted.
+    GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.75"))
+
 settings = Settings()
