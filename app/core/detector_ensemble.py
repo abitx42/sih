@@ -69,9 +69,10 @@ class SpatialVisionSpecialist(BaseSpecialist):
         ai_indicator = res.get("ai_manipulation_indicator")
 
         if model_status == "AVAILABLE" and ai_indicator is not None:
-            if ai_indicator >= 0.65:
+            # Threshold aligned with settings.GENERATIVE_INDICATOR_THRESHOLD (0.60)
+            if ai_indicator >= 0.60:
                 verdict = SIGNAL_ALTERATION_DETECTED
-                strength = "HIGH" if ai_indicator >= 0.85 else "MODERATE"
+                strength = "HIGH" if ai_indicator >= 0.80 else "MODERATE"
             elif ai_indicator <= 0.35:
                 verdict = SIGNAL_NO_STRONG_ANOMALY
                 strength = "MODERATE"

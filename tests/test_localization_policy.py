@@ -171,6 +171,27 @@ class TestPolicyOutcomes:
         )
         assert result["outcome"] == OUTCOME_INCONCLUSIVE
 
+    def test_inconclusive_on_mid_range_indicator_with_model_available(self):
+        """
+        Bug-fix regression test (Bug 2):
+        ai_indicator in [0.35, GENERATIVE_INDICATOR_THRESHOLD) with model AVAILABLE
+        must route to INCONCLUSIVE, not silently fall to NO_STRONG_INDICATOR_FOUND.
+        """
+        from app.config import settings
+        mid = (0.35 + settings.GENERATIVE_INDICATOR_THRESHOLD) / 2.0
+        result = PolicyEngine.evaluate(
+            provenance_status="NOT_AVAILABLE",
+            reference_comparison=None,
+            localization_result=None,
+            ai_manipulation_indicator=mid,
+            model_status="AVAILABLE",
+            findings=_base_findings(),
+            ensemble_agreement=_base_ensemble(),
+        )
+        assert result["outcome"] == OUTCOME_INCONCLUSIVE, (
+            f"Mid-range indicator {mid:.3f} should be INCONCLUSIVE, got {result['outcome']}"
+        )
+
     def test_no_strong_indicator_found_below_all_thresholds(self):
         result = PolicyEngine.evaluate(
             provenance_status="NOT_AVAILABLE",

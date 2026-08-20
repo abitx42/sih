@@ -124,13 +124,17 @@ class PolicyEngine:
         # Tier 5: Inconclusive
         has_conflict = (ensemble_agreement is not None
                         and ensemble_agreement.get("has_signal_conflict", False))
+        # has_mid_signal is true when: score is in the ambiguous range (0.35 to threshold),
+        # OR at least one heuristic category was triggered.
+        # Previously this only routed to INCONCLUSIVE when model was NOT AVAILABLE — that was a
+        # bug that caused mid-range ViT scores to silently fall to NO_STRONG_INDICATOR_FOUND.
         has_mid_signal = ((ai_manipulation_indicator is not None
                            and 0.35 <= ai_manipulation_indicator < settings.GENERATIVE_INDICATOR_THRESHOLD)
                           or len(supporting_categories) > 0)
-        if has_conflict or (model_status != "AVAILABLE" and has_mid_signal):
+        if has_conflict or has_mid_signal:
             return PolicyEngine._result(
                 OUTCOME_INCONCLUSIVE, thresholds, list(supporting_categories),
-                "Signal conflict or model unavailable with partial heuristic anomalies"
+                "Signal conflict or ambiguous mid-range indicator (no single threshold exceeded)"
             )
 
         # Tier 6: No Strong Indicator Found

@@ -179,8 +179,11 @@ class RiskEngine:
             else:
                 risk_category = "HIGH RISK"
 
-            # Boost confidence if multi-specialist consensus is strong
-            if ensemble_agreement and ensemble_agreement.get("consensus_verdict") in ("STRONG_MANIPULATION_CONSENSUS", "AUTHENTIC_BASELINE_CONSENSUS"):
+            # Boost confidence if multi-specialist consensus is strong.
+            # Names updated to match calibration-safety-pass renames in detector_ensemble.py.
+            if ensemble_agreement and ensemble_agreement.get("consensus_verdict") in (
+                "STRONG_ALTERATION_SIGNAL_CONSENSUS", "BASELINE_SIGNAL_CONSENSUS"
+            ):
                 base_confidence = 0.96
             else:
                 base_confidence = 0.94 if len(findings) >= 3 else 0.88

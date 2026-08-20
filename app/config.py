@@ -94,7 +94,10 @@ class Settings:
     REFERENCE_MAX_SIZE_BYTES: int = int(os.getenv("REFERENCE_MAX_SIZE_MB", "50")) * 1024 * 1024
 
     # Global AI model score threshold above which GENERATIVE-IMAGE INDICATOR is asserted.
-    GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.75"))
+    # Set to 0.60 to align with SpatialVisionSpecialist ALTERATION_SIGNAL_DETECTED threshold (>= 0.60).
+    # A value of 0.60 means the ViT model assigns >=60% probability to the MANIPULATED/FAKE class.
+    # This is a probabilistic indicator, not proof of AI generation (calibration_status: UNVALIDATED).
+    GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.60"))
 
 settings = Settings()
 
