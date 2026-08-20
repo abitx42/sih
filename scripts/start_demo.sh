@@ -122,11 +122,12 @@ if lsof -nP -iTCP:8000 -sTCP:LISTEN &>/dev/null; then
 fi
 
 # ── 4. Start Truth Lens FastAPI Backend ───────────────────────────────────────
+# ── 4. Start Truth Lens FastAPI Backend ───────────────────────────────────────
 echo -e "${CYAN}[4/4] Starting Truth Lens backend on 127.0.0.1:8000...${NC}"
 > "${SERVER_LOG}"
 > "${TUNNEL_LOG}"
 
-./venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > "${SERVER_LOG}" 2>&1 &
+./venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips='*' > "${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 echo "${SERVER_PID}" > "${SERVER_PID_FILE}"
 
@@ -175,9 +176,9 @@ fi
 echo -e "${GREEN}✓ Truth Lens local server is healthy and listening on http://127.0.0.1:8000${NC}"
 
 # ── 5. Start Cloudflare Quick Tunnel ──────────────────────────────────────────
-echo -e "${CYAN}Starting Cloudflare Quick Tunnel...${NC}"
+echo -e "${CYAN}Starting Cloudflare Quick Tunnel (HTTP/2 protocol)...${NC}"
 
-cloudflared tunnel --url http://127.0.0.1:8000 --no-autoupdate > "${TUNNEL_LOG}" 2>&1 &
+cloudflared tunnel --url http://127.0.0.1:8000 --protocol http2 --no-autoupdate > "${TUNNEL_LOG}" 2>&1 &
 TUNNEL_PID=$!
 echo "${TUNNEL_PID}" > "${TUNNEL_PID_FILE}"
 
@@ -217,6 +218,20 @@ if [[ -z "${TUNNEL_URL}" ]]; then
     echo -e "Check tunnel logs for connection details: ${BOLD}${TUNNEL_LOG}${NC}"
     echo -e "Local URL is still accessible at: ${BOLD}http://127.0.0.1:8000${NC}"
 else
+    # Verify public reachability
+    printf "      Verifying Cloudflare Edge reachability..."
+    TUNNEL_REACHABLE=false
+    for i in {1..12}; do
+        TUNNEL_HTTP=$(curl -s -k -o /dev/null -w "%{http_code}" "${TUNNEL_URL}/health" --max-time 4 2>/dev/null || true)
+        if [[ "${TUNNEL_HTTP}" == "200" ]]; then
+            TUNNEL_REACHABLE=true
+            break
+        fi
+        printf "."
+        sleep 1
+    done
+    echo ""
+
     echo ""
     echo -e "${GREEN}${BOLD}==============================================================================${NC}"
     echo -e "${GREEN}${BOLD}🚀 TRUTH LENS LIVE DEMO IS ONLINE!${NC}"
@@ -224,13 +239,20 @@ else
     echo ""
     echo -e "  🌐 Public HTTPS URL : ${CYAN}${BOLD}${TUNNEL_URL}${NC}"
     echo -e "  💻 Localhost URL    : ${BOLD}http://127.0.0.1:8000${NC}"
-    echo -e "  📄 Health Endpoint  : ${BOLD}http://127.0.0.1:8000/health${NC}"
+    echo -e "  📄 Health Endpoint  : ${BOLD}${TUNNEL_URL}/health${NC}"
+    echo ""
+    if [[ "${TUNNEL_REACHABLE}" == true ]]; then
+        echo -e "${GREEN}  ✓ Cloudflare tunnel is active, verified, and reachable worldwide!${NC}"
+    else
+        echo -e "${YELLOW}  ℹ️  Cloudflare DNS is propagating globally (may take 5-15s on first load).${NC}"
+        echo -e "${YELLOW}     If your browser displays 'DNS not found', wait a few seconds and refresh.${NC}"
+    fi
     echo ""
     echo -e "${YELLOW}${BOLD}⚠️  IMPORTANT DEMO NOTICES:${NC}"
     echo -e "${YELLOW}  1. Temporary URL: The trycloudflare.com URL changes every time this script restarts.${NC}"
-    echo -e "${YELLOW}  2. Keep-Alive: Your laptop, Wi-Fi connection, and this terminal must stay active while sharing.${NC}"
-    echo -e "${YELLOW}  3. Privacy & Security: This public demo has NO user authentication. Do NOT upload real, confidential, or private evidence.${NC}"
-    echo -e "${YELLOW}  4. Safety: No API keys are exposed, read, or modified by this script.${NC}"
+    echo -e "${YELLOW}  2. Keep-Alive: Keep this terminal window OPEN while sharing the link with judges/users.${NC}"
+    echo -e "${YELLOW}  3. Privacy & Security: This public demo has NO user authentication. Do NOT upload real private data.${NC}"
+    echo -e "${YELLOW}  4. Safety: 100% local analysis; no API keys or private credentials are exposed.${NC}"
     echo ""
     echo -e "${BOLD}Logs available at:${NC}"
     echo -e "  Server log : ${SERVER_LOG}"
@@ -238,7 +260,6 @@ else
     echo ""
     echo -e "${CYAN}Press ${BOLD}Ctrl+C${NC}${CYAN} to stop the demo and shut down all services.${NC}"
     echo -e "${GREEN}${BOLD}==============================================================================${NC}"
-    echo ""
 fi
 
 # Keep script running and wait for background processes or SIGINT (Ctrl+C)

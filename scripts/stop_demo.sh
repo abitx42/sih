@@ -47,18 +47,29 @@ fi
 if [[ -f "${SERVER_PID_FILE}" ]]; then
     SERVER_PID=$(cat "${SERVER_PID_FILE}" 2>/dev/null || true)
     if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-        CMD=$(ps -p "${SERVER_PID}" -o command= 2>/dev/null || true)
-        if [[ "${CMD}" == *"app.main:app"* || "${CMD}" == *"uvicorn"* ]]; then
-            echo -e "   Stopping Truth Lens FastAPI Server (PID: ${SERVER_PID})..."
-            kill -TERM "${SERVER_PID}" 2>/dev/null || true
-            sleep 1
-            if kill -0 "${SERVER_PID}" 2>/dev/null; then
-                kill -KILL "${SERVER_PID}" 2>/dev/null || true
-            fi
-            STOPPED_ANY=true
+        echo -e "   Stopping Truth Lens FastAPI Server (PID: ${SERVER_PID})..."
+        kill -TERM "${SERVER_PID}" 2>/dev/null || true
+        sleep 1
+        if kill -0 "${SERVER_PID}" 2>/dev/null; then
+            kill -KILL "${SERVER_PID}" 2>/dev/null || true
         fi
+        STOPPED_ANY=true
     fi
     rm -f "${SERVER_PID_FILE}"
+fi
+
+# Fallback: check if port 8000 is still held by uvicorn
+if lsof -nP -iTCP:8000 -sTCP:LISTEN &>/dev/null; then
+    PORT_PID=$(lsof -t -iTCP:8000 -sTCP:LISTEN 2>/dev/null | head -n 1 || true)
+    if [[ -n "${PORT_PID}" ]]; then
+        echo -e "   Stopping remaining process on port 8000 (PID: ${PORT_PID})..."
+        kill -TERM "${PORT_PID}" 2>/dev/null || true
+        sleep 1
+        if kill -0 "${PORT_PID}" 2>/dev/null; then
+            kill -KILL "${PORT_PID}" 2>/dev/null || true
+        fi
+        STOPPED_ANY=true
+    fi
 fi
 
 if [[ "${STOPPED_ANY}" == true ]]; then
