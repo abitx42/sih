@@ -1,7 +1,7 @@
 """
 tests/test_localization_analyzer.py
 =====================================
-Tests for LocalizationAnalyzer — multi-signal CPU localization engine.
+Tests for LocalizationAnalyzer — multi-signal CPU anomaly localization engine.
 All tests use synthetic PIL images (no real model weights required).
 """
 import io
@@ -43,12 +43,13 @@ class TestLocalizationAnalyzerContract:
         p = _save_tmp(img, tmp_path)
         result = LocalizationAnalyzer().analyze(p, "EV-TEST-001")
         required_keys = {
-            "localization_status", "global_integrity_score",
-            "manipulation_mask_path", "reliability_map_path",
-            "localized_regions", "model_name", "model_version",
+            "localization_status", "global_anomaly_score",
+            "localized_anomaly_heatmap_path", "reliability_map_path",
+            "calibration_status", "localized_regions", "model_name", "model_version",
             "model_limitations", "error_detail",
         }
         assert required_keys.issubset(set(result.keys())), f"Missing keys: {required_keys - set(result.keys())}"
+        assert result["calibration_status"] == "UNVALIDATED"
 
     def test_localization_status_is_valid_enum(self, tmp_path):
         from app.analyzers.localization_analyzer import (
@@ -65,12 +66,12 @@ class TestLocalizationAnalyzerContract:
         }
         assert result["localization_status"] in valid_statuses
 
-    def test_global_integrity_score_in_range_or_none(self, tmp_path):
+    def test_global_anomaly_score_in_range_or_none(self, tmp_path):
         from app.analyzers.localization_analyzer import LocalizationAnalyzer
         img = _make_image()
         p = _save_tmp(img, tmp_path)
         result = LocalizationAnalyzer().analyze(p, "EV-TEST-003")
-        score = result["global_integrity_score"]
+        score = result["global_anomaly_score"]
         if score is not None:
             assert 0.0 <= score <= 1.0, f"Score out of range: {score}"
 
@@ -89,19 +90,21 @@ class TestLocalizationAnalyzerContract:
         assert result["model_name"] == MODEL_NAME
         assert result["model_version"] == MODEL_VERSION
 
-    def test_reliability_cap_does_not_exceed_0_85(self, tmp_path):
-        """Reliability per region must be capped at 0.85 to prevent false certainty."""
+    def test_regions_contain_evidence_strength_and_signal_agreement(self, tmp_path):
+        """Regions must use rule-based evidence_strength and signal_agreement, not uncalibrated probability."""
         from app.analyzers.localization_analyzer import LocalizationAnalyzer
         img = _make_patched_image()
         p = _save_tmp(img, tmp_path, "patched.jpg")
         result = LocalizationAnalyzer().analyze(p, "EV-TEST-006")
         for region in result.get("localized_regions", []):
-            assert region["reliability"] <= 0.85, (
-                f"Region reliability {region['reliability']} exceeds cap of 0.85"
-            )
+            assert "evidence_strength" in region
+            assert region["evidence_strength"] in ("HIGH", "MODERATE", "LOW")
+            assert "signal_agreement" in region
+            assert "heuristic signals" in region["signal_agreement"]
+            assert region["calibration_status"] == "UNVALIDATED"
 
     def test_neutral_description_does_not_claim_method(self, tmp_path):
-        """Neutral descriptions must not claim the specific tool or method of alteration."""
+        """Neutral descriptions must not claim the specific tool, method, or AI usage."""
         from app.analyzers.localization_analyzer import LocalizationAnalyzer
         img = _make_patched_image()
         p = _save_tmp(img, tmp_path, "patched2.jpg")
@@ -111,8 +114,8 @@ class TestLocalizationAnalyzerContract:
             desc = region.get("neutral_description", "").lower()
             for phrase in forbidden_phrases:
                 assert phrase not in desc, f"Neutral description contains forbidden phrase '{phrase}': {desc}"
-            # Must say method is undetermined
-            assert "undetermined" in desc, f"Neutral description should state method is undetermined: {desc}"
+            # Must state tool/method cannot be determined
+            assert "cannot be determined" in desc or "undetermined" in desc, f"Neutral description should state method cannot be determined: {desc}"
 
     def test_unavailable_on_tiny_image(self, tmp_path):
         """Images smaller than 64x64 must return UNAVAILABLE."""
@@ -132,5 +135,5 @@ class TestLocalizationAnalyzerContract:
         r1 = la.analyze(p, "EV-DET-001")
         r2 = la.analyze(p, "EV-DET-002")
         assert r1["localization_status"] == r2["localization_status"]
-        if r1["global_integrity_score"] is not None and r2["global_integrity_score"] is not None:
-            assert abs(r1["global_integrity_score"] - r2["global_integrity_score"]) < 0.01
+        if r1["global_anomaly_score"] is not None and r2["global_anomaly_score"] is not None:
+            assert abs(r1["global_anomaly_score"] - r2["global_anomaly_score"]) < 0.01

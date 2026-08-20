@@ -25,7 +25,8 @@ from app.core.localization_policy import PolicyEngine, OUTCOME_INCONCLUSIVE
 from app.analyzers.localization_analyzer import LocalizationAnalyzer
 from app.core.detector_ensemble import (
     SpatialVisionSpecialist, FrequencyDomainSpecialist, SyntheticNoiseSpecialist,
-    LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, ExternalDetectorAdapter, EnsembleAgreementEngine
+    LocalizedPatchSpecialist, ProvenanceMetadataSpecialist, EnsembleAgreementEngine,
+    SIGNAL_ALTERATION_DETECTED, SIGNAL_NO_STRONG_ANOMALY, SIGNAL_INCONCLUSIVE
 )
 
 from app.analyzers.image_analyzer import ImageAnalyzer
@@ -55,7 +56,7 @@ frequency_specialist = FrequencyDomainSpecialist()
 synthetic_noise_specialist = SyntheticNoiseSpecialist()
 localized_patch_specialist = LocalizedPatchSpecialist()
 provenance_metadata_specialist = ProvenanceMetadataSpecialist()
-external_detector_adapter = ExternalDetectorAdapter()
+
 
 def _update_stage(evidence_id: str, stage_key: str, status: str, details: str, result_summary: Optional[Dict[str, Any]] = None):
     now_ts = datetime.utcnow().isoformat() + "Z"
@@ -199,35 +200,25 @@ def execute_forensic_pipeline(evidence_id: str):
         else:
             raw_metrics["localization"] = {"localization_status": "UNAVAILABLE", "error_detail": "Localization is only available for IMAGE exhibits."}
 
-        # Stage 6: External Independent Detectors (Copyleaks Adapter)
-        _update_stage(evidence_id, "EXTERNAL_DETECTORS", "ANALYZING", "Checking independent cloud detector adapter...")
-        if modality == "IMAGE" and analysis_mode in ("FULL_ANALYSIS", "ADVANCED_INVESTIGATION"):
-            ext_res = external_detector_adapter.analyze(str(file_path))
-        else:
-            ext_res = {
-                "name": "External Independent Detector (Copyleaks Adapter)",
-                "specialist_type": "EXTERNAL_DETECTOR",
-                "category": "EXTERNAL_API",
-                "status": "SKIPPED_FOR_MODE",
-                "verdict": "SKIPPED",
-                "details": f"Skipped in {analysis_mode} mode."
-            }
-        _update_stage(evidence_id, "EXTERNAL_DETECTORS", "COMPLETED" if ext_res.get("status") == "COMPLETED" else "SKIPPED", ext_res.get("details", ""))
-
-        # Stage 7: Build Specialist Ensemble & Agreement Engine
+        # Stage 6: Build Specialist Ensemble & Agreement Engine
         _update_stage(evidence_id, "EVIDENCE_CORRELATION", "ANALYZING", "Evaluating multi-specialist consensus & agreement matrix...")
         specialists = []
         if modality == "IMAGE":
+            vit_verdict = (
+                SIGNAL_ALTERATION_DETECTED if (ai_indicator or 0) >= 0.65
+                else (SIGNAL_NO_STRONG_ANOMALY if (ai_indicator or 0) <= 0.35 else SIGNAL_INCONCLUSIVE)
+            )
             specialists.append({
                 "name": "Spatial Vision Classifier (ViT)",
                 "specialist_type": "SPATIAL_VISION",
                 "category": "AI_MODEL",
                 "status": "COMPLETED" if model_status == "AVAILABLE" else model_status,
-                "verdict": "MANIPULATED" if (ai_indicator or 0) >= 0.65 else ("AUTHENTIC" if (ai_indicator or 0) <= 0.35 else "INCONCLUSIVE"),
+                "verdict": vit_verdict,
                 "indicator": ai_indicator,
-                "confidence": model_confidence or 0.85,
+                "evidence_strength": "HIGH" if (ai_indicator or 0) >= 0.85 else ("MODERATE" if (ai_indicator or 0) >= 0.65 else "LOW"),
+                "calibration_status": "UNVALIDATED",
                 "focus": "Global facial & spatial scene semantics",
-                "details": f"ViT prediction: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'}"
+                "details": f"ViT screening signal: {vit_verdict} (Statistical indicator: {ai_indicator if ai_indicator is not None else 'UNAVAILABLE'})"
             })
             specialists.append(frequency_specialist.analyze(None, float(raw_metrics.get("fft_anomaly_score", 0.0)), float(raw_metrics.get("checkerboard_score", 0.0))))
             specialists.append(synthetic_noise_specialist.analyze(None, float(raw_metrics.get("noise_anomaly_score", 0.0))))
@@ -236,16 +227,20 @@ def execute_forensic_pipeline(evidence_id: str):
                 "localized_regions": localized_regions
             }))
             specialists.append(provenance_metadata_specialist.analyze(provenance_res, raw_metrics.get("metadata", {})))
-            specialists.append(ext_res)
         else:
+            mod_verdict = (
+                SIGNAL_ALTERATION_DETECTED if forensic_anomaly_score >= 55.0
+                else (SIGNAL_NO_STRONG_ANOMALY if forensic_anomaly_score <= 35.0 else SIGNAL_INCONCLUSIVE)
+            )
             specialists.append({
                 "name": f"{modality.capitalize()} Forensic Specialist",
                 "specialist_type": f"{modality}_SPECIALIST",
                 "category": "PHYSICAL_SIGNAL",
                 "status": "COMPLETED",
-                "verdict": "MANIPULATED" if forensic_anomaly_score >= 55.0 else ("AUTHENTIC" if forensic_anomaly_score <= 35.0 else "INCONCLUSIVE"),
+                "verdict": mod_verdict,
                 "indicator": forensic_anomaly_score / 100.0,
-                "confidence": 0.85,
+                "evidence_strength": "HIGH" if forensic_anomaly_score >= 75.0 else "MODERATE",
+                "calibration_status": "UNVALIDATED",
                 "focus": f"{modality.capitalize()} structural & acoustic integrity",
                 "details": f"Forensic Anomaly Score: {forensic_anomaly_score:.1f}/100"
             })
@@ -253,6 +248,7 @@ def execute_forensic_pipeline(evidence_id: str):
 
         ensemble_agreement = EnsembleAgreementEngine.evaluate_consensus(specialists)
         raw_metrics["ensemble_agreement"] = ensemble_agreement
+
 
         # 8. Calculate Deterministic Forensic Risk Score & 5-Tier Taxonomy
         risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(

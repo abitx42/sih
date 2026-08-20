@@ -1575,7 +1575,9 @@ async function loadLocalizationPanel(ev, res) {
   const pOutcome = policyOut.outcome || "INCONCLUSIVE";
   if (policyBadge) {
     policyBadge.textContent = pLabel;
-    if (pOutcome === "HIGH_RISK_LOCALIZED_ALTERATION" || pOutcome === "REFERENCE_DIFFERENCE_CONFIRMED") {
+    if (pOutcome === "LOCALIZED_ANOMALY_REQUIRING_REVIEW" || pOutcome === "HIGH_RISK_LOCALIZED_ALTERATION") {
+      policyBadge.className = "badge badge-risk-medium";
+    } else if (pOutcome === "REFERENCE_DIFFERENCE_CONFIRMED") {
       policyBadge.className = "badge badge-risk-high";
     } else if (pOutcome === "GENERATIVE_IMAGE_INDICATOR") {
       policyBadge.className = "badge badge-risk-medium";
@@ -1588,7 +1590,7 @@ async function loadLocalizationPanel(ev, res) {
 
   const locStatus = locData.localization_status || "UNAVAILABLE";
   if (locStatusBadge) {
-    locStatusBadge.textContent = `LOCALIZATION: ${locStatus}`;
+    locStatusBadge.textContent = `STATUS: ${locStatus}`;
     locStatusBadge.className = locStatus === "AVAILABLE" ? "badge badge-status-completed" : "badge badge-status-analyzing";
   }
 
@@ -1614,16 +1616,16 @@ async function loadLocalizationPanel(ev, res) {
     if (regions.length > 0) {
       if (regionsWrapper) regionsWrapper.style.display = "block";
       tbody.innerHTML = regions.map(r => {
-        const sev = r.severity || "MEDIUM";
-        const sevColor = sev === "HIGH" ? "#dc2626" : (sev === "MEDIUM" ? "#d97706" : "#16a34a");
-        const rel = typeof r.reliability === "number" ? r.reliability.toFixed(2) : "0.00";
+        const str = r.evidence_strength || r.severity || "MODERATE";
+        const strColor = str === "HIGH" ? "#dc2626" : (str === "MODERATE" ? "#d97706" : "#16a34a");
+        const agree = r.signal_agreement || "Heuristic Signal";
         return `
           <tr style="border-bottom: 1px solid var(--border-color);">
             <td style="padding: 0.4rem 0.5rem; font-weight: 600;">${escapeHTML(r.region_id || "ROI")}</td>
             <td style="padding: 0.4rem 0.5rem; text-align: center;">${r.affected_area_pct || 0}%</td>
-            <td style="padding: 0.4rem 0.5rem; text-align: center; font-weight: 600; color: ${sevColor};">${escapeHTML(sev)}</td>
-            <td style="padding: 0.4rem 0.5rem; text-align: center;">${rel}</td>
-            <td style="padding: 0.4rem 0.5rem; color: var(--text-main); font-size: 0.76rem;">${escapeHTML(r.neutral_description || "Potential anomaly concentration; method undetermined.")}</td>
+            <td style="padding: 0.4rem 0.5rem; text-align: center; font-weight: 600; color: ${strColor};">${escapeHTML(str)}</td>
+            <td style="padding: 0.4rem 0.5rem; text-align: center; font-size: 0.74rem;">${escapeHTML(agree)}</td>
+            <td style="padding: 0.4rem 0.5rem; color: var(--text-main); font-size: 0.76rem;">${escapeHTML(r.neutral_description || "Statistical anomaly concentration; method undetermined.")}</td>
           </tr>
         `;
       }).join("");
@@ -1631,7 +1633,7 @@ async function loadLocalizationPanel(ev, res) {
       tbody.innerHTML = `
         <tr>
           <td colspan="5" style="padding: 0.6rem 0.5rem; text-align: center; color: var(--text-dim); font-style: italic;">
-            ${locStatus === "AVAILABLE" ? "No distinct localized anomaly clusters detected above threshold (uniform spatial distribution)." : "Localization unavailable for this exhibit."}
+            ${locStatus === "AVAILABLE" ? "No distinct localized anomaly concentrations detected above threshold (uniform spatial distribution)." : "Localization unavailable for this exhibit."}
           </td>
         </tr>
       `;
@@ -1658,7 +1660,7 @@ async function loadLocalizationPanel(ev, res) {
           refMsg.innerHTML = `
             <div style="padding: 0.4rem 0.6rem; border-radius: 4px; background: ${isConfirmed ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isConfirmed ? '#ef4444' : 'var(--border-color)'};">
               <strong>${escapeHTML(refData.comparison_status.replace(/_/g, ' '))}</strong><br>
-              <span style="color: var(--text-dim);">Reference: ${escapeHTML(refData.reference_filename || 'reference')} • SSIM: ${(refData.ssim_score || 0).toFixed(3)} • Changed Regions: ${refData.changed_region_count || 0}</span>
+              <span style="color: var(--text-dim);">Reference: ${escapeHTML(refData.reference_filename || 'comparison reference')} • SSIM: ${(refData.ssim_score || 0).toFixed(3)} • Changed Regions: ${refData.changed_region_count || 0}</span>
             </div>
           `;
         }
@@ -1713,12 +1715,15 @@ async function submitReferenceComparison() {
 
     if (resultMsg) {
       resultMsg.style.display = "block";
+      const explanation = isConfirmed
+        ? "The submitted image differs from the investigator-supplied comparison reference in the highlighted regions. This comparison does not establish which editing tool or method caused the difference."
+        : (data.disclaimer || "Alignment inconclusive or no significant differences detected.");
       resultMsg.innerHTML = `
         <div style="padding: 0.5rem 0.75rem; border-radius: 4px; background: ${isConfirmed ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isConfirmed ? '#ef4444' : 'var(--border-color)'};">
           <strong style="color: ${isConfirmed ? '#ef4444' : '#60a5fa'};">${escapeHTML(data.comparison_status.replace(/_/g, ' '))}</strong><br>
           <span style="font-size: 0.74rem; color: var(--text-dim);">
             SSIM Alignment: ${(data.ssim_score || 0).toFixed(3)} | Changed Regions: ${data.changed_region_count || 0} | Pixels Changed: ${data.pct_pixels_changed || 0}%<br>
-            <em>${escapeHTML(data.disclaimer || '')}</em>
+            <em>${escapeHTML(explanation)}</em>
           </span>
         </div>
       `;
@@ -1727,4 +1732,5 @@ async function submitReferenceComparison() {
     if (resultMsg) resultMsg.innerHTML = `<span style="color: #ef4444;">Network error: ${escapeHTML(String(err))}</span>`;
   }
 }
+
 

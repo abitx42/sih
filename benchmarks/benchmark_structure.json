@@ -11,12 +11,12 @@
     },
     "manual_edit": {
       "description": "Images with traditional manual edits (Photoshop, GIMP, splicing, cloning, local retouching).",
-      "expected_policy_outcomes": ["HIGH_RISK_LOCALIZED_ALTERATION", "REFERENCE_DIFFERENCE_CONFIRMED", "INCONCLUSIVE"],
+      "expected_policy_outcomes": ["LOCALIZED_ANOMALY_REQUIRING_REVIEW", "REFERENCE_DIFFERENCE_CONFIRMED", "INCONCLUSIVE"],
       "ground_truth_manipulation": true
     },
     "ai_inpaint": {
       "description": "Images with localized generative AI inpainting / object replacement (e.g. Stable Diffusion Inpaint, Adobe Generative Fill).",
-      "expected_policy_outcomes": ["HIGH_RISK_LOCALIZED_ALTERATION", "REFERENCE_DIFFERENCE_CONFIRMED"],
+      "expected_policy_outcomes": ["LOCALIZED_ANOMALY_REQUIRING_REVIEW", "REFERENCE_DIFFERENCE_CONFIRMED"],
       "ground_truth_manipulation": true
     },
     "fully_generated": {
@@ -26,7 +26,8 @@
     },
     "recompressed": {
       "description": "Pristine or edited media subjected to multiple lossy compression cycles or social messaging platform transcoding.",
-      "expected_policy_outcomes": ["INCONCLUSIVE", "NO_STRONG_INDICATOR_FOUND", "HIGH_RISK_LOCALIZED_ALTERATION"],
+      "expected_policy_outcomes": ["INCONCLUSIVE", "NO_STRONG_INDICATOR_FOUND", "LOCALIZED_ANOMALY_REQUIRING_REVIEW"],
+
       "ground_truth_manipulation": null
     }
   },

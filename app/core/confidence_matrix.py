@@ -1,16 +1,19 @@
 """
-Forensic Confidence Matrix
-Builds a 6-axis multi-signal confidence grid from existing ensemble results.
+Forensic Confidence Matrix (Multi-Signal Axis Evaluation Grid)
+Builds a 6-axis multi-signal evaluation grid from existing computed signals.
 No new ML calls — derives entirely from computed forensic_result and findings.
+
+CALIBRATION STATUS: UNVALIDATED.
+Signals represent rule-based heuristic indicators and uncalibrated vision model outputs.
 """
 from typing import Dict, Any, List, Optional
 
 
 # Signal → colour mapping
-_GREEN = "GREEN"    # Consistent with authentic
-_RED = "RED"        # Consistent with manipulation
-_AMBER = "AMBER"    # Inconclusive / unavailable
-_GREY = "GREY"      # Not evaluated / not applicable
+_GREEN = "GREEN"    # Consistent with baseline / unflagged
+_RED   = "RED"      # Alteration / anomaly signal flagged
+_AMBER = "AMBER"    # Inconclusive / review required
+_GREY  = "GREY"      # Not evaluated / not applicable
 
 
 class ConfidenceMatrix:
@@ -46,7 +49,7 @@ class ConfidenceMatrix:
         if model_status not in ("AVAILABLE",):
             ai_auth = _AMBER
             ai_manip = _AMBER
-            ai_note = "Local ML model unavailable — no AI heuristic signal"
+            ai_note = "Local ML vision model unavailable"
         elif ai_indicator is None:
             ai_auth = _AMBER
             ai_manip = _AMBER
@@ -54,15 +57,15 @@ class ConfidenceMatrix:
         elif ai_indicator <= 30.0:
             ai_auth = _GREEN
             ai_manip = _GREY
-            ai_note = f"AI heuristic: {ai_indicator:.0f}/100 (authentic range)"
+            ai_note = f"AI vision model indicator: {ai_indicator:.0f}/100 (baseline range)"
         elif ai_indicator >= 70.0:
             ai_auth = _GREY
             ai_manip = _RED
-            ai_note = f"AI heuristic: {ai_indicator:.0f}/100 (manipulation range)"
+            ai_note = f"AI vision model indicator: {ai_indicator:.0f}/100 (anomaly range)"
         else:
             ai_auth = _AMBER
             ai_manip = _AMBER
-            ai_note = f"AI heuristic: {ai_indicator:.0f}/100 (inconclusive range)"
+            ai_note = f"AI vision model indicator: {ai_indicator:.0f}/100 (inconclusive range)"
 
         # -- PIXEL FORENSICS AXIS (ELA + FFT + PRNU) --
         forensic_anom = raw.get("forensic_anomaly_score", raw.get("signal_anomalies_score", 0.0))
@@ -74,15 +77,15 @@ class ConfidenceMatrix:
         if forensic_anom <= 30.0:
             pix_auth = _GREEN
             pix_manip = _GREY
-            pix_note = f"Pixel anomaly score {forensic_anom:.0f}/100 (within normal limits)"
+            pix_note = f"Heuristic pixel anomaly score: {forensic_anom:.0f}/100 (baseline)"
         elif forensic_anom >= 65.0:
             pix_auth = _GREY
             pix_manip = _RED
-            pix_note = f"Pixel anomaly score {forensic_anom:.0f}/100 (elevated anomaly)"
+            pix_note = f"Heuristic pixel anomaly score: {forensic_anom:.0f}/100 (elevated anomaly)"
         else:
             pix_auth = _AMBER
             pix_manip = _AMBER
-            pix_note = f"Pixel anomaly score {forensic_anom:.0f}/100 (moderate — review)"
+            pix_note = f"Heuristic pixel anomaly score: {forensic_anom:.0f}/100 (moderate anomaly)"
 
         # -- METADATA AXIS --
         meta_risk = raw.get("risk_components", {}).get("metadata_risk", 0.0)
@@ -101,11 +104,11 @@ class ConfidenceMatrix:
         if meta_risk <= 20.0 and not has_software_tag:
             meta_auth = _GREEN
             meta_manip = _GREY
-            meta_note = "No editing suite markers; EXIF consistent with capture device"
+            meta_note = "No editing suite markers; EXIF hardware tags recorded (context only, not capture proof)"
         elif has_software_tag or meta_risk >= 50.0:
             meta_auth = _AMBER
             meta_manip = _RED
-            meta_note = "Post-processing software or EXIF anomaly detected"
+            meta_note = "Post-processing software or metadata modification tag detected"
         else:
             meta_auth = _AMBER
             meta_manip = _AMBER
@@ -113,18 +116,19 @@ class ConfidenceMatrix:
 
         # -- PROVENANCE AXIS --
         ps = provenance_status.upper() if provenance_status else "NOT_AVAILABLE"
-        if ps == "VERIFIED":
+        if ps in ("VERIFIED", "CRYPTOGRAPHIC_VALIDATION_PASSED"):
             prov_auth = _GREEN
             prov_manip = _GREY
-            prov_note = "C2PA content credential verified"
+            prov_note = "C2PA cryptographic manifest verified"
+
         elif "DETECTED" in ps and "UNVERIFIED" in ps:
             prov_auth = _AMBER
             prov_manip = _AMBER
-            prov_note = "C2PA manifest marker detected but not cryptographically verified"
+            prov_note = "C2PA manifest marker detected — unverified manifest (does NOT prove authenticity)"
         elif ps == "INVALID":
             prov_auth = _GREY
             prov_manip = _RED
-            prov_note = "C2PA manifest invalid or tampered"
+            prov_note = "C2PA manifest invalid or altered"
         elif ps == "NOT_VERIFIED":
             prov_auth = _AMBER
             prov_manip = _AMBER
@@ -132,7 +136,7 @@ class ConfidenceMatrix:
         else:
             prov_auth = _GREY
             prov_manip = _GREY
-            prov_note = "C2PA provenance unavailable — cannot assess"
+            prov_note = "C2PA provenance unavailable"
 
         # -- REGION ANALYSIS AXIS --
         localized_regions = raw.get("localized_regions", [])
@@ -143,7 +147,7 @@ class ConfidenceMatrix:
                 reg_auth = _GREY
                 reg_manip = _RED
                 region_label = localized_findings[0].get("location_ref", "Localized region")
-                reg_note = f"Localized manipulation region flagged: {region_label}"
+                reg_note = f"Localized anomaly region flagged: {region_label}"
             else:
                 reg_auth = _AMBER
                 reg_manip = _AMBER
@@ -159,31 +163,30 @@ class ConfidenceMatrix:
 
         # -- SIGNAL AGREEMENT AXIS --
         total_specialists = ens.get("total_specialists_evaluated", 0)
-        manipulated_count = ens.get("manipulated_count", 0)
-        authentic_count = ens.get("authentic_count", 0)
-        agreement_pct = ens.get("agreement_percentage", 0.0)
+        alteration_count = ens.get("alteration_signals_count", ens.get("manipulated_signals_count", 0))
+        baseline_count   = ens.get("baseline_signals_count", ens.get("authentic_signals_count", 0))
         consensus_verdict = ens.get("consensus_verdict", "INSUFFICIENT_SPECIALISTS")
 
         if has_conflict:
             agree_auth = _AMBER
             agree_manip = _AMBER
-            agree_note = f"⚠ Conflicting forensic signals — {total_specialists} specialists evaluated"
+            agree_note = f"⚠ Conflicting forensic signals ({total_specialists} specialists evaluated)"
         elif total_specialists == 0:
             agree_auth = _GREY
             agree_manip = _GREY
             agree_note = "No specialist ensemble data available"
-        elif consensus_verdict in ("STRONG_MANIPULATION_CONSENSUS", "MAJORITY_MANIPULATION"):
+        elif consensus_verdict in ("STRONG_ALTERATION_SIGNAL_CONSENSUS", "STRONG_MANIPULATION_CONSENSUS", "LOCALIZED_ANOMALY_CONSENSUS"):
             agree_auth = _GREY
             agree_manip = _RED
-            agree_note = f"{manipulated_count}/{total_specialists} specialists indicate manipulation ({agreement_pct:.0f}% agreement)"
-        elif consensus_verdict in ("AUTHENTIC_BASELINE_CONSENSUS", "MAJORITY_AUTHENTIC"):
+            agree_note = f"{alteration_count}/{total_specialists} specialists flag anomaly signals"
+        elif consensus_verdict in ("BASELINE_SIGNAL_CONSENSUS", "AUTHENTIC_BASELINE_CONSENSUS"):
             agree_auth = _GREEN
             agree_manip = _GREY
-            agree_note = f"{authentic_count}/{total_specialists} specialists indicate authentic ({agreement_pct:.0f}% agreement)"
+            agree_note = f"{baseline_count}/{total_specialists} specialists consistent with baseline"
         else:
             agree_auth = _AMBER
             agree_manip = _AMBER
-            agree_note = f"{total_specialists} specialists — inconclusive consensus ({agreement_pct:.0f}% agreement)"
+            agree_note = f"{total_specialists} specialists evaluated — inconclusive consensus"
 
         # --- Overall summary ---
         red_count = sum(1 for s in [
@@ -194,6 +197,7 @@ class ConfidenceMatrix:
         ] if s == _GREEN)
 
         return {
+            "calibration_status": "UNVALIDATED",
             "axes": [
                 {
                     "label": "AI Models",
@@ -239,11 +243,14 @@ class ConfidenceMatrix:
                 }
             ],
             "summary": {
+                "total_axes": 6,
+                "alteration_signals": red_count,
+                "baseline_signals": green_count,
+                # Backwards compatibility
                 "manipulation_signals": red_count,
                 "authentic_signals": green_count,
-                "total_axes": 6,
-                "has_conflict": has_conflict,
-                "overall_verdict": risk_category,
-                "forensic_taxonomy": forensic_taxonomy
+                "inconclusive_axes": 6 - (red_count + green_count),
+                "has_conflict": has_conflict
             }
         }
+

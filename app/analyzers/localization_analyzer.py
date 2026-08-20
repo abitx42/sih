@@ -1,26 +1,26 @@
 """
 app/analyzers/localization_analyzer.py
 =======================================
-LocalizationAnalyzer — Multi-signal CPU heuristic image localization engine.
+LocalizationAnalyzer — Multi-signal CPU heuristic image anomaly concentration engine.
 
-This module implements the full LocalizationAnalyzer contract using four
-independent CPU-only signals:
+This module implements the LocalizationAnalyzer contract using four complementary
+CPU heuristic spatial signals:
   1. ELA spatial grid (16x16 cells, z-score per cell)
-  2. Noise residual inconsistency map (Laplacian residuals)
+  2. Noise residual variance map (Laplacian residuals)
   3. FFT block-boundary artifact detector
   4. Patch anomaly weighted heatmap
 
-Model: TruthLens-LocalELA-v1 (CPU heuristic ensemble, no pretrained weights)
+Model: TruthLens-LocalELA-v1 (CPU heuristic ensemble, uncalibrated, no pretrained weights)
 
-To upgrade to a pretrained localization model (TruFor, CAT-Net, ObjectFormer),
-see LOCALIZATION_MODEL_SETUP.md. The LocalizationResult contract is identical
-so a drop-in subclass requires only implementing analyze().
-
-IMPORTANT LIMITATIONS (always reported in output):
-  - CPU-only heuristic signals, not a trained segmentation model.
-  - False positives common on heavily JPEG-compressed images.
-  - Cannot determine the tool or method of any detected alteration.
-  - Image-only analysis cannot prove AI generation, authenticity, or legal admissibility.
+SCIENTIFIC & CALIBRATION RULES:
+  - This is a CPU heuristic system, NOT a trained or calibrated segmentation model.
+  - The signals share underlying image compression and sensor-noise information;
+    they are NOT independent detectors.
+  - The output heatmap represents statistical anomaly concentration only, NOT pixel-level
+    proof of manipulation.
+  - No unvalidated confidence percentages are output.
+  - Calibration status is visibly reported as UNVALIDATED.
+  - Alteration method, editing tool, and whether AI was used cannot be determined from this result.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from PIL import Image, ImageChops, ImageEnhance
+from PIL import Image, ImageChops
 from scipy import ndimage
 
 from app.config import FORENSIC_DIR
@@ -39,12 +39,14 @@ logger = logging.getLogger(__name__)
 
 MODEL_NAME    = "TruthLens-LocalELA-v1"
 MODEL_VERSION = "1.0.0"
+CALIBRATION_STATUS = "UNVALIDATED"
 MODEL_LIMITATIONS = (
-    "CPU-only heuristic localization using ELA, Laplacian noise residuals, FFT block "
-    "analysis, and patch-level anomaly scoring. No pretrained segmentation weights. "
-    "Reliability scores reflect multi-signal agreement, not calibrated probabilities. "
-    "False positives common on heavily JPEG-compressed or re-encoded images. "
-    "Cannot determine the tool or method of any detected alteration."
+    "CPU heuristic system analyzing statistical anomaly concentration across ELA, "
+    "Laplacian noise residuals, FFT block periodicity, and patch variance. "
+    "Some signals share underlying compression/noise information and are not independent deep learning models. "
+    "Output reflects spatial anomaly concentration only, not pixel-level proof of manipulation. "
+    "Alteration method, editing tool, and whether AI was used cannot be determined from this result. "
+    "Calibration status is UNVALIDATED; values reflect rule-based anomaly scoring rather than verified probabilities."
 )
 
 LOCALIZATION_STATUS_AVAILABLE    = "AVAILABLE"
@@ -53,27 +55,21 @@ LOCALIZATION_STATUS_INCONCLUSIVE = "INCONCLUSIVE"
 LOCALIZATION_STATUS_ERROR        = "ERROR"
 
 
-def _safe_float(v) -> float:
-    try:
-        return float(v)
-    except Exception:
-        return 0.0
-
-
 class LocalizationAnalyzer:
     """
-    Produces pixel-level localization of potential image manipulation.
+    Produces spatial localization of statistical anomaly concentrations in an image.
 
-    Returns a standardised dict (LocalizationResult contract):
-      localization_status   : AVAILABLE | UNAVAILABLE | INCONCLUSIVE | ERROR
-      global_integrity_score: float 0-1 (higher = more anomalous) | None
-      manipulation_mask_path: str | None
-      reliability_map_path  : str | None
-      localized_regions     : list[RegionResult]
-      model_name            : str
-      model_version         : str
-      model_limitations     : str
-      error_detail          : str | None
+    Returns a standardized dictionary conforming to the LocalizationResult contract:
+      localization_status           : AVAILABLE | UNAVAILABLE | INCONCLUSIVE | ERROR
+      global_anomaly_score          : float 0-1 (higher = higher anomaly concentration) | None
+      localized_anomaly_heatmap_path: str | None
+      reliability_map_path          : str | None
+      calibration_status            : "UNVALIDATED"
+      localized_regions             : list[RegionResult]
+      model_name                    : str
+      model_version                 : str
+      model_limitations             : str
+      error_detail                  : str | None
     """
 
     def analyze(
@@ -83,13 +79,7 @@ class LocalizationAnalyzer:
         img: Optional[Image.Image] = None,
     ) -> Dict[str, Any]:
         """
-        Run multi-signal localization on an image file.
-
-        Parameters
-        ----------
-        file_path   : Path to the stored evidence file
-        evidence_id : Evidence ID for artifact naming
-        img         : Pre-loaded PIL image (optional; loaded from file_path if None)
+        Run multi-signal heuristic anomaly localization on an image file.
         """
         try:
             if img is None:
@@ -113,13 +103,13 @@ class LocalizationAnalyzer:
             # ── Signal 4: Patch anomaly heatmap ───────────────────────────────
             patch_heatmap = self._patch_heatmap(img, ela_img)
 
-            # ── Combine signals into a unified anomaly map ────────────────────
+            # ── Combine signals into unified anomaly concentration map ────────
             h, w = ela_grid.shape
             noise_r = _resize_array(noise_map, h, w)
             fft_r   = _resize_array(fft_grid,  h, w)
             patch_r = _resize_array(patch_heatmap, h, w)
 
-            # Signal agreement reliability per pixel: how many of 4 signals agree
+            # Signal agreement per cell: count how many heuristic calculations flag an anomaly
             threshold_ela   = np.percentile(ela_grid,   75)
             threshold_noise = np.percentile(noise_r,    75)
             threshold_fft   = np.percentile(fft_r,      75)
@@ -131,9 +121,9 @@ class LocalizationAnalyzer:
                 (fft_r    >= threshold_fft).astype(np.float32) +
                 (patch_r  >= threshold_patch).astype(np.float32)
             )
-            reliability_map_raw = agree_count / 4.0  # 0–1 per pixel
+            agreement_map_raw = agree_count / 4.0  # 0 to 1 proportion
 
-            # Combined anomaly = weighted mean of 4 signals
+            # Combined anomaly = weighted combination of shared heuristic signals
             combined = (
                 ela_grid * 0.35
                 + noise_r  * 0.30
@@ -143,32 +133,35 @@ class LocalizationAnalyzer:
             combined = ndimage.gaussian_filter(combined, sigma=2.0)
             combined_norm = _normalize_01(combined)
 
-            # Global integrity score = mean of top-10% anomalous pixels
+            # Global anomaly score = mean of top-10% anomalous pixels
             flat = combined_norm.flatten()
             top10_threshold = np.percentile(flat, 90)
             global_score = float(np.mean(flat[flat >= top10_threshold]))
 
-            # ── Save artifacts ─────────────────────────────────────────────────
-            mask_path = self._save_manipulation_mask(combined_norm, img, evidence_id)
-            rel_path  = self._save_reliability_map(reliability_map_raw, img, evidence_id)
+            # ── Save visual artifacts ──────────────────────────────────────────
+            heatmap_path = self._save_anomaly_heatmap(combined_norm, img, evidence_id)
+            rel_path     = self._save_agreement_map(agreement_map_raw, img, evidence_id)
 
-            # ── Extract bounding-box regions ───────────────────────────────────
+            # ── Extract bounded suspicious regions ────────────────────────────
             regions = self._extract_regions(
-                combined_norm, reliability_map_raw, agree_count, width, height
+                combined_norm, agreement_map_raw, agree_count, width, height
             )
 
             if not regions and global_score < 0.25:
                 return self._inconclusive(
                     global_score,
-                    mask_path, rel_path,
-                    "No localized anomaly clusters detected above threshold."
+                    heatmap_path, rel_path,
+                    "No localized anomaly concentrations detected above threshold."
                 )
 
             return {
                 "localization_status": LOCALIZATION_STATUS_AVAILABLE,
-                "global_integrity_score": round(global_score, 4),
-                "manipulation_mask_path": str(mask_path) if mask_path else None,
-                "reliability_map_path":   str(rel_path)  if rel_path  else None,
+                "global_anomaly_score": round(global_score, 4),
+                "localized_anomaly_heatmap_path": str(heatmap_path) if heatmap_path else None,
+                # Retain backwards-compatible alias for existing endpoints
+                "manipulation_mask_path": str(heatmap_path) if heatmap_path else None,
+                "reliability_map_path": str(rel_path) if rel_path else None,
+                "calibration_status": CALIBRATION_STATUS,
                 "localized_regions": regions,
                 "model_name": MODEL_NAME,
                 "model_version": MODEL_VERSION,
@@ -183,14 +176,13 @@ class LocalizationAnalyzer:
     # ── Signal extractors ─────────────────────────────────────────────────────
 
     def _ela_grid(self, img: Image.Image, grid: int = 16):
-        """Returns normalised ELA energy grid (grid x grid) and ELA image."""
         try:
             buf = io.BytesIO()
             img.save(buf, "JPEG", quality=92)
             buf.seek(0)
             resaved = Image.open(buf).convert("RGB")
             diff = ImageChops.difference(img, resaved)
-            diff_arr = np.array(diff, dtype=np.float32).mean(axis=2)  # grayscale
+            diff_arr = np.array(diff, dtype=np.float32).mean(axis=2)
             h, w = diff_arr.shape
             gh, gw = max(1, h // grid), max(1, w // grid)
             grid_arr = np.zeros((grid, grid), dtype=np.float32)
@@ -203,7 +195,6 @@ class LocalizationAnalyzer:
             return np.zeros((grid, grid), dtype=np.float32), None
 
     def _noise_residual_map(self, img: Image.Image, grid: int = 16) -> np.ndarray:
-        """Returns grid-level Laplacian noise variance map."""
         try:
             gray = np.array(img.convert("L").resize((512, 512), Image.Resampling.BILINEAR),
                             dtype=np.float32)
@@ -220,11 +211,6 @@ class LocalizationAnalyzer:
             return np.zeros((grid, grid), dtype=np.float32)
 
     def _fft_block_grid(self, img: Image.Image, grid: int = 16) -> np.ndarray:
-        """
-        Detects JPEG 8x8 block boundaries via FFT periodicity peaks.
-        High values indicate block-boundary artefacts from JPEG re-encoding
-        (common in splice or inpaint regions with different compression history).
-        """
         try:
             gray = np.array(img.convert("L").resize((512, 512), Image.Resampling.BILINEAR),
                             dtype=np.float32)
@@ -238,14 +224,12 @@ class LocalizationAnalyzer:
                         continue
                     f = np.fft.fft2(cell - cell.mean())
                     mag = np.abs(f)
-                    # Score = ratio of peak to mean (high ratio = periodic block pattern)
                     grid_arr[i, j] = float(np.max(mag) / (np.mean(mag) + 1e-6))
             return _normalize_01(grid_arr)
         except Exception:
             return np.zeros((grid, grid), dtype=np.float32)
 
     def _patch_heatmap(self, img: Image.Image, ela_img, grid: int = 16) -> np.ndarray:
-        """Patch-level anomaly from ELA energy variance."""
         try:
             if ela_img is None:
                 return np.zeros((grid, grid), dtype=np.float32)
@@ -266,25 +250,22 @@ class LocalizationAnalyzer:
 
     def _extract_regions(
         self,
-        combined: np.ndarray,      # grid H x W, values 0-1
-        reliability: np.ndarray,   # grid H x W, values 0-1
-        agree_count: np.ndarray,   # grid H x W, values 0-4
+        combined: np.ndarray,
+        agreement: np.ndarray,
+        agree_count: np.ndarray,
         img_w: int,
         img_h: int,
     ) -> List[Dict[str, Any]]:
-        """Extracts top-3 anomalous bounding-box regions with neutral descriptions."""
         grid_h, grid_w = combined.shape
         cell_h = img_h / grid_h
         cell_w = img_w / grid_w
 
-        # Threshold at 65th percentile of the anomaly map
         threshold = max(0.55, float(np.percentile(combined, 65)))
         hot_mask = combined >= threshold
 
         if not hot_mask.any():
             return []
 
-        # Simple connected-component-like blob clustering
         labeled, num_features = ndimage.label(hot_mask)
         regions: List[Dict[str, Any]] = []
 
@@ -299,7 +280,6 @@ class LocalizationAnalyzer:
             r_min, r_max = int(rows.min()), int(rows.max())
             c_min, c_max = int(cols.min()), int(cols.max())
 
-            # Convert grid coords to normalized image coords
             ymin = round(r_min * cell_h / img_h, 3)
             xmin = round(c_min * cell_w / img_w, 3)
             ymax = round(min(1.0, (r_max + 1) * cell_h / img_h), 3)
@@ -311,40 +291,36 @@ class LocalizationAnalyzer:
             px_y2 = int(min(img_h, (r_max + 1) * cell_h))
 
             region_combined = combined[component]
-            region_reliability = reliability[component]
             region_agree = agree_count[component]
 
-            avg_anomaly    = float(np.mean(region_combined))
-            peak_anomaly   = float(np.max(region_combined))
-            avg_reliability = float(np.mean(region_reliability))
-            avg_agree       = float(np.mean(region_agree))
+            peak_anomaly = float(np.max(region_combined))
+            avg_agree    = float(np.mean(region_agree))
 
-            # Affected area
             region_pixel_area = (px_x2 - px_x1) * (px_y2 - px_y1)
             total_area = img_w * img_h
             affected_pct = round(region_pixel_area / max(1, total_area) * 100.0, 2)
 
-            # Severity based on anomaly score
-            if peak_anomaly >= 0.80:
+            # Evidence strength: rule-based classification (not a calibrated probability)
+            if peak_anomaly >= 0.80 and avg_agree >= 2.5:
+                evidence_strength = "HIGH"
                 severity = "HIGH"
-            elif peak_anomaly >= 0.55:
+            elif peak_anomaly >= 0.55 and avg_agree >= 1.5:
+                evidence_strength = "MODERATE"
                 severity = "MEDIUM"
             else:
+                evidence_strength = "LOW"
                 severity = "LOW"
 
-            # Neutral semantic location label
             cx = (xmin + xmax) / 2.0
             cy = (ymin + ymax) / 2.0
             location_label = _neutral_location_label(cx, cy)
-
-            # Primary signal attribution (which signal drove this cluster)
             primary_signals = _primary_signals(avg_agree)
 
-            # Neutral description — never claims tool or method
+            # Neutral description: strictly avoids claiming tool or AI usage
             neutral_desc = (
-                f"Signal concentrated in {location_label.lower()}; "
-                f"method of alteration undetermined. "
-                f"Primary signal(s): {', '.join(primary_signals)}."
+                f"Statistical anomaly concentration detected in {location_label.lower()}. "
+                f"Alteration method, editing tool, and whether AI was used cannot be determined from this result. "
+                f"Contributing signals: {', '.join(primary_signals)}."
             )
 
             regions.append({
@@ -356,25 +332,24 @@ class LocalizationAnalyzer:
                 },
                 "affected_area_pct": affected_pct,
                 "severity": severity,
-                "reliability": round(min(0.85, avg_reliability + avg_agree / 20.0), 3),
+                "evidence_strength": evidence_strength,
+                "signal_agreement": f"{int(round(min(4, max(1, avg_agree))))} of 4 heuristic signals",
+                "calibration_status": CALIBRATION_STATUS,
                 "neutral_description": neutral_desc,
                 "primary_signals": primary_signals,
                 "peak_anomaly_score": round(peak_anomaly, 3),
             })
 
-        # Sort by reliability descending
-        regions.sort(key=lambda r: r["reliability"], reverse=True)
         return regions
 
     # ── Artifact generation ───────────────────────────────────────────────────
 
-    def _save_manipulation_mask(
+    def _save_anomaly_heatmap(
         self, combined: np.ndarray, orig: Image.Image, evidence_id: str
     ) -> Optional[Path]:
         try:
             FORENSIC_DIR.mkdir(parents=True, exist_ok=True)
             h, w = combined.shape
-            # Forensic colormap: dark-navy → cyan → yellow → crimson
             val = combined.astype(np.float32)
             rgb = np.zeros((h, w, 3), dtype=np.uint8)
             rgb[..., 0] = np.clip(np.where(val < 0.5, val * 2.0 * 50.0,
@@ -385,21 +360,20 @@ class LocalizationAnalyzer:
                                             (1.0 - (val - 0.5) * 2.0) * 80.0), 0, 255).astype(np.uint8)
             heat_img = Image.fromarray(rgb).resize(orig.size, Image.Resampling.BILINEAR)
             blended  = Image.blend(orig.convert("RGB"), heat_img, alpha=0.55)
-            out_path = FORENSIC_DIR / f"localization_mask_{evidence_id}.png"
+            out_path = FORENSIC_DIR / f"localized_anomaly_heatmap_{evidence_id}.png"
             blended.save(out_path, "PNG")
             return out_path
         except Exception as exc:
-            logger.warning(f"Failed to save manipulation mask: {exc}")
+            logger.warning(f"Failed to save anomaly heatmap: {exc}")
             return None
 
-    def _save_reliability_map(
-        self, reliability: np.ndarray, orig: Image.Image, evidence_id: str
+    def _save_agreement_map(
+        self, agreement: np.ndarray, orig: Image.Image, evidence_id: str
     ) -> Optional[Path]:
         try:
             FORENSIC_DIR.mkdir(parents=True, exist_ok=True)
-            h, w = reliability.shape
-            # Blue → Green reliability colormap
-            val = (reliability * 255.0).clip(0, 255).astype(np.uint8)
+            h, w = agreement.shape
+            val = (agreement * 255.0).clip(0, 255).astype(np.uint8)
             rgb = np.zeros((h, w, 3), dtype=np.uint8)
             rgb[..., 0] = 0
             rgb[..., 1] = val
@@ -410,7 +384,7 @@ class LocalizationAnalyzer:
             blended.save(out_path, "PNG")
             return out_path
         except Exception as exc:
-            logger.warning(f"Failed to save reliability map: {exc}")
+            logger.warning(f"Failed to save agreement map: {exc}")
             return None
 
     # ── Result helpers ────────────────────────────────────────────────────────
@@ -418,9 +392,11 @@ class LocalizationAnalyzer:
     def _unavailable(self, reason: str) -> Dict[str, Any]:
         return {
             "localization_status": LOCALIZATION_STATUS_UNAVAILABLE,
-            "global_integrity_score": None,
+            "global_anomaly_score": None,
+            "localized_anomaly_heatmap_path": None,
             "manipulation_mask_path": None,
             "reliability_map_path": None,
+            "calibration_status": CALIBRATION_STATUS,
             "localized_regions": [],
             "model_name": MODEL_NAME,
             "model_version": MODEL_VERSION,
@@ -428,12 +404,14 @@ class LocalizationAnalyzer:
             "error_detail": reason,
         }
 
-    def _inconclusive(self, score, mask, rel, reason) -> Dict[str, Any]:
+    def _inconclusive(self, score, heatmap, rel, reason) -> Dict[str, Any]:
         return {
             "localization_status": LOCALIZATION_STATUS_INCONCLUSIVE,
-            "global_integrity_score": round(score, 4),
-            "manipulation_mask_path": str(mask) if mask else None,
+            "global_anomaly_score": round(score, 4),
+            "localized_anomaly_heatmap_path": str(heatmap) if heatmap else None,
+            "manipulation_mask_path": str(heatmap) if heatmap else None,
             "reliability_map_path":   str(rel)  if rel  else None,
+            "calibration_status": CALIBRATION_STATUS,
             "localized_regions": [],
             "model_name": MODEL_NAME,
             "model_version": MODEL_VERSION,
@@ -444,9 +422,11 @@ class LocalizationAnalyzer:
     def _error(self, exc_type: str) -> Dict[str, Any]:
         return {
             "localization_status": LOCALIZATION_STATUS_ERROR,
-            "global_integrity_score": None,
+            "global_anomaly_score": None,
+            "localized_anomaly_heatmap_path": None,
             "manipulation_mask_path": None,
             "reliability_map_path": None,
+            "calibration_status": CALIBRATION_STATUS,
             "localized_regions": [],
             "model_name": MODEL_NAME,
             "model_version": MODEL_VERSION,
@@ -466,7 +446,6 @@ def _normalize_01(arr: np.ndarray) -> np.ndarray:
 
 
 def _resize_array(arr: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
-    """Resize a 2D array to target shape via PIL."""
     if arr.shape == (target_h, target_w):
         return arr
     try:
@@ -478,7 +457,6 @@ def _resize_array(arr: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
 
 
 def _neutral_location_label(cx: float, cy: float) -> str:
-    """Returns a neutral spatial label — does not identify body parts or faces."""
     if cy < 0.33:
         row = "upper"
     elif cy > 0.67:
@@ -501,13 +479,12 @@ def _neutral_location_label(cx: float, cy: float) -> str:
 
 
 def _primary_signals(avg_agree: float) -> List[str]:
-    """Maps average signal-agreement count to primary signal labels."""
     if avg_agree >= 3.5:
-        return ["ELA_ANOMALY", "NOISE_INCONSISTENCY", "FFT_BLOCK_ARTIFACT", "PATCH_ANOMALY"]
+        return ["ELA Anomaly", "Noise Inconsistency", "FFT Block Boundary", "Patch Anomaly"]
     elif avg_agree >= 2.5:
-        return ["ELA_ANOMALY", "NOISE_INCONSISTENCY", "PATCH_ANOMALY"]
+        return ["ELA Anomaly", "Noise Inconsistency", "Patch Anomaly"]
     elif avg_agree >= 1.5:
-        return ["ELA_ANOMALY", "NOISE_INCONSISTENCY"]
+        return ["ELA Anomaly", "Noise Inconsistency"]
     elif avg_agree >= 0.5:
-        return ["ELA_ANOMALY"]
-    return ["HEURISTIC_SIGNAL"]
+        return ["ELA Anomaly"]
+    return ["Heuristic Anomaly Signal"]

@@ -33,10 +33,10 @@ STATUS_CONFIRMED    = "REFERENCE_DIFFERENCE_CONFIRMED"
 STATUS_INCONCLUSIVE = "REFERENCE_COMPARISON_INCONCLUSIVE"
 
 DISCLAIMER = (
-    "This comparison proves structural pixel differences between the evidence image and the "
-    "supplied reference. It does not identify the tool or method of any alteration, nor does "
-    "it determine which image is the unmodified original."
+    "The submitted image differs from the investigator-supplied comparison reference in the highlighted regions. "
+    "This comparison does not establish which editing tool or method caused the difference."
 )
+
 
 
 class ReferenceComparator:

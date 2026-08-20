@@ -150,13 +150,14 @@ async def submit_reference_comparison(
         actor=submitted_by,
         recorded_sha256=ev["sha256_hash"],
         details=(
-            f"Reference image '{ref_filename}' (SHA-256: {result.get('reference_sha256', 'N/A')[:16]}...) "
+            f"Investigator-supplied comparison reference '{ref_filename}' (SHA-256: {result.get('reference_sha256', 'N/A')[:16]}...) "
             f"compared against exhibit. Outcome: {action_label}. "
             f"SSIM={result.get('ssim_score', 0):.3f}. "
             f"Changed regions: {result.get('changed_region_count', 0)}. "
-            f"This comparison confirms pixel differences, not the method of alteration."
+            f"This comparison does not establish which editing tool or method caused the difference."
         ),
     )
+
 
     return {
         "comparison_id": comparison_id,

@@ -64,15 +64,11 @@ class Settings:
     HF_MODEL_REVISION: str = os.getenv("HF_MODEL_REVISION", "29e4cf9efc543845610045f6ba7e88e5cf9d9301")
     HF_LOCAL_FILES_ONLY: bool = os.getenv("HF_LOCAL_FILES_ONLY", "False").lower() == "true"
 
-    # TCET CoE AI Gateway Configuration (Forensic Copilot Explanation Engine)
+    # TCET CoE AI Gateway Configuration (Forensic Copilot Text Explanation Engine Only)
+    # Note: Only structured text prompt findings are processed for natural language summary. No image bytes are ever transmitted.
     LLM_API_BASE_URL: str = os.getenv("LLM_API_BASE_URL", "https://ai.tcetcercd.in/v1").strip().rstrip("/")
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
     LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen3.6")
-
-    # External Independent AI Detector Adapter Config (e.g., Copyleaks / Hive / Sensity)
-    # Honest contract: If key is not provided, detector reports NOT_CONFIGURED without fabricating results
-    COPYLEAKS_API_KEY: str = os.getenv("COPYLEAKS_API_KEY", "").strip()
-    COPYLEAKS_API_BASE_URL: str = os.getenv("COPYLEAKS_API_BASE_URL", "https://api.copyleaks.com/v3").strip().rstrip("/")
 
     # 3-Tier Analysis Modes
     ANALYSIS_MODE_QUICK: str = "QUICK_SCAN"
@@ -86,16 +82,9 @@ class Settings:
     WEIGHT_PROVENANCE: float = 0.10
 
     # ── Localization Policy Thresholds ──────────────────────────────────────
-    # These constants define the EXACT conditions for each evidence-result outcome.
-    # Changing a threshold changes the policy globally — no magic numbers in code.
-
-    # Minimum per-region reliability score (0–1) to allow HIGH-RISK LOCALIZED ALTERATION label.
-    # Below this value: outcome is INCONCLUSIVE regardless of other signals.
-    LOCALIZATION_HIGH_RELIABILITY_THRESHOLD: float = float(os.getenv("LOCALIZATION_HIGH_RELIABILITY_THRESHOLD", "0.72"))
-
-    # Number of independent supporting signals (besides the localization heatmap itself)
-    # required to issue HIGH-RISK LOCALIZED ALTERATION. Prevents single-signal overclaiming.
-    LOCALIZATION_MIN_SUPPORTING_SIGNALS: int = int(os.getenv("LOCALIZATION_MIN_SUPPORTING_SIGNALS", "1"))
+    # Minimum distinct signal categories (e.g. Pixel Forensics, Frequency/Noise, Metadata)
+    # required to issue LOCALIZED_ANOMALY_REQUIRING_REVIEW.
+    LOCALIZATION_MIN_SUPPORTING_CATEGORIES: int = int(os.getenv("LOCALIZATION_MIN_SUPPORTING_CATEGORIES", "2"))
 
     # Minimum SSIM score (0–1) after alignment for reference comparison to be considered
     # aligned enough to produce a meaningful difference map.
@@ -108,3 +97,4 @@ class Settings:
     GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.75"))
 
 settings = Settings()
+

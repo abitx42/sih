@@ -384,7 +384,7 @@ class ForensicReportGenerator:
             p_desc = policy_out.get("description", "")
             p_trigger = policy_out.get("trigger", "")
             
-            story.append(Paragraph(f"<b>Policy Decision Outcome:</b> <font color='#2563eb'><b>{p_label}</b></font>", body_style))
+            story.append(Paragraph(f"<b>Policy Decision Outcome:</b> <font color='#2563eb'><b>{p_label}</b></font> <font color='#64748b' size='7'>[CALIBRATION: UNVALIDATED]</font>", body_style))
             if p_desc:
                 story.append(Paragraph(f"<i>{p_desc}</i>", ParagraphStyle('PolDesc', parent=body_style, fontSize=7.5, leading=9.5, textColor=colors.HexColor("#475569"))))
             if p_trigger:
@@ -394,28 +394,27 @@ class ForensicReportGenerator:
             # Regions Table
             regions = loc_data.get("localized_regions", [])
             if regions:
-                story.append(Paragraph("<b>Bounded Suspicious Regions (Heuristic Anomaly Clusters):</b>", body_style))
+                story.append(Paragraph("<b>Bounded Anomaly Regions (Statistical Concentration):</b>", body_style))
                 loc_table_data = [
                     [
                         Paragraph("<b>Region ID</b>", table_cell_bold),
                         Paragraph("<b>Area %</b>", table_cell_bold),
-                        Paragraph("<b>Severity</b>", table_cell_bold),
-                        Paragraph("<b>Reliability</b>", table_cell_bold),
+                        Paragraph("<b>Evidence Strength</b>", table_cell_bold),
+                        Paragraph("<b>Signal Agreement</b>", table_cell_bold),
                         Paragraph("<b>Neutral Location & Description</b>", table_cell_bold),
                     ]
                 ]
                 for r in regions:
-                    rel_val = r.get("reliability", 0.0)
-                    sev_val = r.get("severity", "MEDIUM")
-                    s_color = "#dc2626" if sev_val == "HIGH" else ("#d97706" if sev_val == "MEDIUM" else "#16a34a")
+                    str_val = r.get("evidence_strength", "MODERATE")
+                    s_color = "#dc2626" if str_val == "HIGH" else ("#d97706" if str_val == "MODERATE" else "#16a34a")
                     loc_table_data.append([
                         Paragraph(f"<b>{r.get('region_id', 'ROI')}</b>", table_cell),
                         Paragraph(f"{r.get('affected_area_pct', 0.0)}%", table_cell),
-                        Paragraph(f"<font color='{s_color}'><b>{sev_val}</b></font>", table_cell),
-                        Paragraph(f"{rel_val:.2f}", table_cell),
-                        Paragraph(r.get("neutral_description", "Potential anomaly concentration; method undetermined."), table_cell),
+                        Paragraph(f"<font color='{s_color}'><b>{str_val}</b></font>", table_cell),
+                        Paragraph(str(r.get("signal_agreement", "Heuristic")), table_cell),
+                        Paragraph(r.get("neutral_description", "Statistical anomaly concentration; method undetermined."), table_cell),
                     ])
-                t_loc = Table(loc_table_data, colWidths=[65, 45, 55, 55, 320])
+                t_loc = Table(loc_table_data, colWidths=[60, 40, 75, 75, 290])
                 t_loc.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
                     ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
@@ -434,10 +433,11 @@ class ForensicReportGenerator:
 
             # Limitation notice
             story.append(Paragraph(
-                "<b>LIMITATION:</b> <i>Image-only analysis is probabilistic. Signals indicate potential alteration — not confirmed manipulation. Findings require qualified investigator review.</i>",
+                "<b>LIMITATION:</b> <i>Image-only analysis is probabilistic and UNVALIDATED. Statistical anomaly concentrations do not constitute pixel-level proof of manipulation, nor do they determine editing tool or AI usage. Findings require qualified investigator review.</i>",
                 ParagraphStyle('LocLimit', parent=body_style, fontSize=7, leading=9, textColor=colors.HexColor("#b45309"))
             ))
             story.append(Spacer(1, 6))
+
 
         # 6. Application Custody Log (Workflow Documentation)
         story.append(Paragraph("6. Application Custody Log (Workflow Documentation)", section_style))
@@ -506,9 +506,9 @@ class ForensicReportGenerator:
             matrix_table_data = [
                 [
                     Paragraph("<b>Signal Axis</b>", table_cell_bold),
-                    Paragraph("<b>→ Authentic</b>", table_cell_bold),
-                    Paragraph("<b>→ Manipulated</b>", table_cell_bold),
-                    Paragraph("<b>Note</b>", table_cell_bold),
+                    Paragraph("<b>→ Baseline</b>", table_cell_bold),
+                    Paragraph("<b>→ Alteration Flagged</b>", table_cell_bold),
+                    Paragraph("<b>Note (Unvalidated)</b>", table_cell_bold),
                 ]
             ]
             for axis in matrix["axes"]:
@@ -520,7 +520,8 @@ class ForensicReportGenerator:
                     Paragraph(f"<font color='{m_col}'><b>{m_sym}</b></font>", table_cell),
                     Paragraph(axis.get("note", ""), table_cell),
                 ])
-            t_matrix = Table(matrix_table_data, colWidths=[110, 65, 75, 290])
+            t_matrix = Table(matrix_table_data, colWidths=[110, 65, 85, 280])
+
             t_matrix.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
                 ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
