@@ -86,7 +86,7 @@ class ImageAnalyzer(BaseAnalyzer):
         raw_metrics["fft_image_path"] = str(fft_path) if fft_path else None
         raw_metrics["fft_high_freq_ratio"] = fft_details.get("high_freq_ratio", 0)
 
-        if fft_score > 65:
+        if fft_score > 70:
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
                 signal_name="Unnatural High-Frequency Spectral Peaks",
@@ -96,7 +96,7 @@ class ImageAnalyzer(BaseAnalyzer):
                 explanation="2D Fast Fourier Transform spectrum displays periodic grid spikes and checkerboard frequency artifacts characteristic of generative convolutional upsampling.",
                 location_ref="Frequency Domain (2D FFT)"
             ))
-        elif fft_score > 40:
+        elif fft_score > 45:
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
                 signal_name="Slight Frequency Domain Perturbation",
@@ -361,8 +361,19 @@ class ImageAnalyzer(BaseAnalyzer):
                     cell_means.append(np.mean(cell))
 
             variance = float(np.var(cell_means))
-            score = min(100.0, variance * 12.0)
-            return round(score, 1), ela_out_path, {"variance": variance, "max_diff": max_diff}, enhanced_diff
+            raw_score = min(100.0, variance * 12.0)
+
+            # JPEG Discount: Real camera JPEGs inherently produce higher ELA variance
+            # from natural lossy re-compression artifacts. We discount by 25% for JPEG
+            # source files to reduce false positives on authentic social-media images.
+            # PNG/WebP/BMP originals retain the full score.
+            source_suffix = str(file_path).lower().rsplit(".", 1)[-1] if file_path else ""
+            if source_suffix in ("jpg", "jpeg"):
+                score = min(100.0, raw_score * 0.75)
+            else:
+                score = raw_score
+
+            return round(score, 1), ela_out_path, {"variance": variance, "max_diff": max_diff, "jpeg_discount_applied": source_suffix in ("jpg", "jpeg")}, enhanced_diff
         except Exception as e:
             return 20.0, None, {"error": str(e)}, None
 

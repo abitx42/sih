@@ -35,6 +35,7 @@ from app.analyzers.video_analyzer import VideoAnalyzer
 from app.analyzers.audio_analyzer import AudioAnalyzer
 from app.analyzers.document_analyzer import DocumentAnalyzer
 from app.analyzers.archive_analyzer import ArchiveAnalyzer
+from app.analyzers.web_context_analyzer import WebContextAnalyzer
 
 from app.models.schemas import (
     EvidenceBase, EvidenceListResponse, EvidenceDetailResponse,
@@ -51,6 +52,7 @@ audio_analyzer = AudioAnalyzer()
 document_analyzer = DocumentAnalyzer()
 archive_analyzer = ArchiveAnalyzer()
 localization_analyzer = LocalizationAnalyzer()
+web_context_analyzer = WebContextAnalyzer(serp_api_key=settings.SERP_API_KEY)
 
 spatial_specialist = SpatialVisionSpecialist()
 frequency_specialist = FrequencyDomainSpecialist()
@@ -201,6 +203,47 @@ def execute_forensic_pipeline(evidence_id: str):
                 _update_stage(evidence_id, "LOCALIZATION_ANALYSIS", "COMPLETED", "Localization unavailable for this exhibit.")
         else:
             raw_metrics["localization"] = {"localization_status": "UNAVAILABLE", "error_detail": "Localization is only available for IMAGE exhibits."}
+
+        # Stage 5c: Web Context & Perceptual Hash Provenance (IMAGE only)
+        if modality == "IMAGE" and settings.WEB_CONTEXT_ENABLED:
+            _update_stage(evidence_id, "WEB_CONTEXT", "ANALYZING", "Computing perceptual hash fingerprint & checking web provenance...")
+            try:
+                # Gather existing evidence phashes from the DB for local near-duplicate detection
+                with get_db() as _ctx_conn:
+                    _ctx_cursor = _ctx_conn.cursor()
+                    _ctx_cursor.execute(
+                        "SELECT evidence_id, original_filename AS filename, phash FROM evidence WHERE phash IS NOT NULL AND evidence_id != ?",
+                        (evidence_id,)
+                    )
+                    existing_hashes = [dict(r) for r in _ctx_cursor.fetchall()]
+
+                web_ctx = web_context_analyzer.analyze(
+                    image_path=file_path,
+                    evidence_id=evidence_id,
+                    existing_evidence_hashes=existing_hashes,
+                )
+                raw_metrics["web_context"] = web_ctx
+
+                # Store phash in evidence table for future near-duplicate detection
+                if web_ctx.get("phash"):
+                    with get_db() as _phash_conn:
+                        try:
+                            _phash_conn.execute(
+                                "UPDATE evidence SET phash = ? WHERE evidence_id = ?",
+                                (web_ctx["phash"], evidence_id)
+                            )
+                        except Exception:
+                            pass  # phash column may not exist yet — migration applied next start
+
+                n_dupes = len(web_ctx.get("local_duplicates", []))
+                web_status = web_ctx.get("web_search", {}).get("status", "DISABLED")
+                _update_stage(
+                    evidence_id, "WEB_CONTEXT", "COMPLETED",
+                    f"pHash computed. {n_dupes} local near-duplicate(s). Web search: {web_status}."
+                )
+            except Exception as _wc_err:
+                raw_metrics["web_context"] = {"status": "ERROR", "error_detail": str(_wc_err)}
+                _update_stage(evidence_id, "WEB_CONTEXT", "COMPLETED", "Web context analysis unavailable.")
 
         # Stage 6: Build Specialist Ensemble & Agreement Engine
         _update_stage(evidence_id, "EVIDENCE_CORRELATION", "ANALYZING", "Evaluating multi-specialist consensus & agreement matrix...")
@@ -1152,3 +1195,61 @@ def verify_custody_chain(evidence_id: str):
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
     return ChainOfCustodyLogger.verify_chain(evidence_id)
+
+
+@router.post("/{evidence_id}/web-search")
+def run_web_provenance_search(evidence_id: str):
+    """
+    On-demand Perceptual Hashing & Web Provenance Reverse-Image Search.
+    Computes pHash/dHash/wHash, cross-checks against local DB, and performs
+    SerpAPI Google Lens reverse search if SERP_API_KEY is configured.
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        if evidence.get("modality") != "IMAGE":
+            raise HTTPException(status_code=400, detail="Web provenance search is only available for IMAGE exhibits.")
+
+        cursor.execute(
+            "SELECT evidence_id, original_filename AS filename, phash FROM evidence WHERE phash IS NOT NULL AND evidence_id != ?",
+            (evidence_id,)
+        )
+        existing_hashes = [dict(r) for r in cursor.fetchall()]
+
+    file_path = EVIDENCE_DIR / evidence["stored_filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Evidence file not found on disk.")
+
+    result = web_context_analyzer.analyze(
+        image_path=file_path,
+        evidence_id=evidence_id,
+        existing_evidence_hashes=existing_hashes,
+    )
+
+    # Persist phash to evidence and web_context to forensic_results
+    with get_db() as conn:
+        if result.get("phash"):
+            try:
+                conn.execute("UPDATE evidence SET phash = ? WHERE evidence_id = ?", (result["phash"], evidence_id))
+            except Exception:
+                pass
+
+        cursor = conn.cursor()
+        cursor.execute("SELECT raw_metrics_json FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        fr_row = cursor.fetchone()
+        if fr_row:
+            try:
+                raw_m = json.loads(fr_row["raw_metrics_json"])
+                raw_m["web_context"] = result
+                conn.execute(
+                    "UPDATE forensic_results SET raw_metrics_json = ? WHERE evidence_id = ?",
+                    (json.dumps(raw_m), evidence_id)
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update raw_metrics_json with web_context: {e}")
+
+    return result

@@ -86,6 +86,8 @@ def init_db():
             cursor.execute("ALTER TABLE evidence ADD COLUMN pipeline_stages_json TEXT DEFAULT '{}'")
         if "dna_fingerprint" not in ev_columns:
             cursor.execute("ALTER TABLE evidence ADD COLUMN dna_fingerprint TEXT")
+        if "phash" not in ev_columns:
+            cursor.execute("ALTER TABLE evidence ADD COLUMN phash TEXT")
 
         # 3. Forensic Results Table
         cursor.execute("""

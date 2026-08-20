@@ -167,14 +167,35 @@ def test_defensive_label_normalization():
 
 def test_multi_model_vision_ensemble_structure():
     """
-    Verifies that HFImageDetector instantiates dual specialized sub-model runners:
-    Generative Diffusion and Facial Deepfake.
+    Verifies that HFImageDetector instantiates triple specialized sub-model runners:
+    Generative Diffusion, Facial Deepfake, and Modern Diffusion (SDXL/Flux).
     """
     detector = HFImageDetector()
     assert hasattr(detector, "gen_runner")
     assert hasattr(detector, "deepfake_runner")
+    assert hasattr(detector, "sdxl_runner")
     assert detector.gen_runner.role == "GENERATIVE_DIFFUSION"
     assert detector.deepfake_runner.role == "FACIAL_DEEPFAKE"
+    assert detector.sdxl_runner.role == "MODERN_DIFFUSION"
+
+def test_weighted_ensemble_vote():
+    """
+    Verifies triple-model weighted fusion logic and strong-signal amplification.
+    """
+    detector = HFImageDetector()
+    
+    # 1. Balanced low scores -> low ensemble indicator
+    ind, roles = detector._weighted_ensemble_vote(0.10, 0.20, 0.15)
+    assert ind < 0.25
+    assert "GEN" in roles and "DF" in roles and "SDXL" in roles
+
+    # 2. Single strong signal (>= 0.75) gets amplified
+    ind_strong, roles_strong = detector._weighted_ensemble_vote(0.20, 0.20, 0.90)
+    assert ind_strong >= 0.65
+
+    # 3. Partial availability (only 2 models available)
+    ind_partial, _ = detector._weighted_ensemble_vote(0.80, None, 0.85)
+    assert ind_partial >= 0.80
 
 @pytest.mark.slow
 def test_real_model_local_inference_smoke():

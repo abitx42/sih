@@ -1712,6 +1712,128 @@ async function loadLocalizationPanel(ev, res) {
   } catch (err) {
     console.debug("No existing reference comparison:", err);
   }
+
+  // Render Web Context & Perceptual Provenance
+  renderWebContextPanel(rawMetrics.web_context, ev.evidence_id);
+}
+
+function renderWebContextPanel(webCtx, evidenceId) {
+  const phashEl = document.getElementById("web-phash-val");
+  const dhashEl = document.getElementById("web-dhash-val");
+  const whashEl = document.getElementById("web-whash-val");
+  const badgeEl = document.getElementById("web-ctx-status-badge");
+  const dupesContainer = document.getElementById("web-local-dupes-container");
+  const dupesList = document.getElementById("web-local-dupes-list");
+  const statusText = document.getElementById("web-search-status-text");
+  const matchesGrid = document.getElementById("web-search-matches-grid");
+
+  if (!webCtx) {
+    if (phashEl) phashEl.textContent = "—";
+    if (dhashEl) dhashEl.textContent = "—";
+    if (whashEl) whashEl.textContent = "—";
+    if (statusText) statusText.textContent = "Perceptual hashing initializing or not available.";
+    return;
+  }
+
+  if (phashEl) phashEl.textContent = webCtx.phash || "N/A";
+  if (dhashEl) dhashEl.textContent = webCtx.dhash || "N/A";
+  if (whashEl) whashEl.textContent = webCtx.whash || "N/A";
+
+  const webSearch = webCtx.web_search || {};
+  if (badgeEl) {
+    if (webSearch.status === "COMPLETE") {
+      badgeEl.textContent = `${webSearch.total_matches || 0} WEB MATCHES`;
+      badgeEl.className = (webSearch.total_matches || 0) > 0 ? "badge badge-risk-medium" : "badge badge-risk-low";
+    } else if (webSearch.status === "DISABLED") {
+      badgeEl.textContent = "LOCAL HASH ONLY";
+      badgeEl.className = "badge badge-modality";
+    } else {
+      badgeEl.textContent = webSearch.status || "PERCEPTUAL HASH";
+    }
+  }
+
+  // Local Duplicates
+  const dupes = webCtx.local_duplicates || [];
+  if (dupesContainer && dupesList) {
+    if (dupes.length > 0) {
+      dupesContainer.style.display = "block";
+      dupesList.innerHTML = dupes.map(d => `
+        <div style="margin-top: 0.25rem; padding: 0.25rem 0.4rem; background: rgba(0,0,0,0.2); border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+          <span><strong>${escapeHTML(d.evidence_id)}</strong> (${escapeHTML(d.filename)})</span>
+          <span class="badge ${d.similarity_label === 'NEAR_DUPLICATE' ? 'badge-risk-high' : 'badge-risk-medium'}">
+            ${escapeHTML(d.similarity_label)} (Dist: ${d.hamming_distance})
+          </span>
+        </div>
+      `).join("");
+    } else {
+      dupesContainer.style.display = "none";
+    }
+  }
+
+  // Web Search Matches
+  if (statusText) {
+    if (webSearch.status === "COMPLETE") {
+      statusText.innerHTML = `<strong>${webSearch.total_matches || 0} Web Match(es) Found via ${escapeHTML(webSearch.engine || 'Reverse Image Search')}</strong>`;
+    } else if (webSearch.status === "DISABLED") {
+      statusText.innerHTML = `<span style="color: var(--text-muted); font-size: 0.72rem;">💡 ${escapeHTML(webSearch.reason || "Web search disabled. Set SERP_API_KEY in .env for Google Lens reverse lookup.")}</span>`;
+    } else if (webSearch.status === "ERROR") {
+      statusText.innerHTML = `<span style="color: #f87171; font-size: 0.72rem;">⚠️ Reverse search note: ${escapeHTML(webSearch.reason || "Search unavailable")}</span>`;
+    }
+  }
+
+  if (matchesGrid) {
+    const matches = webSearch.results || [];
+    if (matches.length > 0) {
+      matchesGrid.innerHTML = matches.map(m => `
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.45rem 0.6rem; font-size: 0.74rem;">
+          <div style="font-weight: 600; color: var(--text-main); margin-bottom: 0.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(m.title || '')}">
+            ${escapeHTML(m.title || 'Web Publication Match')}
+          </div>
+          <div style="font-size: 0.68rem; color: var(--accent-cyan); margin-bottom: 0.2rem;">
+            📰 ${escapeHTML(m.source || 'Online Source')} ${m.date_published ? `• 📅 ${escapeHTML(m.date_published)}` : ''}
+          </div>
+          ${m.source_url ? `<a href="${escapeHTML(m.source_url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.68rem; color: #60a5fa; text-decoration: underline; word-break: break-all;">View Source ↗</a>` : ''}
+        </div>
+      `).join("");
+    } else {
+      matchesGrid.innerHTML = "";
+    }
+  }
+}
+
+async function triggerWebSearchOnDemand() {
+  if (!currentEvidenceId) return;
+
+  const btn = document.getElementById("btn-web-search-refresh");
+  const statusText = document.getElementById("web-search-status-text");
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Searching Web...";
+  }
+  if (statusText) {
+    statusText.innerHTML = "<em>Querying perceptual hash index and reverse-image engines...</em>";
+  }
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/web-search`, {
+      method: "POST"
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(`Web search error: ${err.detail || "Request failed"}`);
+      return;
+    }
+    const webCtx = await res.json();
+    renderWebContextPanel(webCtx, currentEvidenceId);
+  } catch (err) {
+    alert(`Network error during web search: ${err}`);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔍 Search Web Provenance";
+    }
+  }
 }
 
 async function submitReferenceComparison() {

@@ -77,30 +77,30 @@ class Settings:
     ANALYSIS_MODE_QUICK: str = "QUICK_SCAN"
     ANALYSIS_MODE_FULL: str = "FULL_ANALYSIS"
     ANALYSIS_MODE_ADVANCED: str = "ADVANCED_INVESTIGATION"
-    
+
     # Scoring Weights for Deterministic Risk Engine
-    WEIGHT_AI_MANIPULATION: float = 0.40
-    WEIGHT_FORENSIC_SIGNALS: float = 0.40
-    WEIGHT_METADATA_ANOMALIES: float = 0.10
-    WEIGHT_PROVENANCE: float = 0.10
+    # Neural ensemble now carries 0.55 weight — it is the most calibrated signal we have.
+    # Heuristics reduced to 0.25 to prevent ELA/FFT compression noise from dominating.
+    WEIGHT_AI_MANIPULATION: float = 0.55
+    WEIGHT_FORENSIC_SIGNALS: float = 0.25
+    WEIGHT_METADATA_ANOMALIES: float = 0.12
+    WEIGHT_PROVENANCE: float = 0.08
 
     # ── Localization Policy Thresholds ──────────────────────────────────────
-    # Minimum distinct signal categories (e.g. Pixel Forensics, Frequency/Noise, Metadata)
-    # required to issue LOCALIZED_ANOMALY_REQUIRING_REVIEW.
     LOCALIZATION_MIN_SUPPORTING_CATEGORIES: int = int(os.getenv("LOCALIZATION_MIN_SUPPORTING_CATEGORIES", "2"))
-
-    # Minimum SSIM score (0–1) after alignment for reference comparison to be considered
-    # aligned enough to produce a meaningful difference map.
     REFERENCE_COMPARISON_ALIGNMENT_THRESHOLD: float = float(os.getenv("REFERENCE_COMPARISON_ALIGNMENT_THRESHOLD", "0.60"))
-
-    # Maximum reference image upload size in bytes
     REFERENCE_MAX_SIZE_BYTES: int = int(os.getenv("REFERENCE_MAX_SIZE_MB", "50")) * 1024 * 1024
 
     # Global AI model score threshold above which GENERATIVE-IMAGE INDICATOR is asserted.
-    # Set to 0.60 to align with SpatialVisionSpecialist ALTERATION_SIGNAL_DETECTED threshold (>= 0.60).
-    # A value of 0.60 means the ViT model assigns >=60% probability to the MANIPULATED/FAKE class.
-    # This is a probabilistic indicator, not proof of AI generation (calibration_status: UNVALIDATED).
     GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.60"))
+
+    # ── Web Context / Provenance Search (Optional, Opt-in) ─────────────────
+    # Set SERP_API_KEY in .env to enable Google reverse-image web lookup.
+    # When absent, the WebContextAnalyzer runs perceptual-hash-only (fully local, no network).
+    # Note: pixel data is NEVER transmitted externally. Only the image URL (if web-sourced)
+    # or the perceptual hash fingerprint is used for lookup.
+    SERP_API_KEY: str = os.getenv("SERP_API_KEY", "").strip()
+    WEB_CONTEXT_ENABLED: bool = os.getenv("WEB_CONTEXT_ENABLED", "True").lower() == "true"
 
 settings = Settings()
 

@@ -209,16 +209,35 @@ class SingleModelRunner:
 
 class HFImageDetector:
     """
-    Dedicated Multi-Model Neural Vision Forensic Ensemble.
-    Coordinates local execution of complementary specialized neural vision architectures:
-    1. Generative Diffusion & AI Scene Specialist ('umm-maybe/AI-image-detector')
-    2. Facial Deepfake & Manipulation Specialist ('dima806/deepfake_vs_real_image_detection')
+    Dedicated Multi-Model Neural Vision Forensic Ensemble (v3.0 — Triple Engine).
+    Coordinates local execution of three complementary specialized neural vision architectures:
 
-    Ensemble Logic:
-    - Synthesizes domain indicators into a unified, high-accuracy statistical indicator.
-    - Preserves individual model telemetry, raw confidence, and error isolation.
+      1. Generative Diffusion & AI Scene Specialist ('umm-maybe/AI-image-detector')
+         Swin Transformer trained on GAN + early diffusion images. Best for DALL-E 2,
+         Stable Diffusion 1.x/2.x, and overall scene-level synthetic detection.
+
+      2. Facial Deepfake & Manipulation Specialist ('dima806/deepfake_vs_real_image_detection')
+         Vision Transformer fine-tuned for facial deepfakes and face-swap manipulation.
+
+      3. Modern Diffusion Specialist ('Organika/sdxl-detector')
+         Swin-B model specifically targeting Stable Diffusion XL, Flux, Midjourney v6,
+         and ChatGPT-4o image outputs. Fills the accuracy gap in the older models.
+
+    Ensemble Logic (Weighted Vote):
+      - Model 1 (umm-maybe): weight 0.40  — broad GAN/diffusion coverage
+      - Model 2 (dima806):   weight 0.25  — facial deepfake coverage
+      - Model 3 (Organika):  weight 0.35  — modern high-quality diffusion coverage
+    - If any model fires strongly (>= 0.75), its signal is amplified in the fusion.
+    - Individual model telemetry preserved in sub_models for transparency.
     - 100% local, zero-cloud data transmission.
     """
+
+    # Ensemble weights per model — must sum to 1.0
+    _MODEL_WEIGHTS = {
+        "generative_diffusion":   0.40,
+        "facial_deepfake":        0.25,
+        "modern_diffusion":       0.35,
+    }
 
     def __init__(self):
         self.generative_model_name = settings.HF_GENERATIVE_MODEL_NAME
@@ -226,16 +245,23 @@ class HFImageDetector:
         self.model_name = settings.HF_MODEL_NAME
         self.model_revision = settings.HF_MODEL_REVISION
 
-        # Initialize sub-model runners with appropriate revisions
+        # Runner 1: Broad generative detection (Swin Transformer)
         self.gen_runner = SingleModelRunner(
             model_name=self.generative_model_name,
             model_revision="",
             role="GENERATIVE_DIFFUSION"
         )
+        # Runner 2: Facial deepfake specialist (ViT)
         self.deepfake_runner = SingleModelRunner(
             model_name=self.deepfake_model_name,
             model_revision="29e4cf9efc543845610045f6ba7e88e5cf9d9301",
             role="FACIAL_DEEPFAKE"
+        )
+        # Runner 3: Modern diffusion specialist (Swin-B, SDXL / Flux / MJ v6)
+        self.sdxl_runner = SingleModelRunner(
+            model_name="Organika/sdxl-detector",
+            model_revision="",
+            role="MODERN_DIFFUSION"
         )
 
         # Backwards compatibility attributes for unit test mocks
@@ -265,7 +291,52 @@ class HFImageDetector:
             return False
         g_ok = self.gen_runner.load_model()
         d_ok = self.deepfake_runner.load_model()
-        return g_ok or d_ok
+        s_ok = self.sdxl_runner.load_model()
+        return g_ok or d_ok or s_ok
+
+    def _weighted_ensemble_vote(
+        self,
+        gen_ind: Optional[float],
+        df_ind: Optional[float],
+        sdxl_ind: Optional[float],
+    ) -> Tuple[float, str]:
+        """
+        Fuses three model indicators into a single ensemble indicator using
+        calibrated weighted averaging with strong-signal amplification.
+
+        Returns: (ensemble_indicator, active_role_description)
+        """
+        w = self._MODEL_WEIGHTS
+        parts = []
+        roles = []
+
+        if gen_ind is not None:
+            parts.append((gen_ind, w["generative_diffusion"], "umm-maybe/AI-image-detector"))
+            roles.append(f"GEN:{gen_ind:.2f}")
+        if df_ind is not None:
+            parts.append((df_ind, w["facial_deepfake"], "dima806/deepfake_vs_real"))
+            roles.append(f"DF:{df_ind:.2f}")
+        if sdxl_ind is not None:
+            parts.append((sdxl_ind, w["modern_diffusion"], "Organika/sdxl-detector"))
+            roles.append(f"SDXL:{sdxl_ind:.2f}")
+
+        if not parts:
+            return 0.0, "No models available"
+
+        # Normalize weights to available models
+        total_w = sum(p[1] for p in parts)
+        base_ind = sum(p[0] * (p[1] / total_w) for p in parts)
+
+        # Strong-signal amplification: if any single model fires >= 0.75, boost the ensemble
+        strong_signals = [p for p in parts if p[0] >= 0.75]
+        if strong_signals:
+            # Take max strong signal and blend it 60/40 with base
+            max_strong = max(p[0] for p in strong_signals)
+            ensemble_ind = round((max_strong * 0.60) + (base_ind * 0.40), 4)
+        else:
+            ensemble_ind = round(base_ind, 4)
+
+        return min(1.0, ensemble_ind), " | ".join(roles)
 
     def predict(self, image_input: Any) -> Dict[str, Any]:
         """
@@ -300,7 +371,7 @@ class HFImageDetector:
         except Exception as e:
             return {
                 "ai_model_name": "Multi-Model Neural Vision Ensemble",
-                "ai_model_version": "2.0-Ensemble",
+                "ai_model_version": "3.0-TripleEngine",
                 "ai_manipulation_indicator": None,
                 "model_confidence": None,
                 "model_status": "ERROR",
@@ -321,27 +392,30 @@ class HFImageDetector:
             mock_runner._is_loaded = True
             return mock_runner.predict(img)
 
-        # 3. Standard Dual-Model Inference
-        gen_res = self.gen_runner.predict(img)
-        df_res = self.deepfake_runner.predict(img)
+        # 3. Triple-Model Inference (in parallel-compatible order)
+        gen_res  = self.gen_runner.predict(img)
+        df_res   = self.deepfake_runner.predict(img)
+        sdxl_res = self.sdxl_runner.predict(img)
 
         sub_models = {
             "generative_diffusion_detector": gen_res,
-            "facial_deepfake_detector": df_res
+            "facial_deepfake_detector":      df_res,
+            "modern_diffusion_detector":     sdxl_res,
         }
 
-        # 4. Determine Ensemble Availability & Synthesis
-        available_results = [r for r in [gen_res, df_res] if r.get("model_status") == "AVAILABLE" and r.get("ai_manipulation_indicator") is not None]
+        # 4. Determine Ensemble Availability
+        available_results = [
+            r for r in [gen_res, df_res, sdxl_res]
+            if r.get("model_status") == "AVAILABLE" and r.get("ai_manipulation_indicator") is not None
+        ]
 
         if not available_results:
-            if any(r.get("model_status") == "ANALYSIS INCONCLUSIVE" for r in [gen_res, df_res]):
-                status = "ANALYSIS INCONCLUSIVE"
-            else:
-                status = "ANALYSIS UNAVAILABLE"
-
+            status = "ANALYSIS INCONCLUSIVE" if any(
+                r.get("model_status") == "ANALYSIS INCONCLUSIVE" for r in [gen_res, df_res, sdxl_res]
+            ) else "ANALYSIS UNAVAILABLE"
             return {
                 "ai_model_name": "Multi-Model Neural Vision Ensemble",
-                "ai_model_version": "2.0-Ensemble",
+                "ai_model_version": "3.0-TripleEngine",
                 "ai_manipulation_indicator": None,
                 "model_confidence": None,
                 "model_status": status,
@@ -353,39 +427,27 @@ class HFImageDetector:
                 "error_detail": gen_res.get("error_detail") or df_res.get("error_detail") or "All vision models unavailable"
             }
 
-        # 5. Multi-Model Synthesis
-        gen_ind = gen_res.get("ai_manipulation_indicator")
-        df_ind = df_res.get("ai_manipulation_indicator")
+        # 5. Weighted Ensemble Fusion
+        gen_ind  = gen_res.get("ai_manipulation_indicator")  if gen_res.get("model_status")  == "AVAILABLE" else None
+        df_ind   = df_res.get("ai_manipulation_indicator")   if df_res.get("model_status")   == "AVAILABLE" else None
+        sdxl_ind = sdxl_res.get("ai_manipulation_indicator") if sdxl_res.get("model_status") == "AVAILABLE" else None
 
-        if gen_ind is not None and df_ind is not None:
-            if gen_ind >= 0.60:
-                ensemble_ind = round(gen_ind, 4)
-                conf = gen_res.get("model_confidence", 0.85)
-                active_role = "Generative Diffusion (umm-maybe/AI-image-detector)"
-            elif df_ind >= 0.65:
-                ensemble_ind = round(df_ind, 4)
-                conf = df_res.get("model_confidence", 0.85)
-                active_role = "Facial Deepfake ViT (dima806/deepfake_vs_real)"
-            else:
-                ensemble_ind = round((gen_ind * 0.70) + (df_ind * 0.30), 4)
-                conf = round(((gen_res.get("model_confidence", 0.7) * 0.70) + (df_res.get("model_confidence", 0.7) * 0.30)), 4)
-                active_role = "Ensemble Baseline"
-        elif gen_ind is not None:
-            ensemble_ind = gen_ind
-            conf = gen_res.get("model_confidence", 0.80)
-            active_role = "Generative Diffusion (umm-maybe/AI-image-detector)"
-        else:
-            ensemble_ind = df_ind
-            conf = df_res.get("model_confidence", 0.80)
-            active_role = "Facial Deepfake ViT (dima806/deepfake_vs_real)"
+        ensemble_ind, active_role = self._weighted_ensemble_vote(gen_ind, df_ind, sdxl_ind)
+
+        # Ensemble confidence: average of available model confidences
+        conf_values = [
+            r.get("model_confidence") for r in [gen_res, df_res, sdxl_res]
+            if r.get("model_status") == "AVAILABLE" and r.get("model_confidence") is not None
+        ]
+        ensemble_conf = round(sum(conf_values) / len(conf_values), 4) if conf_values else 0.80
 
         predicted_lbl = "MANIPULATED" if ensemble_ind >= 0.50 else "UNMANIPULATED"
 
         return {
             "ai_model_name": "Multi-Model Neural Vision Ensemble",
-            "ai_model_version": "2.0-DualEngine",
+            "ai_model_version": "3.0-TripleEngine",
             "ai_manipulation_indicator": ensemble_ind,
-            "model_confidence": conf,
+            "model_confidence": ensemble_conf,
             "model_status": "AVAILABLE",
             "label_mapping": {"0": "UNMANIPULATED", "1": "MANIPULATED"},
             "predicted_label": predicted_lbl,
