@@ -328,3 +328,431 @@
     animation: none;
   }
 }
+
+/* ==========================================================================
+   ADVANCED UX & INTERACTIVE COMPONENTS
+   ========================================================================== */
+
+/* 1. Toast Notification System */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--panel-raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-btn);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  transform: translateY(20px);
+  opacity: 0;
+  animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-width: 380px;
+}
+
+.toast.toast-success .toast-icon { color: var(--risk-low); }
+.toast.toast-info .toast-icon    { color: var(--brand); }
+.toast.toast-warning .toast-icon { color: var(--risk-review); }
+.toast.toast-error .toast-icon   { color: var(--risk-high); }
+
+@keyframes toast-in {
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  to { transform: translateY(20px); opacity: 0; }
+}
+
+/* 2. Interactive Forensic Split-View Slider */
+.split-slider-container {
+  position: relative;
+  width: 100%;
+  max-height: 480px;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: #000;
+  user-select: none;
+  cursor: ew-resize;
+}
+
+.split-slider-container img {
+  width: 100%;
+  height: 440px;
+  object-fit: contain;
+  display: block;
+}
+
+.split-slider-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 50%;
+  overflow: hidden;
+  border-right: 2px solid var(--brand);
+}
+
+.split-slider-overlay img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+}
+
+.split-slider-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #0B0F14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(63, 199, 244, 0.7);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.split-slider-label {
+  position: absolute;
+  bottom: 12px;
+  padding: 3px 10px;
+  background: rgba(11, 15, 20, 0.85);
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  border-radius: 4px;
+  color: var(--text-primary);
+  z-index: 5;
+  pointer-events: none;
+}
+.split-slider-label.left { left: 12px; }
+.split-slider-label.right { right: 12px; }
+
+/* 3. Forensic Loupe / Magnifier */
+.magnifier-container {
+  position: relative;
+  overflow: hidden;
+  cursor: crosshair;
+  background: #000;
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.magnifier-lens {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 2px solid var(--brand);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(63, 199, 244, 0.4);
+  pointer-events: none;
+  display: none;
+  background-repeat: no-repeat;
+  z-index: 20;
+}
+
+/* 4. Global Command Palette (Cmd+K) */
+.cmd-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 15, 20, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.cmd-palette-modal {
+  width: 100%;
+  max-width: 580px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.cmd-palette-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.cmd-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+
+.cmd-palette-results {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cmd-palette-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-btn);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background var(--trans-fast);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+.cmd-palette-item:hover,
+.cmd-palette-item.active {
+  background: var(--panel-raised);
+}
+
+.cmd-palette-item .item-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.cmd-palette-item .item-shortcut {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  background: var(--ink);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--hairline);
+}
+
+.cmd-palette-footer {
+  padding: 8px 18px;
+  background: var(--panel-raised);
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* 5. Shimmer Skeleton Loaders */
+.skeleton {
+  background: linear-gradient(90deg, var(--panel) 25%, var(--panel-raised) 50%, var(--panel) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.skeleton-row {
+  height: 24px;
+  width: 100%;
+  margin: 6px 0;
+}
+
+.skeleton-card {
+  height: 90px;
+  width: 100%;
+  border-radius: var(--radius-card);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 6. Ingest Visual File Queue */
+.file-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.file-preview-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--panel-raised);
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--hairline);
+  gap: 10px;
+}
+
+.file-preview-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.file-preview-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-preview-name {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-preview-meta {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.file-preview-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-preview-remove:hover {
+  color: var(--risk-high);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* 7. Signal Explainer Inline Drawer in Lab */
+.signal-row-clickable {
+  cursor: pointer;
+}
+
+.signal-drawer-container {
+  padding: 16px 20px;
+  background: var(--panel-raised);
+  border-left: 3px solid var(--brand);
+  border-bottom: 1px solid var(--hairline);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.signal-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.signal-drawer-box h5 {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tag-accent);
+  margin-bottom: 6px;
+}
+
+.signal-drawer-box p {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* 8. Case Workspace Gallery Mode */
+.case-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.case-gallery-card {
+  background: var(--panel);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  transition: transform var(--trans-fast), background var(--trans-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.case-gallery-card:hover {
+  transform: translateY(-2px);
+  background: var(--panel-raised);
+  border-color: var(--hairline);
+}
+
+.case-gallery-thumb {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  background: #000;
+  display: block;
+}
+
+.case-gallery-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.case-gallery-title {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.case-gallery-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Clickable Copy Data Chip */
+.copyable-chip {
+  cursor: pointer;
+  transition: background var(--trans-fast), color var(--trans-fast);
+}
+
+.copyable-chip:hover {
+  filter: brightness(1.2);
+}

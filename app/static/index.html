@@ -55,9 +55,17 @@
       </button>
     </nav>
 
-    <div class="status-pill header-status">
-      <div class="status-dot-pulse"></div>
-      <span>Forensic Core Ready</span>
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+      <button class="status-pill" onclick="openCommandPalette()" style="cursor: pointer; border: 1px solid var(--hairline); background: var(--panel);" title="Quick Forensic Search (Cmd+K / Ctrl+K)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <span style="color: var(--text-secondary);">Search</span>
+        <span class="data-mono" style="font-size: 10px; background: var(--ink); padding: 1px 5px; border-radius: 3px; color: var(--tag-accent); border: 1px solid var(--hairline);">⌘K</span>
+      </button>
+
+      <div class="status-pill header-status">
+        <div class="status-dot-pulse"></div>
+        <span>Forensic Core Ready</span>
+      </div>
     </div>
   </header>
 
@@ -305,7 +313,7 @@
         <div>
           <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
             <span class="badge badge-modality" id="lab-modality-badge">IMAGE</span>
-            <h2 id="lab-evidence-id" class="data-mono" style="font-family: var(--font-data); font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">EV-2026-XXXXXX</h2>
+            <h2 id="lab-evidence-id" class="data-mono copyable-chip" onclick="copyToClipboard(currentEvidenceId, 'Evidence ID')" title="Click to copy Evidence ID" style="font-family: var(--font-data); font-size: 1.25rem; font-weight: 700; color: var(--text-primary); cursor: pointer;">EV-2026-XXXXXX</h2>
           </div>
           <p id="lab-filename" class="data-mono" style="color: var(--text-secondary); font-size: 0.8rem;">filename.jpg</p>
         </div>
@@ -342,7 +350,7 @@
             <div class="status-dot-pulse" id="lab-integrity-dot"></div>
             <span id="lab-integrity-text" class="verdict-badge low" style="clip-path: var(--evidence-tag-notch);">RECORDED</span>
           </div>
-          <div class="data-mono" id="lab-sha256-snippet" style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">SHA-256: e3b0c442...</div>
+          <div class="data-mono copyable-chip" id="lab-sha256-snippet" onclick="copyToClipboard(currentEvidenceData?.sha256_hash, 'SHA-256 Fingerprint')" title="Click to copy full SHA-256" style="font-size: 0.72rem; color: var(--brand); margin-top: 2px; cursor: pointer;">SHA-256: e3b0c442...</div>
           <div style="font-size: 0.65rem; color: var(--text-dim); margin-top: 2px;">*Against recorded baseline; not proof of authenticity</div>
         </div>
 
@@ -468,13 +476,30 @@
       <div id="lab-tab-exhibits" class="lab-tab-content">
         <div class="card-panel">
           <div class="panel-header">
-            <h3>Forensic Exhibits & Signal Visualization</h3>
-            <span style="font-size: 0.78rem; color: var(--text-muted);">ELA 95% · 2D FFT · Spatial Heatmap</span>
+            <div>
+              <h3>Forensic Exhibits & Signal Visualization</h3>
+              <span style="font-size: 0.76rem; color: var(--text-secondary);">ELA 95% · 2D FFT · Anomaly Heatmap</span>
+            </div>
+
+            <!-- Mode Selector: Side-by-Side | Split Slider | Loupe -->
+            <div style="display: flex; gap: 4px; background: var(--panel-raised); padding: 3px; border-radius: var(--radius-btn); border: 1px solid var(--hairline);">
+              <button type="button" class="btn btn-sm" id="btn-exhibit-mode-grid" onclick="switchExhibitViewMode('grid')" style="background: var(--brand); color: #0B0F14; padding: 3px 10px; font-size: 0.75rem;">
+                Grid View
+              </button>
+              <button type="button" class="btn btn-sm" id="btn-exhibit-mode-split" onclick="switchExhibitViewMode('split')" style="background: transparent; color: var(--text-secondary); padding: 3px 10px; font-size: 0.75rem;">
+                Split Slider
+              </button>
+              <button type="button" class="btn btn-sm" id="btn-exhibit-mode-loupe" onclick="switchExhibitViewMode('loupe')" style="background: transparent; color: var(--text-secondary); padding: 3px 10px; font-size: 0.75rem;">
+                Forensic Loupe
+              </button>
+            </div>
           </div>
+
+          <!-- 1. Grid Mode -->
           <div class="exhibit-container" id="lab-exhibits-box" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
             <div class="exhibit-box">
               <img id="exhibit-orig" src="" alt="Original Evidence">
-              <div class="exhibit-title">Exhibit 1: Original Media</div>
+              <div class="exhibit-title">Exhibit 1: Original Bitstream</div>
             </div>
             <div class="exhibit-box" id="box-exhibit-heatmap" style="display: none;">
               <img id="exhibit-heatmap" src="" alt="Spatial Anomaly Heatmap">
@@ -483,6 +508,35 @@
             <div class="exhibit-box" id="box-exhibit-forensic">
               <img id="exhibit-forensic" src="" alt="Forensic Artifact">
               <div class="exhibit-title" id="exhibit-forensic-title">Exhibit 3: Error Level Analysis (ELA 95%)</div>
+            </div>
+          </div>
+
+          <!-- 2. Split Slider Mode -->
+          <div id="lab-split-box" style="display: none; margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.78rem; color: var(--text-secondary);">Drag slider horizontally to reveal pixel-level anomaly difference:</span>
+              <span class="data-mono" style="font-size: 0.75rem; color: var(--brand);">Original ↔ Forensic Heatmap</span>
+            </div>
+            <div class="split-slider-container" id="split-slider-widget">
+              <img id="split-img-forensic" src="" alt="Forensic Overlay">
+              <div class="split-slider-overlay" id="split-slider-overlay">
+                <img id="split-img-orig" src="" alt="Original Media">
+              </div>
+              <div class="split-slider-handle" id="split-slider-handle">↔</div>
+              <span class="split-slider-label left">ORIGINAL</span>
+              <span class="split-slider-label right">FORENSIC ELA</span>
+            </div>
+          </div>
+
+          <!-- 3. Loupe Magnifier Mode -->
+          <div id="lab-loupe-box" style="display: none; margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.78rem; color: var(--text-secondary);">Hover cursor over exhibit for 2.5x optical pixel loupe inspection:</span>
+              <span class="data-mono" style="font-size: 0.75rem; color: var(--tag-accent);">2.5x Forensic Optical Zoom</span>
+            </div>
+            <div class="magnifier-container" id="loupe-widget-container">
+              <img id="loupe-target-img" src="" alt="Magnifier Target" style="max-height: 480px; width: 100%; object-fit: contain;">
+              <div class="magnifier-lens" id="loupe-lens"></div>
             </div>
           </div>
         </div>
@@ -986,14 +1040,26 @@ iv>
           </select>
         </div>
 
-        <!-- Evidence Table Panel -->
+        <!-- Evidence Table & Gallery Panel (Section 7: Workspace Modes) -->
         <div class="card-panel" style="margin-bottom: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff;">Case Exhibits Inventory (<span id="ws-evidence-count">0</span>)</h3>
-            <span style="font-size: 0.8rem; color: var(--text-dim);">Live Filtered View</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h3 style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; color: #fff;">Case Exhibits Inventory (<span id="ws-evidence-count" class="data-mono">0</span>)</h3>
+              <span style="font-size: 0.76rem; color: var(--text-secondary);">Filterable exhibits repository</span>
+            </div>
+
+            <div style="display: flex; gap: 4px; background: var(--panel-raised); padding: 3px; border-radius: var(--radius-btn); border: 1px solid var(--hairline);">
+              <button type="button" class="btn btn-sm" id="btn-ws-mode-table" onclick="setCaseWorkspaceMode('table')" style="background: var(--brand); color: #0B0F14; padding: 3px 10px; font-size: 0.75rem;">
+                Table View
+              </button>
+              <button type="button" class="btn btn-sm" id="btn-ws-mode-gallery" onclick="setCaseWorkspaceMode('gallery')" style="background: transparent; color: var(--text-secondary); padding: 3px 10px; font-size: 0.75rem;">
+                Gallery Grid
+              </button>
+            </div>
           </div>
 
-          <div style="overflow-x: auto;">
+          <!-- Table View Container -->
+          <div id="case-view-table-box" style="overflow-x: auto;">
             <table class="data-table" id="case-evidence-table">
               <thead>
                 <tr>
@@ -1012,6 +1078,9 @@ iv>
               </tbody>
             </table>
           </div>
+
+          <!-- Visual Gallery Grid Container -->
+          <div id="case-view-gallery-box" class="case-gallery-grid" style="display: none;"></div>
 
           <!-- Empty State -->
           <div id="case-empty-state" class="empty-state-box" style="display: none; margin-top: 1rem;">
@@ -1034,6 +1103,12 @@ iv>
     </section>
 
   </main>
+
+  <!-- Global Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Global Command Palette (Cmd+K) Modal Container -->
+  <div id="cmd-palette-container"></div>
 
   <script src="/static/js/app.js"></script>
 </body>

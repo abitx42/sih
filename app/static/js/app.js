@@ -15,12 +15,61 @@ function escapeHTML(str) {
     .replace(/'/g, "&#39;");
 }
 
+// ── 1. Toast Notification System ──
+function showToast(message, type = 'success', duration = 2500) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  let iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  if (type === 'error') {
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+  } else if (type === 'info') {
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  } else if (type === 'warning') {
+    iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  }
+
+  toast.innerHTML = `<span class="toast-icon">${iconSvg}</span><span>${escapeHTML(message)}</span>`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'toast-out 0.2s forwards';
+    setTimeout(() => toast.remove(), 200);
+  }, duration);
+}
+
+// ── 2. 1-Click Copy with Sleek Micro-Toasts ──
+async function copyToClipboard(text, label = 'Copied') {
+  if (!text) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    const displaySnippet = text.length > 20 ? text.substring(0, 16) + '...' : text;
+    showToast(`${label} copied: ${displaySnippet}`, 'success');
+  } catch (err) {
+    showToast(`Copied: ${text}`, 'success');
+  }
+}
+
 // Initialize on DOM load
 document.addEventListener("DOMContentLoaded", () => {
   initNavigation();
   loadDashboardData();
   loadCasesDropdown();
   setupDragAndDrop();
+  setupKeyboardShortcuts();
+  setupSplitSlider();
+  setupMagnifier();
 });
 
 // View Navigation Router
@@ -169,13 +218,14 @@ function renderDashboardEvidence(items) {
     const safeFilename = escapeHTML(item.original_filename);
     const safeModality = escapeHTML(item.modality);
     const safeHash = escapeHTML(item.sha256_hash ? item.sha256_hash.substring(0, 16) : "");
+    const fullHash = escapeHTML(item.sha256_hash || "");
 
     return `
       <tr>
-        <td><span class="case-ref-chip">${safeId}</span></td>
+        <td><span class="case-ref-chip copyable-chip" onclick="copyToClipboard('${safeId}', 'Evidence ID')" title="Click to copy Evidence ID">${safeId}</span></td>
         <td style="font-weight: 500;">${safeFilename}</td>
         <td><span class="badge badge-modality">${safeModality}</span></td>
-        <td><span class="data-mono">${safeHash}...</span></td>
+        <td><span class="data-mono copyable-chip" style="color: var(--brand);" onclick="copyToClipboard('${fullHash}', 'SHA-256')" title="Click to copy full SHA-256">${safeHash}...</span></td>
         <td>
           <span class="verdict-badge ${riskClass}">${riskLabel}</span>
           <span class="data-mono" style="color: var(--text-secondary); margin-left: 6px;">${item.forensic_risk_score || 0}/100</span>
@@ -200,10 +250,10 @@ function renderDashboardCustody(events) {
   tbody.innerHTML = events.map(e => `
     <tr>
       <td class="data-mono" style="color: var(--text-secondary); font-size: 0.76rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
-      <td><span class="case-ref-chip">${escapeHTML(e.evidence_id)}</span></td>
+      <td><span class="case-ref-chip copyable-chip" onclick="copyToClipboard('${escapeHTML(e.evidence_id)}', 'Evidence ID')" title="Click to copy">${escapeHTML(e.evidence_id)}</span></td>
       <td><span class="data-mono" style="background: var(--panel-raised); padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">${escapeHTML(e.action)}</span></td>
       <td style="font-weight: 500;">${escapeHTML(e.actor)}</td>
-      <td><span class="data-mono" style="color: var(--brand);">${escapeHTML((e.recorded_sha256 || '').substring(0, 14))}...</span></td>
+      <td><span class="data-mono copyable-chip" style="color: var(--brand);" onclick="copyToClipboard('${escapeHTML(e.recorded_sha256 || '')}', 'SHA-256 Digest')" title="Click to copy">${escapeHTML((e.recorded_sha256 || '').substring(0, 14))}...</span></td>
       <td style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHTML(e.details)}</td>
     </tr>
   `).join("");
@@ -301,19 +351,28 @@ function renderSelectedFiles() {
   container.style.display = "block";
   if (countSpan) countSpan.innerText = selectedFiles.length;
 
-  list.innerHTML = selectedFiles.map((file, idx) => {
+  list.innerHTML = `<div class="file-preview-grid">` + selectedFiles.map((file, idx) => {
     const mod = detectModalityByName(file.name);
+    const isImg = mod === "IMAGE";
+    const thumbSrc = isImg ? URL.createObjectURL(file) : null;
+    const thumbHtml = isImg
+      ? `<img src="${thumbSrc}" class="file-preview-thumb" alt="Thumbnail">`
+      : `<div class="file-preview-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:18px;">📁</div>`;
+
     return `
-      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 0.5rem 0.8rem; border-radius: 6px; border: 1px solid var(--border-color); font-size: 0.82rem;">
-        <div style="display: flex; align-items: center; gap: 0.6rem; overflow: hidden;">
-          <span class="badge badge-modality">${mod}</span>
-          <strong style="color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 320px;">${escapeHTML(file.name)}</strong>
-          <span style="color: var(--text-dim); font-size: 0.75rem;">(${(file.size / 1024).toFixed(1)} KB)</span>
+      <div class="file-preview-card">
+        ${thumbHtml}
+        <div class="file-preview-info">
+          <div class="file-preview-name">${escapeHTML(file.name)}</div>
+          <div class="file-preview-meta">
+            <span class="badge badge-modality" style="padding:1px 6px;font-size:10px;">${mod}</span>
+            <span style="margin-left:6px;">${(file.size / 1024).toFixed(1)} KB</span>
+          </div>
         </div>
-        <button type="button" onclick="removeSelectedFile(${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1rem; padding: 0 0.3rem;">✕</button>
+        <button type="button" class="file-preview-remove" onclick="removeSelectedFile(${idx})" title="Remove exhibit">✕</button>
       </div>
     `;
-  }).join("");
+  }).join("") + `</div>`;
 }
 
 let selectedAnalysisMode = "FULL_ANALYSIS";
@@ -737,6 +796,14 @@ function renderLabView(data) {
     forensicImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
     forensicTitle.textContent = "Exhibit 3: Error Level Analysis (ELA 95% Heatmap)";
     forensicImg.style.display = "block";
+
+    // Update Split-View Slider & Loupe Magnifier targets
+    const splitOrig = document.getElementById("split-img-orig");
+    const splitForensic = document.getElementById("split-img-forensic");
+    const loupeTarget = document.getElementById("loupe-target-img");
+    if (splitOrig) splitOrig.src = `/api/evidence/${ev.evidence_id}/file`;
+    if (splitForensic) splitForensic.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
+    if (loupeTarget) loupeTarget.src = `/api/evidence/${ev.evidence_id}/file`;
   } else if (ev.modality === "VIDEO") {
     origImg.src = `/api/evidence/${ev.evidence_id}/file`;
     origImg.style.display = "block";
@@ -764,24 +831,51 @@ function renderLabView(data) {
     forensicTitle.textContent = "Non-Visual Structural Verification";
   }
 
-  // Findings Table
-  document.getElementById("lab-findings-count").innerText = `${findings.length} Signals Evaluated`;
+  // Findings Table with Interactive Signal Explainer Drawers
+  document.getElementById("lab-findings-count").innerText = `${findings.length} Signals Evaluated (Click row to expand technical details)`;
   const findingsTable = document.getElementById("lab-findings-table");
   if (findings.length === 0) {
-    findingsTable.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-dim);">No anomalies detected. Baseline clean.</td></tr>`;
+    findingsTable.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No anomalies detected. Cryptographic and statistical baseline clean.</td></tr>`;
   } else {
-    findingsTable.innerHTML = findings.map(f => {
+    findingsTable.innerHTML = findings.map((f, idx) => {
       let sevClass = "badge-low";
       if (f.severity === "CRITICAL" || f.severity === "HIGH") sevClass = "badge-high";
       else if (f.severity === "MEDIUM") sevClass = "badge-medium";
 
+      const explainer = getForensicSignalExplainer(f.signal_name || f.category);
+
       return `
-        <tr>
-          <td><strong>${escapeHTML(f.signal_name)}</strong></td>
+        <tr class="signal-row-clickable" onclick="toggleSignalExplainer('drawer-${idx}')" title="Click to expand forensic calculation and testimony guide">
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="data-mono" style="color:var(--brand);font-size:11px;">▼</span>
+              <strong>${escapeHTML(f.signal_name)}</strong>
+            </div>
+          </td>
           <td><span class="badge badge-modality">${escapeHTML(f.category)}</span></td>
           <td><span class="badge ${sevClass}">${escapeHTML(f.severity)}</span></td>
-          <td>${f.score}/100</td>
-          <td style="font-size: 0.83rem; line-height: 1.35;">${escapeHTML(f.explanation)}</td>
+          <td class="data-mono">${f.score}/100</td>
+          <td style="font-size: 0.82rem; line-height: 1.35;">${escapeHTML(f.explanation)}</td>
+        </tr>
+        <tr id="drawer-${idx}" style="display:none;">
+          <td colspan="5" style="padding:0;border-bottom:1px solid var(--hairline);">
+            <div class="signal-drawer-container">
+              <div class="signal-drawer-grid">
+                <div class="signal-drawer-box">
+                  <h5>Forensic Basis & Formula</h5>
+                  <p>${explainer.formula}</p>
+                </div>
+                <div class="signal-drawer-box">
+                  <h5>False Positive Mitigation</h5>
+                  <p>${explainer.mitigation}</p>
+                </div>
+                <div class="signal-drawer-box">
+                  <h5>Courtroom Talking Points</h5>
+                  <p>${explainer.court}</p>
+                </div>
+              </div>
+            </div>
+          </td>
         </tr>
       `;
     }).join("");
@@ -1512,60 +1606,107 @@ function applyCaseFilters() {
     return 0;
   });
 
-  // Render Table
+  // Render Table & Visual Gallery
   const tbody = document.getElementById("case-evidence-table-body");
+  const galleryBox = document.getElementById("case-view-gallery-box");
   const emptyState = document.getElementById("case-empty-state");
   const countSpan = document.getElementById("ws-evidence-count");
-  const table = document.getElementById("case-evidence-table");
+  const tableBox = document.getElementById("case-view-table-box");
 
   if (countSpan) countSpan.innerText = filtered.length;
 
   if (filtered.length === 0) {
     if (tbody) tbody.innerHTML = "";
-    if (table) table.style.display = "none";
+    if (galleryBox) galleryBox.innerHTML = "";
+    if (tableBox) tableBox.style.display = "none";
+    if (galleryBox) galleryBox.style.display = "none";
     if (emptyState) emptyState.style.display = "block";
     return;
   }
 
-  if (table) table.style.display = "table";
   if (emptyState) emptyState.style.display = "none";
+  if (currentCaseWorkspaceMode === "gallery") {
+    if (tableBox) tableBox.style.display = "none";
+    if (galleryBox) galleryBox.style.display = "grid";
+  } else {
+    if (tableBox) tableBox.style.display = "block";
+    if (galleryBox) galleryBox.style.display = "none";
+  }
 
   if (tbody) {
     tbody.innerHTML = filtered.map(item => {
-      let riskBadge = `<span class="badge" style="background: rgba(100,116,139,0.2); color: #94a3b8;">PENDING</span>`;
+      let riskBadge = `<span class="verdict-badge review">PENDING</span>`;
       if (item.risk_category === "LOW RISK") {
-        riskBadge = `<span class="badge badge-low">LOW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+        riskBadge = `<span class="verdict-badge low">LOW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
       } else if (item.risk_category === "REVIEW REQUIRED") {
-        riskBadge = `<span class="badge badge-medium">REVIEW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+        riskBadge = `<span class="verdict-badge review">REVIEW (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
       } else if (item.risk_category === "HIGH RISK") {
-        riskBadge = `<span class="badge badge-high">HIGH (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
+        riskBadge = `<span class="verdict-badge high">HIGH (${item.forensic_risk_score ? item.forensic_risk_score.toFixed(1) : '0'}%)</span>`;
       }
 
-      let statusBadge = `<span class="badge badge-status-analyzing">⏳ ANALYZING</span>`;
+      let statusBadge = `<span class="badge badge-status-analyzing">ANALYZING</span>`;
       if (item.status === "COMPLETED") {
-        statusBadge = `<span class="badge badge-low">✓ COMPLETED</span>`;
+        statusBadge = `<span class="badge badge-low">COMPLETED</span>`;
       } else if (item.status === "FAILED") {
-        statusBadge = `<span class="badge badge-high">✕ FAILED</span>`;
+        statusBadge = `<span class="badge badge-high">FAILED</span>`;
       }
+
+      const safeId = escapeHTML(item.evidence_id);
+      const safeHash = escapeHTML(item.sha256_hash || "");
 
       return `
         <tr>
-          <td><strong style="color: #fff;">${escapeHTML(item.evidence_id)}</strong></td>
+          <td><span class="case-ref-chip copyable-chip" onclick="copyToClipboard('${safeId}', 'Evidence ID')">${safeId}</span></td>
           <td>
-            <div style="font-weight: 600; color: #fff; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(item.original_filename)}</div>
-            <div style="font-size: 0.72rem; color: var(--text-dim);">${(item.file_size_bytes / 1024).toFixed(1)} KB</div>
+            <div style="font-weight: 600; color: #fff; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(item.original_filename)}</div>
+            <div class="data-mono" style="font-size: 0.72rem; color: var(--text-secondary);">${(item.file_size_bytes / 1024).toFixed(1)} KB</div>
           </td>
           <td><span class="badge badge-modality">${escapeHTML(item.modality)}</span></td>
-          <td><span class="hash-mono">${escapeHTML((item.sha256_hash || '').substring(0, 12))}...</span></td>
+          <td><span class="data-mono copyable-chip" style="color:var(--brand);" onclick="copyToClipboard('${safeHash}', 'SHA-256')">${safeHash.substring(0, 14)}...</span></td>
           <td>${statusBadge}</td>
           <td>${riskBadge}</td>
-          <td><span style="font-size: 0.8rem; color: var(--text-muted);">${item.findings_count || 0} signal(s)</span></td>
+          <td><span class="data-mono" style="font-size: 0.78rem; color: var(--text-secondary);">${item.findings_count || 0} signal(s)</span></td>
           <td>
-            <button class="btn btn-primary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="openEvidenceInLab('${escapeHTML(item.evidence_id)}')">
-              🔬 View in Lab
+            <button class="btn btn-secondary btn-sm" onclick="openEvidenceInLab('${safeId}')">
+              Inspect Lab ↗
             </button>
           </td>
         </tr>
+      `;
+    }).join("");
+  }
+
+  if (galleryBox) {
+    galleryBox.innerHTML = filtered.map(item => {
+      const safeId = escapeHTML(item.evidence_id);
+      let riskBadge = `<span class="verdict-badge review">PENDING</span>`;
+      if (item.risk_category === "LOW RISK") {
+        riskBadge = `<span class="verdict-badge low">LOW RISK</span>`;
+      } else if (item.risk_category === "REVIEW REQUIRED") {
+        riskBadge = `<span class="verdict-badge review">REVIEW REQ.</span>`;
+      } else if (item.risk_category === "HIGH RISK") {
+        riskBadge = `<span class="verdict-badge high">HIGH RISK</span>`;
+      }
+
+      const thumbUrl = item.modality === "IMAGE" 
+        ? `/api/evidence/${safeId}/preview` 
+        : `/static/img/placeholder.svg`;
+
+      return `
+        <div class="case-gallery-card" onclick="openEvidenceInLab('${safeId}')">
+          <img src="${thumbUrl}" class="case-gallery-thumb" alt="${escapeHTML(item.original_filename)}" onerror="this.src='/static/img/placeholder.svg';">
+          <div class="case-gallery-body">
+            <div class="case-gallery-meta">
+              <span class="case-ref-chip">${safeId}</span>
+              ${riskBadge}
+            </div>
+            <div class="case-gallery-title" title="${escapeHTML(item.original_filename)}">${escapeHTML(item.original_filename)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <span class="badge badge-modality" style="font-size:10px;">${escapeHTML(item.modality)}</span>
+              <span class="data-mono" style="font-size:11px;color:var(--text-secondary);">${(item.file_size_bytes / 1024).toFixed(1)} KB</span>
+            </div>
+          </div>
+        </div>
       `;
     }).join("");
   }
@@ -1940,3 +2081,331 @@ async function submitReferenceComparison() {
 }
 
 
+
+
+// ═══════════════════════════════════════════════════════════════
+// 10. ADVANCED UX MODULES: SHORTCUTS, PALETTE, SLIDER, LOUPE, EXPLAINERS
+// ═══════════════════════════════════════════════════════════════
+
+// ── A. Forensic Signal Explainers Dictionary ──
+function getForensicSignalExplainer(signalName) {
+  const s = (signalName || '').toUpperCase();
+  if (s.includes('ELA') || s.includes('ERROR LEVEL')) {
+    return {
+      formula: "Residual difference |I - JPEG_95(I)| computed across 8x8 DCT quantization grids to detect local compression inconsistencies.",
+      mitigation: "A 25% discount is applied on suspected re-compressed social media images to reduce false-positive rates.",
+      court: "Demonstrates whether specific regions underwent secondary saving or manipulation compared to original sensor quantization."
+    };
+  }
+  if (s.includes('FFT') || s.includes('SPECTRAL') || s.includes('FREQUENCY')) {
+    return {
+      formula: "2D Fast Fourier Transform magnitude spectrum analysis detecting periodic artifacts, checkerboard peaks, and high-frequency roll-off.",
+      mitigation: "Anomaly threshold calibrated at >=70 spectral variance to prevent clean web-optimized photos from flagging.",
+      court: "Identifies synthetic upsampling, generative lattice patterns, and non-optical frequency anomalies invisible to human eyes."
+    };
+  }
+  if (s.includes('NEURAL') || s.includes('SWIN') || s.includes('VIT') || s.includes('ENSEMBLE') || s.includes('DEEPFAKE')) {
+    return {
+      formula: "Triple-engine neural vision transformer ensemble (Swin-Base, ViT-Deepfake, SDXL/Flux detector) with weighted confidence fusion.",
+      mitigation: "Weighted fusion (0.55 neural, 0.25 heuristics, 0.12 metadata, 0.08 provenance) ensures AI models cannot solely dictate verdict.",
+      court: "Provides deep visual representation features indicating generative synthesis, face-swap boundaries, or inpainting artifacts."
+    };
+  }
+  if (s.includes('PRNU') || s.includes('SENSOR') || s.includes('NOISE')) {
+    return {
+      formula: "Photo-Response Non-Uniformity wavelet decomposition extracting microscopic silicon manufacturing sensor fingerprint noise.",
+      mitigation: "Requires high-frequency spatial coherence before flagging splicing boundaries.",
+      court: "Establishes whether different image regions originated from the same physical camera sensor."
+    };
+  }
+  return {
+    formula: "Deterministic heuristic extraction across spatial, cryptographic, and metadata signal vectors.",
+    mitigation: "Multi-signal thresholding requires concurring anomalies across multiple categories.",
+    court: "Supports multi-disciplinary digital forensics evaluation under Indian Evidence Act Sec 65B standards."
+  };
+}
+
+function toggleSignalExplainer(drawerId) {
+  const drawer = document.getElementById(drawerId);
+  if (!drawer) return;
+  drawer.style.display = drawer.style.display === 'none' ? 'table-row' : 'none';
+}
+
+// ── B. Global Command Palette (Cmd+K) & Keyboard Navigation ──
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    const activeTag = (document.activeElement && document.activeElement.tagName) 
+      ? document.activeElement.tagName.toLowerCase() : '';
+    const isEditing = (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select');
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      openCommandPalette();
+      return;
+    }
+    if (e.key === 'Escape') {
+      closeCommandPalette();
+      const modal = document.getElementById('new-case-modal');
+      if (modal) modal.remove();
+      const scModal = document.getElementById('shortcuts-modal');
+      if (scModal) scModal.remove();
+      return;
+    }
+
+    if (!isEditing) {
+      if (e.key === '1') switchView('dashboard');
+      if (e.key === '2') switchView('cases');
+      if (e.key === '3') switchView('upload');
+      if (e.key === '4') switchView('lab');
+      if (e.key === '5') switchView('custody');
+      if (e.key === '?') showKeyboardShortcutsModal();
+    }
+  });
+}
+
+function openCommandPalette() {
+  const container = document.getElementById('cmd-palette-container');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="cmd-palette-overlay" onclick="if(event.target===this)closeCommandPalette()">
+      <div class="cmd-palette-modal">
+        <div class="cmd-palette-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" class="cmd-palette-input" id="cmd-palette-input" placeholder="Jump to case, exhibit ID, view, or action..." autofocus oninput="filterCommandPalette(this.value)">
+          <span class="data-mono" style="font-size: 11px; color: var(--text-secondary);">ESC to close</span>
+        </div>
+        <div class="cmd-palette-results" id="cmd-palette-results"></div>
+        <div class="cmd-palette-footer">
+          <span>Navigate with <strong>↑↓</strong> or click</span>
+          <span><strong>1-5</strong> Quick Views · <strong>?</strong> Shortcuts</span>
+        </div>
+      </div>
+    </div>
+  `;
+  filterCommandPalette('');
+  const inp = document.getElementById('cmd-palette-input');
+  if (inp) inp.focus();
+}
+
+function closeCommandPalette() {
+  const container = document.getElementById('cmd-palette-container');
+  if (container) container.innerHTML = '';
+}
+
+function filterCommandPalette(query) {
+  const resultsBox = document.getElementById('cmd-palette-results');
+  if (!resultsBox) return;
+
+  const q = (query || '').toLowerCase().trim();
+  const commands = [
+    { title: 'Dashboard Overview', desc: 'Active cases, risk chart, recent ingestions', action: () => switchView('dashboard'), shortcut: '1' },
+    { title: 'Case Investigation Management', desc: 'Browse and triage cases and exhibits', action: () => switchView('cases'), shortcut: '2' },
+    { title: 'Digital Evidence Ingest', desc: 'Upload single or batch exhibits', action: () => switchView('upload'), shortcut: '3' },
+    { title: 'Forensic Deep-Dive Lab', desc: 'Multi-signal analysis and inspection', action: () => switchView('lab'), shortcut: '4' },
+    { title: 'Chain of Custody Ledger', desc: 'Cryptographic tamper-evident audit stream', action: () => switchView('custody'), shortcut: '5' },
+    { title: 'Create New Case', desc: 'Initialize a new investigation case', action: () => { switchView('cases'); openNewCaseModal(); }, shortcut: '+ N' },
+    { title: 'Export Custody Audit (JSON)', desc: 'Download cryptographic ledger snapshot', action: exportCustodyJSON, shortcut: 'JSON' }
+  ];
+
+  if (currentEvidenceId) {
+    commands.push({
+      title: `Inspect Exhibit ${currentEvidenceId}`,
+      desc: `Open ${currentEvidenceId} in Lab`,
+      action: () => { switchView('lab'); openEvidenceInLab(currentEvidenceId); },
+      shortcut: 'LAB'
+    });
+  }
+
+  const filtered = commands.filter(c => c.title.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q));
+
+  if (filtered.length === 0) {
+    resultsBox.innerHTML = `<div style="padding: 18px; text-align: center; color: var(--text-secondary); font-size: 13px;">No results found matching "${escapeHTML(q)}"</div>`;
+    return;
+  }
+
+  resultsBox.innerHTML = filtered.map((c, i) => `
+    <div class="cmd-palette-item ${i === 0 ? 'active' : ''}" onclick="executeCmdItem(${i})">
+      <div class="item-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <div>
+          <div>${escapeHTML(c.title)}</div>
+          <div style="font-size: 11px; color: var(--text-secondary);">${escapeHTML(c.desc)}</div>
+        </div>
+      </div>
+      <span class="item-shortcut">${escapeHTML(c.shortcut)}</span>
+    </div>
+  `).join('');
+
+  window._currentCmdResults = filtered;
+}
+
+function executeCmdItem(index) {
+  if (window._currentCmdResults && window._currentCmdResults[index]) {
+    const item = window._currentCmdResults[index];
+    closeCommandPalette();
+    item.action();
+  }
+}
+
+function showKeyboardShortcutsModal() {
+  const modal = document.createElement('div');
+  modal.className = 'cmd-palette-overlay';
+  modal.id = 'shortcuts-modal';
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div class="cmd-palette-modal" style="max-width: 460px;">
+      <div class="cmd-palette-header">
+        <h3 style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: #fff;">⌨️ Forensic Keyboard Shortcuts</h3>
+      </div>
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+          <span>Command Palette / Quick Search</span>
+          <span class="data-mono" style="background: var(--ink); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hairline);">⌘K / Ctrl+K</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+          <span>Switch Views (Dashboard ... Custody)</span>
+          <span class="data-mono" style="background: var(--ink); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hairline);">1, 2, 3, 4, 5</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--hairline); padding-bottom: 6px;">
+          <span>Close Modals / Popups</span>
+          <span class="data-mono" style="background: var(--ink); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hairline);">ESC</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary);">
+          <span>Show this Shortcuts Guide</span>
+          <span class="data-mono" style="background: var(--ink); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hairline);">?</span>
+        </div>
+      </div>
+      <div class="cmd-palette-footer" style="justify-content: flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shortcuts-modal').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// ── C. Interactive Split-Slider & Loupe Inspection ──
+let exhibitViewMode = 'grid';
+
+function switchExhibitViewMode(mode) {
+  exhibitViewMode = mode;
+  const gridBox = document.getElementById('lab-exhibits-box');
+  const splitBox = document.getElementById('lab-split-box');
+  const loupeBox = document.getElementById('lab-loupe-box');
+
+  const btnGrid = document.getElementById('btn-exhibit-mode-grid');
+  const btnSplit = document.getElementById('btn-exhibit-mode-split');
+  const btnLoupe = document.getElementById('btn-exhibit-mode-loupe');
+
+  [btnGrid, btnSplit, btnLoupe].forEach(b => {
+    if (b) { b.style.background = 'transparent'; b.style.color = 'var(--text-secondary)'; }
+  });
+
+  if (gridBox) gridBox.style.display = 'none';
+  if (splitBox) splitBox.style.display = 'none';
+  if (loupeBox) loupeBox.style.display = 'none';
+
+  if (mode === 'split') {
+    if (splitBox) splitBox.style.display = 'block';
+    if (btnSplit) { btnSplit.style.background = 'var(--brand)'; btnSplit.style.color = '#0B0F14'; }
+    updateSplitSliderImages();
+  } else if (mode === 'loupe') {
+    if (loupeBox) loupeBox.style.display = 'block';
+    if (btnLoupe) { btnLoupe.style.background = 'var(--brand)'; btnLoupe.style.color = '#0B0F14'; }
+    updateLoupeImage();
+  } else {
+    if (gridBox) gridBox.style.display = 'grid';
+    if (btnGrid) { btnGrid.style.background = 'var(--brand)'; btnGrid.style.color = '#0B0F14'; }
+  }
+}
+
+function updateSplitSliderImages() {
+  if (!currentEvidenceId) return;
+  const origImg = document.getElementById('split-img-orig');
+  const forensicImg = document.getElementById('split-img-forensic');
+  if (origImg) origImg.src = `/api/evidence/${currentEvidenceId}/preview`;
+  if (forensicImg) forensicImg.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/ela`;
+}
+
+function updateLoupeImage() {
+  if (!currentEvidenceId) return;
+  const target = document.getElementById('loupe-target-img');
+  if (target) target.src = `/api/evidence/${currentEvidenceId}/preview`;
+}
+
+function setupSplitSlider() {
+  const widget = document.getElementById('split-slider-widget');
+  const overlay = document.getElementById('split-slider-overlay');
+  const handle = document.getElementById('split-slider-handle');
+  if (!widget || !overlay || !handle) return;
+
+  let isDragging = false;
+
+  const moveSlider = (clientX) => {
+    const rect = widget.getBoundingClientRect();
+    let x = clientX - rect.left;
+    if (x < 0) x = 0;
+    if (x > rect.width) x = rect.width;
+    const pct = (x / rect.width) * 100;
+    overlay.style.width = `${pct}%`;
+    handle.style.left = `${pct}%`;
+  };
+
+  widget.addEventListener('mousedown', (e) => { isDragging = true; moveSlider(e.clientX); });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+  window.addEventListener('mousemove', (e) => { if (isDragging) moveSlider(e.clientX); });
+
+  widget.addEventListener('touchstart', (e) => { if (e.touches.length > 0) moveSlider(e.touches[0].clientX); });
+  widget.addEventListener('touchmove', (e) => { if (e.touches.length > 0) moveSlider(e.touches[0].clientX); });
+}
+
+function setupMagnifier() {
+  const container = document.getElementById('loupe-widget-container');
+  const img = document.getElementById('loupe-target-img');
+  const lens = document.getElementById('loupe-lens');
+  if (!container || !img || !lens) return;
+
+  const zoom = 2.5;
+
+  container.addEventListener('mousemove', (e) => {
+    lens.style.display = 'block';
+    const rect = img.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+
+    if (x < 0 || x > rect.width || y < 0 || y > rect.height) {
+      lens.style.display = 'none';
+      return;
+    }
+
+    const lensWidth = lens.offsetWidth;
+    const lensHeight = lens.offsetHeight;
+
+    lens.style.left = `${x - lensWidth / 2}px`;
+    lens.style.top = `${y - lensHeight / 2}px`;
+    lens.style.backgroundImage = `url('${img.src}')`;
+    lens.style.backgroundSize = `${rect.width * zoom}px ${rect.height * zoom}px`;
+    lens.style.backgroundPosition = `-${(x * zoom) - (lensWidth / 2)}px -${(y * zoom) - (lensHeight / 2)}px`;
+  });
+
+  container.addEventListener('mouseleave', () => {
+    lens.style.display = 'none';
+  });
+}
+
+// ── D. Case Workspace Mode Switcher (Table vs Gallery) ──
+let currentCaseWorkspaceMode = 'table';
+
+function setCaseWorkspaceMode(mode) {
+  currentCaseWorkspaceMode = mode;
+  const btnTable = document.getElementById('btn-ws-mode-table');
+  const btnGallery = document.getElementById('btn-ws-mode-gallery');
+
+  if (mode === 'gallery') {
+    if (btnGallery) { btnGallery.style.background = 'var(--brand)'; btnGallery.style.color = '#0B0F14'; }
+    if (btnTable) { btnTable.style.background = 'transparent'; btnTable.style.color = 'var(--text-secondary)'; }
+  } else {
+    if (btnTable) { btnTable.style.background = 'var(--brand)'; btnTable.style.color = '#0B0F14'; }
+    if (btnGallery) { btnGallery.style.background = 'transparent'; btnGallery.style.color = 'var(--text-secondary)'; }
+  }
+  applyCaseFilters();
+}
