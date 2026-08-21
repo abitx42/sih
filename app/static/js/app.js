@@ -607,6 +607,7 @@ async function openEvidenceInLab(evidenceId) {
     currentEvidenceData = data;
 
     renderLabView(data);
+    loadWebProvenanceTab(evidenceId);
   } catch (err) {
     console.error("Lab detail error:", err);
   }
@@ -2408,4 +2409,201 @@ function setCaseWorkspaceMode(mode) {
     if (btnGallery) { btnGallery.style.background = 'transparent'; btnGallery.style.color = 'var(--text-secondary)'; }
   }
   applyCaseFilters();
+}
+
+
+// ── Web Provenance & Internet Cross-Check (Phase 2) ──────────────────────────
+
+async function loadWebProvenanceTab(evidenceId, customQuery = null) {
+  if (!evidenceId) return;
+  try {
+    const url = customQuery
+      ? `/api/evidence/${evidenceId}/web-search?custom_query=${encodeURIComponent(customQuery)}`
+      : `/api/evidence/${evidenceId}/web-search`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    renderWebProvenanceTab(data, evidenceId);
+  } catch (e) {
+    console.warn("Failed to load web provenance:", e);
+  }
+}
+
+function renderWebProvenanceTab(data, evidenceId) {
+  if (!data) return;
+
+  const statusBadge = document.getElementById("prov-match-status-badge");
+  const confEl = document.getElementById("prov-match-confidence");
+  const regionEl = document.getElementById("prov-match-region");
+  const consensusBadge = document.getElementById("prov-consensus-badge");
+
+  const titleEl = document.getElementById("prov-best-match-title");
+  const metaEl = document.getElementById("prov-best-match-meta");
+  const linkEl = document.getElementById("prov-best-match-link");
+  const credBadge = document.getElementById("prov-source-cred-badge");
+
+  const authPctEl = document.getElementById("prov-authentic-pct");
+  const altPctEl = document.getElementById("prov-altered-pct");
+  const barAuth = document.getElementById("prov-bar-authentic");
+  const barAlt = document.getElementById("prov-bar-altered");
+  const diffSummary = document.getElementById("prov-diff-summary");
+
+  const hashGlobal = document.getElementById("prov-hash-global");
+  const hashTL = document.getElementById("prov-hash-tl");
+  const hashTR = document.getElementById("prov-hash-tr");
+  const hashBL = document.getElementById("prov-hash-bl");
+  const hashBR = document.getElementById("prov-hash-br");
+  const hashCenter = document.getElementById("prov-hash-center");
+
+  const articlesList = document.getElementById("prov-articles-list");
+  const articlesCount = document.getElementById("prov-articles-count");
+  const diffSection = document.getElementById("prov-diff-map-section");
+  const diffImg = document.getElementById("prov-diff-heatmap-img");
+
+  const mType = data.match_type || data.match_status || "NO_INTERNET_MATCH";
+  const conf = data.match_confidence || 0;
+  const region = data.match_region || "None";
+
+  // Status Badge
+  if (statusBadge) {
+    statusBadge.textContent = mType.replace(/_/g, " ");
+    if (mType === "EXACT_DUPLICATE") {
+      statusBadge.style.color = "var(--danger)";
+    } else if (mType === "PARTIAL_CROP_MATCH") {
+      statusBadge.style.color = "var(--brand)";
+    } else if (mType === "NO_INTERNET_MATCH") {
+      statusBadge.style.color = "var(--phosphor)";
+      statusBadge.textContent = "ORIGINAL / UNPUBLISHED";
+    } else {
+      statusBadge.style.color = "var(--tag-accent)";
+    }
+  }
+
+  if (confEl) confEl.textContent = `${conf.toFixed(1)}%`;
+  if (regionEl) regionEl.textContent = region;
+
+  // Provenance articles & consensus
+  const provArticles = data.provenance_articles || {};
+  const consensusVerdict = provArticles.consensus_verdict || "UNVERIFIED";
+  if (consensusBadge) {
+    consensusBadge.textContent = consensusVerdict.replace(/_/g, " ");
+    consensusBadge.style.color = consensusVerdict.includes("MANIPULATED") ? "var(--danger)" : "var(--phosphor)";
+  }
+
+  // Best Match Card
+  const bestM = data.best_match;
+  if (bestM && bestM.title) {
+    if (titleEl) titleEl.textContent = bestM.title;
+    if (metaEl) metaEl.textContent = `Source: ${bestM.source || 'Web'} | Domain: ${bestM.domain || 'Internet'} | Date: ${bestM.published_date || 'N/A'}`;
+    if (linkEl) {
+      linkEl.innerHTML = bestM.url ? `<a href="${escapeHTML(bestM.url)}" target="_blank" rel="noopener noreferrer" style="color: var(--brand); text-decoration: underline; font-weight: 600;">View Matched Original Source ↗</a>` : "";
+    }
+    if (credBadge) credBadge.textContent = (bestM.credibility || "TIER 1 SOURCE").replace(/_/g, " ");
+  } else {
+    if (titleEl) titleEl.textContent = "No identical external match found in public search index. Exhibit appears to be unpublished original.";
+    if (metaEl) metaEl.textContent = "Multi-scale perceptual hashing confirmed zero prior matching records.";
+    if (linkEl) linkEl.innerHTML = "";
+    if (credBadge) credBadge.textContent = "INDEX COMPLETE";
+  }
+
+  // Difference Analysis
+  const diff = data.difference_analysis;
+  if (diff) {
+    const authPct = diff.authentic_percentage != null ? diff.authentic_percentage : 100;
+    const altPct = diff.altered_percentage != null ? diff.altered_percentage : 0;
+    if (authPctEl) authPctEl.textContent = `${authPct}%`;
+    if (altPctEl) altPctEl.textContent = `${altPct}%`;
+    if (barAuth) barAuth.style.width = `${authPct}%`;
+    if (barAlt) barAlt.style.width = `${altPct}%`;
+    if (diffSummary) diffSummary.textContent = diff.summary || "Pixel comparison completed.";
+
+    if (diff.diff_heatmap_url && diffSection && diffImg) {
+      diffSection.style.display = "block";
+      diffImg.src = diff.diff_heatmap_url;
+    }
+  } else {
+    if (authPctEl) authPctEl.textContent = "100%";
+    if (altPctEl) altPctEl.textContent = "0%";
+    if (barAuth) barAuth.style.width = "100%";
+    if (barAlt) barAlt.style.width = "0%";
+  }
+
+  // Multi-Scale Hashes
+  const hashes = (data.raw_search && data.raw_search.multi_scale_hashes) || {};
+  if (hashGlobal) hashGlobal.textContent = hashes.global_phash || data.phash || "—";
+  if (hashTL) hashTL.textContent = hashes.top_left_phash || "—";
+  if (hashTR) hashTR.textContent = hashes.top_right_phash || "—";
+  if (hashBL) hashBL.textContent = hashes.bottom_left_phash || "—";
+  if (hashBR) hashBR.textContent = hashes.bottom_right_phash || "—";
+  if (hashCenter) hashCenter.textContent = hashes.center_phash || "—";
+
+  // Articles List
+  const articles = provArticles.articles || [];
+  if (articlesCount) articlesCount.textContent = `${articles.length} Source${articles.length === 1 ? '' : 's'}`;
+  if (articlesList) {
+    if (articles.length > 0) {
+      articlesList.innerHTML = articles.map(a => `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 6px; padding: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem; gap: 0.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--cream); line-height: 1.3;">
+              <a href="${escapeHTML(a.url || '#')}" target="_blank" rel="noopener noreferrer" style="color: var(--cream); text-decoration: none;">
+                ${escapeHTML(a.title || 'Untitled Article')} ↗
+              </a>
+            </div>
+            <span class="badge ${a.fact_check_verdict === 'REPORTED_MANIPULATED' ? 'badge-risk-high' : 'badge-risk-low'}" style="font-size: 0.62rem; flex-shrink: 0;">
+              ${escapeHTML(a.fact_check_verdict || 'VERIFIED')}
+            </span>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--brand); margin-bottom: 0.35rem;">
+            🏛️ ${escapeHTML(a.source || 'Journalistic Source')} • 📅 ${escapeHTML(a.date || 'Recent')}
+          </div>
+          <p style="font-size: 0.74rem; color: var(--text-secondary); line-height: 1.35;">
+            ${escapeHTML(a.snippet || '')}
+          </p>
+        </div>
+      `).join("");
+    } else {
+      articlesList.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.78rem; text-align: center; padding: 1rem;">No online news articles or fact-checks found.</div>';
+    }
+  }
+}
+
+async function triggerWebProvenanceScan() {
+  if (!currentEvidenceId) {
+    showToast("Please select or ingest an evidence exhibit first.", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-provenance-scan");
+  const queryInput = document.getElementById("provenance-custom-query");
+  const queryVal = queryInput ? queryInput.value.trim() : "";
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Scanning Internet & News...";
+  }
+
+  try {
+    const url = queryVal
+      ? `/api/evidence/${currentEvidenceId}/web-search?query=${encodeURIComponent(queryVal)}`
+      : `/api/evidence/${currentEvidenceId}/web-search`;
+
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Scan error: ${err.detail || 'Request failed'}`, "error");
+      return;
+    }
+
+    const data = await res.json();
+    renderWebProvenanceTab(data, currentEvidenceId);
+    showToast("Internet cross-check & fact-check research complete!", "success");
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔍 Run Web & News Scan";
+    }
+  }
 }

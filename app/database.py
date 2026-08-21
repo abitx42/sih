@@ -267,6 +267,30 @@ def init_db():
         )
         """)
 
+        # 11. Web Search Results Table (Phase 2 — Internet Cross-Check & Provenance)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS web_search_results (
+            search_id TEXT PRIMARY KEY,
+            evidence_id TEXT NOT NULL UNIQUE,
+            match_status TEXT NOT NULL,
+            match_type TEXT NOT NULL,
+            best_match_title TEXT,
+            best_match_url TEXT,
+            best_match_source TEXT,
+            match_confidence REAL NOT NULL,
+            match_region TEXT,
+            authentic_percentage REAL,
+            altered_percentage REAL,
+            diff_heatmap_path TEXT,
+            articles_json TEXT DEFAULT '[]',
+            consensus_verdict TEXT,
+            consensus_summary TEXT,
+            raw_search_json TEXT DEFAULT '{}',
+            searched_at TEXT NOT NULL,
+            FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
+        )
+        """)
+
         # Insert default demo case if no cases exist
         cursor.execute("SELECT COUNT(*) as count FROM cases")
         if cursor.fetchone()["count"] == 0:

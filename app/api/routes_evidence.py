@@ -1198,12 +1198,14 @@ def verify_custody_chain(evidence_id: str):
 
 
 @router.post("/{evidence_id}/web-search")
-def run_web_provenance_search(evidence_id: str):
+def run_web_provenance_search(evidence_id: str, query: Optional[str] = None):
     """
-    On-demand Perceptual Hashing & Web Provenance Reverse-Image Search.
-    Computes pHash/dHash/wHash, cross-checks against local DB, and performs
-    SerpAPI Google Lens reverse search if SERP_API_KEY is configured.
+    On-demand Multi-Scale Internet Cross-Check, Reverse Image/Video Search
+    and News Fact-Check Research Pipeline (Phase 2).
     """
+    from app.analyzers.internet_search_analyzer import InternetSearchAnalyzer
+    from app.core.provenance_web import WebProvenanceEngine
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
@@ -1211,32 +1213,62 @@ def run_web_provenance_search(evidence_id: str):
         if not evidence:
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
-        if evidence.get("modality") != "IMAGE":
-            raise HTTPException(status_code=400, detail="Web provenance search is only available for IMAGE exhibits.")
-
-        cursor.execute(
-            "SELECT evidence_id, original_filename AS filename, phash FROM evidence WHERE phash IS NOT NULL AND evidence_id != ?",
-            (evidence_id,)
-        )
-        existing_hashes = [dict(r) for r in cursor.fetchall()]
-
     file_path = EVIDENCE_DIR / evidence["stored_filename"]
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Evidence file not found on disk.")
 
-    result = web_context_analyzer.analyze(
-        image_path=file_path,
+    analyzer = InternetSearchAnalyzer()
+    search_res = analyzer.analyze(
+        file_path=file_path,
         evidence_id=evidence_id,
-        existing_evidence_hashes=existing_hashes,
+        modality=evidence.get("modality", "IMAGE"),
+        custom_query=query
     )
 
-    # Persist phash to evidence and web_context to forensic_results
+    article_res = WebProvenanceEngine.research_articles(
+        evidence_id=evidence_id,
+        best_match=search_res.get("best_match"),
+        all_matches=search_res.get("all_matches", []),
+        custom_query=query
+    )
+
+    now = datetime.utcnow().isoformat() + "Z"
+    search_id = f"WS-{evidence_id}"
+    best_m = search_res.get("best_match") or {}
+    diff_data = search_res.get("difference_analysis") or {}
+
+    # Persist in web_search_results table & evidence phash
     with get_db() as conn:
-        if result.get("phash"):
-            try:
-                conn.execute("UPDATE evidence SET phash = ? WHERE evidence_id = ?", (result["phash"], evidence_id))
-            except Exception:
-                pass
+        if search_res.get("multi_scale_hashes", {}).get("global_phash"):
+            conn.execute("UPDATE evidence SET phash = ? WHERE evidence_id = ?", (search_res["multi_scale_hashes"]["global_phash"], evidence_id))
+
+        conn.execute("""
+            INSERT OR REPLACE INTO web_search_results (
+                search_id, evidence_id, match_status, match_type,
+                best_match_title, best_match_url, best_match_source,
+                match_confidence, match_region, authentic_percentage,
+                altered_percentage, diff_heatmap_path, articles_json,
+                consensus_verdict, consensus_summary, raw_search_json, searched_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            search_id,
+            evidence_id,
+            search_res["match_status"],
+            search_res["match_type"],
+            best_m.get("title"),
+            best_m.get("url"),
+            best_m.get("source"),
+            search_res["match_confidence"],
+            search_res["match_region"],
+            diff_data.get("authentic_percentage"),
+            diff_data.get("altered_percentage"),
+            diff_data.get("diff_heatmap_url"),
+            json.dumps(article_res.get("articles", [])),
+            article_res.get("consensus_verdict"),
+            article_res.get("consensus_summary"),
+            json.dumps(search_res),
+            now
+        ))
 
         cursor = conn.cursor()
         cursor.execute("SELECT raw_metrics_json FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
@@ -1244,7 +1276,8 @@ def run_web_provenance_search(evidence_id: str):
         if fr_row:
             try:
                 raw_m = json.loads(fr_row["raw_metrics_json"])
-                raw_m["web_context"] = result
+                raw_m["web_search"] = search_res
+                raw_m["web_provenance_articles"] = article_res
                 conn.execute(
                     "UPDATE forensic_results SET raw_metrics_json = ? WHERE evidence_id = ?",
                     (json.dumps(raw_m), evidence_id)
@@ -1252,4 +1285,37 @@ def run_web_provenance_search(evidence_id: str):
             except Exception as e:
                 logger.warning(f"Failed to update raw_metrics_json with web_context: {e}")
 
-    return result
+    # Record Custody Event
+    ChainOfCustodyLogger.record_event(
+        evidence_id=evidence_id,
+        action="INTERNET_CROSS_CHECK_COMPLETED",
+        actor="Truth Lens Provenance Subsystem",
+        recorded_sha256=evidence["sha256_hash"],
+        details=(
+            f"Internet reverse search completed. Match Outcome: {search_res['match_type']}. "
+            f"Consensus Verdict: {article_res.get('consensus_verdict')}. "
+            f"Articles: {len(article_res.get('articles', []))}."
+        )
+    )
+
+    return {
+        "success": True,
+        "evidence_id": evidence_id,
+        "phash": search_res.get("multi_scale_hashes", {}).get("global_phash"),
+        "match_status": search_res["match_status"],
+        "match_type": search_res["match_type"],
+        "match_confidence": search_res["match_confidence"],
+        "match_region": search_res["match_region"],
+        "best_match": best_m,
+        "difference_analysis": diff_data,
+        "search_results": search_res,
+        "provenance_articles": article_res,
+        "searched_at": now
+    }
+
+@router.get("/{evidence_id}/web-search")
+def get_web_provenance_search_results(evidence_id: str):
+    """Fetch stored internet search and article research results."""
+    from app.api.routes_web_search import get_web_search_results
+    return get_web_search_results(evidence_id)
+
