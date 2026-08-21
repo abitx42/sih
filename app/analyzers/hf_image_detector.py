@@ -1,13 +1,17 @@
 import os
+import math
 import logging
+import concurrent.futures
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
 from app.config import settings, MODEL_CACHE_DIR
 
 logger = logging.getLogger(__name__)
+
 
 class SingleModelRunner:
     """Helper class to load and execute inference for a single local HF vision classifier."""
@@ -209,60 +213,99 @@ class SingleModelRunner:
 
 class HFImageDetector:
     """
-    Dedicated Multi-Model Neural Vision Forensic Ensemble (v3.0 — Triple Engine).
-    Coordinates local execution of three complementary specialized neural vision architectures:
+    Dedicated Multi-Model Neural Vision Forensic Ensemble (v4.0 — Penta-Engine).
+    Coordinates local execution of five complementary specialized neural vision architectures:
 
-      1. Generative Diffusion & AI Scene Specialist ('umm-maybe/AI-image-detector')
-         Swin Transformer trained on GAN + early diffusion images. Best for DALL-E 2,
-         Stable Diffusion 1.x/2.x, and overall scene-level synthetic detection.
+      1. SMOGY AI Images Detector ('Smogy/SMOGY-Ai-images-detector')
+         Newest highest-accuracy model. Best for Flux, DALL-E 3, Midjourney v6, SDXL.
+         Role: MODERN_DIFFUSION_SMOGY  |  Weight: 0.28
 
-      2. Facial Deepfake & Manipulation Specialist ('dima806/deepfake_vs_real_image_detection')
+      2. Modern Diffusion Specialist ('Organika/sdxl-detector')
+         Swin-B model targeting SDXL, Flux, Midjourney v6, ChatGPT-4o image outputs.
+         Role: MODERN_DIFFUSION_ORGANIKA  |  Weight: 0.22
+
+      3. General AI vs Real ('dima806/ai_vs_real_image_detection')
+         Broad-coverage AI vs real image detection across many generator types.
+         Role: GENERAL_AI_VS_REAL  |  Weight: 0.22
+
+      4. Generative Diffusion Legacy ('umm-maybe/AI-image-detector')
+         Swin Transformer trained on GAN + early diffusion. Baseline coverage.
+         Role: GENERATIVE_DIFFUSION_LEGACY  |  Weight: 0.16
+
+      5. Facial Deepfake Specialist ('dima806/deepfake_vs_real_image_detection')
          Vision Transformer fine-tuned for facial deepfakes and face-swap manipulation.
+         Role: FACIAL_DEEPFAKE  |  Weight: 0.12
 
-      3. Modern Diffusion Specialist ('Organika/sdxl-detector')
-         Swin-B model specifically targeting Stable Diffusion XL, Flux, Midjourney v6,
-         and ChatGPT-4o image outputs. Fills the accuracy gap in the older models.
-
-    Ensemble Logic (Weighted Vote):
-      - Model 1 (umm-maybe): weight 0.40  — broad GAN/diffusion coverage
-      - Model 2 (dima806):   weight 0.25  — facial deepfake coverage
-      - Model 3 (Organika):  weight 0.35  — modern high-quality diffusion coverage
-    - If any model fires strongly (>= 0.75), its signal is amplified in the fusion.
-    - Individual model telemetry preserved in sub_models for transparency.
-    - 100% local, zero-cloud data transmission.
+    Ensemble Logic (Calibrated Weighted Mean):
+      - Soft sigmoid calibration applied per model before fusion.
+      - Weights re-normalized for available models only.
+      - Agreement bonus (+8%, capped at 1.0) when 3+ models strongly agree (all >0.65 or all <0.35).
+      - Disagreement penalty (-8%) when max-min spread > 0.5 (conflict signal).
+      - Individual model telemetry preserved in sub_models for transparency.
+      - 100% local, zero-cloud data transmission.
     """
 
-    # Ensemble weights per model — must sum to 1.0
+    # Ensemble weights per model role — ordered by priority / accuracy
     _MODEL_WEIGHTS = {
-        "generative_diffusion":   0.40,
-        "facial_deepfake":        0.25,
-        "modern_diffusion":       0.35,
+        "MODERN_DIFFUSION_SMOGY":      0.28,
+        "MODERN_DIFFUSION_ORGANIKA":   0.22,
+        "GENERAL_AI_VS_REAL":          0.22,
+        "GENERATIVE_DIFFUSION_LEGACY": 0.16,
+        "FACIAL_DEEPFAKE":             0.12,
     }
 
     def __init__(self):
+        # Settings-compatibility attributes (referenced by config/tests)
         self.generative_model_name = settings.HF_GENERATIVE_MODEL_NAME
         self.deepfake_model_name = settings.HF_DEEPFAKE_MODEL_NAME
         self.model_name = settings.HF_MODEL_NAME
         self.model_revision = settings.HF_MODEL_REVISION
 
-        # Runner 1: Broad generative detection (Swin Transformer)
+        # --- Five model runners ---
+
+        # Runner 1: Newest highest-accuracy SMOGY model (Flux, DALL-E 3, MJ v6, SDXL)
+        self.smogy_runner = SingleModelRunner(
+            model_name="Smogy/SMOGY-Ai-images-detector",
+            model_revision="",
+            role="MODERN_DIFFUSION_SMOGY"
+        )
+
+        # Runner 2: Modern diffusion specialist (Organika SDXL / Flux / MJ v6)
+        self.sdxl_runner = SingleModelRunner(
+            model_name="Organika/sdxl-detector",
+            model_revision="",
+            role="MODERN_DIFFUSION_ORGANIKA"
+        )
+
+        # Runner 3: General AI vs real broad-coverage
+        self.general_runner = SingleModelRunner(
+            model_name="dima806/ai_vs_real_image_detection",
+            model_revision="",
+            role="GENERAL_AI_VS_REAL"
+        )
+
+        # Runner 4: Broad generative detection legacy baseline (GAN + early diffusion)
         self.gen_runner = SingleModelRunner(
             model_name=self.generative_model_name,
             model_revision="",
-            role="GENERATIVE_DIFFUSION"
+            role="GENERATIVE_DIFFUSION_LEGACY"
         )
-        # Runner 2: Facial deepfake specialist (ViT)
+
+        # Runner 5: Facial deepfake specialist (ViT, pinned revision)
         self.deepfake_runner = SingleModelRunner(
             model_name=self.deepfake_model_name,
             model_revision="29e4cf9efc543845610045f6ba7e88e5cf9d9301",
             role="FACIAL_DEEPFAKE"
         )
-        # Runner 3: Modern diffusion specialist (Swin-B, SDXL / Flux / MJ v6)
-        self.sdxl_runner = SingleModelRunner(
-            model_name="Organika/sdxl-detector",
-            model_revision="",
-            role="MODERN_DIFFUSION"
-        )
+
+        # Ordered list of all runners — used for parallel warmup and iteration
+        self._all_runners: List[SingleModelRunner] = [
+            self.smogy_runner,
+            self.sdxl_runner,
+            self.general_runner,
+            self.gen_runner,
+            self.deepfake_runner,
+        ]
 
         # Backwards compatibility attributes for unit test mocks
         self._processor = None
@@ -286,57 +329,111 @@ class HFImageDetector:
         return "UNKNOWN"
 
     def load_model(self) -> bool:
-        """Pre-loads configured models."""
+        """Pre-loads all configured models sequentially. Use warmup_models() for parallel loading."""
         if self._is_loaded is False:
             return False
-        g_ok = self.gen_runner.load_model()
-        d_ok = self.deepfake_runner.load_model()
-        s_ok = self.sdxl_runner.load_model()
-        return g_ok or d_ok or s_ok
+        results = [runner.load_model() for runner in self._all_runners]
+        return any(results)
 
-    def _weighted_ensemble_vote(
+    def warmup_models(self) -> bool:
+        """
+        Pre-warms all 5 models in parallel using a ThreadPoolExecutor.
+        Call this at application startup to reduce first-request latency.
+        Returns True if at least one model loaded successfully.
+        """
+        logger.info("Warming up all 5 ensemble models in parallel...")
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [
+                executor.submit(runner.load_model)
+                for runner in self._all_runners
+            ]
+            results = [f.result() for f in futures]
+        loaded_count = sum(1 for r in results if r)
+        logger.info(f"Parallel warmup complete: {loaded_count}/5 models loaded successfully.")
+        return any(results)
+
+    def _calibrated_ensemble_vote(
         self,
-        gen_ind: Optional[float],
-        df_ind: Optional[float],
-        sdxl_ind: Optional[float],
-    ) -> Tuple[float, str]:
+        indicator_weight_pairs: List[Tuple[float, float, str]],
+    ) -> Tuple[float, str, Dict[str, Any]]:
         """
-        Fuses three model indicators into a single ensemble indicator using
-        calibrated weighted averaging with strong-signal amplification.
+        Fuses N model indicators into a single ensemble indicator using
+        soft sigmoid calibration followed by calibrated weighted mean.
 
-        Returns: (ensemble_indicator, active_role_description)
+        Args:
+            indicator_weight_pairs: List of (indicator, weight, role_label) for available models.
+
+        Fusion steps:
+          1. Apply soft sigmoid calibration: calibrated = 1 / (1 + exp(-(p - 0.5) * 3.0))
+          2. Re-normalize weights for available models.
+          3. Compute weighted mean of calibrated values.
+          4. Apply agreement bonus (+8%, capped at 1.0) if 3+ models all > 0.65 or all < 0.35.
+          5. Apply disagreement penalty (-8%) if max - min spread > 0.5.
+
+        Returns:
+            (ensemble_indicator, active_role_description, agreement_metadata)
         """
-        w = self._MODEL_WEIGHTS
-        parts = []
-        roles = []
+        if not indicator_weight_pairs:
+            return 0.0, "No models available", {
+                "agreement_score": 0.0,
+                "calibrated_indicators": [],
+                "conflict_detected": False,
+                "agreement_bonus_applied": False,
+                "model_spread": 0.0,
+                "models_available": 0,
+            }
 
-        if gen_ind is not None:
-            parts.append((gen_ind, w["generative_diffusion"], "umm-maybe/AI-image-detector"))
-            roles.append(f"GEN:{gen_ind:.2f}")
-        if df_ind is not None:
-            parts.append((df_ind, w["facial_deepfake"], "dima806/deepfake_vs_real"))
-            roles.append(f"DF:{df_ind:.2f}")
-        if sdxl_ind is not None:
-            parts.append((sdxl_ind, w["modern_diffusion"], "Organika/sdxl-detector"))
-            roles.append(f"SDXL:{sdxl_ind:.2f}")
+        # Step 1: Soft sigmoid calibration per model
+        calibrated_values: List[Tuple[float, float, str]] = []
+        role_labels: List[str] = []
+        raw_indicators: List[float] = []
 
-        if not parts:
-            return 0.0, "No models available"
+        for (ind, weight, role_label) in indicator_weight_pairs:
+            cal = 1.0 / (1.0 + math.exp(-(ind - 0.5) * 3.0))
+            calibrated_values.append((cal, weight, role_label))
+            role_labels.append(f"{role_label}:{ind:.2f}>{cal:.2f}")
+            raw_indicators.append(ind)
 
-        # Normalize weights to available models
-        total_w = sum(p[1] for p in parts)
-        base_ind = sum(p[0] * (p[1] / total_w) for p in parts)
+        # Step 2: Re-normalize weights for available models
+        total_w = sum(cv[1] for cv in calibrated_values)
+        normalized = [(cv[0], cv[1] / total_w, cv[2]) for cv in calibrated_values]
 
-        # Strong-signal amplification: if any single model fires >= 0.75, boost the ensemble
-        strong_signals = [p for p in parts if p[0] >= 0.75]
-        if strong_signals:
-            # Take max strong signal and blend it 60/40 with base
-            max_strong = max(p[0] for p in strong_signals)
-            ensemble_ind = round((max_strong * 0.60) + (base_ind * 0.40), 4)
-        else:
-            ensemble_ind = round(base_ind, 4)
+        # Step 3: Weighted mean of calibrated values
+        weighted_mean = sum(cv[0] * cv[1] for cv in normalized)
 
-        return min(1.0, ensemble_ind), " | ".join(roles)
+        # Step 4: Agreement bonus — 3+ models strongly agree
+        cal_vals_only = [cv[0] for cv in calibrated_values]
+        n = len(cal_vals_only)
+        high_agree = sum(1 for v in cal_vals_only if v > 0.65)
+        low_agree  = sum(1 for v in cal_vals_only if v < 0.35)
+        agreement_bonus_applied = False
+        if (high_agree >= 3) or (low_agree >= 3):
+            weighted_mean = min(1.0, weighted_mean * 1.08)
+            agreement_bonus_applied = True
+
+        # Step 5: Disagreement penalty — high spread among models
+        spread = (max(raw_indicators) - min(raw_indicators)) if n > 1 else 0.0
+        conflict_detected = spread > 0.5
+        if conflict_detected:
+            weighted_mean = weighted_mean * 0.92
+
+        ensemble_ind = round(min(1.0, max(0.0, weighted_mean)), 4)
+
+        # Agreement score: inverse of normalized spread (1.0 = perfect agreement)
+        agreement_score = round(1.0 - min(1.0, spread), 4)
+
+        active_role = " | ".join(role_labels)
+
+        ensemble_metadata = {
+            "agreement_score": agreement_score,
+            "calibrated_indicators": [round(cv[0], 4) for cv in calibrated_values],
+            "conflict_detected": conflict_detected,
+            "agreement_bonus_applied": agreement_bonus_applied,
+            "model_spread": round(spread, 4),
+            "models_available": n,
+        }
+
+        return ensemble_ind, active_role, ensemble_metadata
 
     def predict(self, image_input: Any) -> Dict[str, Any]:
         """
@@ -371,7 +468,7 @@ class HFImageDetector:
         except Exception as e:
             return {
                 "ai_model_name": "Multi-Model Neural Vision Ensemble",
-                "ai_model_version": "3.0-TripleEngine",
+                "ai_model_version": "4.0-PentaEngine",
                 "ai_manipulation_indicator": None,
                 "model_confidence": None,
                 "model_status": "ERROR",
@@ -392,51 +489,80 @@ class HFImageDetector:
             mock_runner._is_loaded = True
             return mock_runner.predict(img)
 
-        # 3. Triple-Model Inference (in parallel-compatible order)
-        gen_res  = self.gen_runner.predict(img)
-        df_res   = self.deepfake_runner.predict(img)
-        sdxl_res = self.sdxl_runner.predict(img)
+        # 3. Five-Model Inference (sequential; use warmup_models() for parallel pre-loading)
+        smogy_res   = self.smogy_runner.predict(img)
+        sdxl_res    = self.sdxl_runner.predict(img)
+        general_res = self.general_runner.predict(img)
+        gen_res     = self.gen_runner.predict(img)
+        df_res      = self.deepfake_runner.predict(img)
 
         sub_models = {
-            "generative_diffusion_detector": gen_res,
-            "facial_deepfake_detector":      df_res,
-            "modern_diffusion_detector":     sdxl_res,
+            "modern_diffusion_smogy":      smogy_res,
+            "modern_diffusion_organika":   sdxl_res,
+            "general_ai_vs_real":          general_res,
+            "generative_diffusion_legacy": gen_res,
+            "facial_deepfake_detector":    df_res,
         }
 
         # 4. Determine Ensemble Availability
+        all_results = [smogy_res, sdxl_res, general_res, gen_res, df_res]
         available_results = [
-            r for r in [gen_res, df_res, sdxl_res]
+            r for r in all_results
             if r.get("model_status") == "AVAILABLE" and r.get("ai_manipulation_indicator") is not None
         ]
 
         if not available_results:
             status = "ANALYSIS INCONCLUSIVE" if any(
-                r.get("model_status") == "ANALYSIS INCONCLUSIVE" for r in [gen_res, df_res, sdxl_res]
+                r.get("model_status") == "ANALYSIS INCONCLUSIVE" for r in all_results
             ) else "ANALYSIS UNAVAILABLE"
             return {
                 "ai_model_name": "Multi-Model Neural Vision Ensemble",
-                "ai_model_version": "3.0-TripleEngine",
+                "ai_model_version": "4.0-PentaEngine",
                 "ai_manipulation_indicator": None,
                 "model_confidence": None,
                 "model_status": status,
                 "label_mapping": {},
                 "predicted_label": None,
-                "runtime_device": gen_res.get("runtime_device", "cpu"),
+                "runtime_device": smogy_res.get("runtime_device", "cpu"),
                 "inference_timestamp": timestamp,
                 "sub_models": sub_models,
-                "error_detail": gen_res.get("error_detail") or df_res.get("error_detail") or "All vision models unavailable"
+                "ensemble_metadata": {
+                    "agreement_score": 0.0,
+                    "calibrated_indicators": [],
+                    "conflict_detected": False,
+                    "agreement_bonus_applied": False,
+                    "model_spread": 0.0,
+                    "models_available": 0,
+                },
+                "error_detail": next(
+                    (r.get("error_detail") for r in all_results if r.get("error_detail")),
+                    "All vision models unavailable"
+                )
             }
 
-        # 5. Weighted Ensemble Fusion
-        gen_ind  = gen_res.get("ai_manipulation_indicator")  if gen_res.get("model_status")  == "AVAILABLE" else None
-        df_ind   = df_res.get("ai_manipulation_indicator")   if df_res.get("model_status")   == "AVAILABLE" else None
-        sdxl_ind = sdxl_res.get("ai_manipulation_indicator") if sdxl_res.get("model_status") == "AVAILABLE" else None
+        # 5. Calibrated Ensemble Fusion
+        # Build (indicator, weight, role) pairs for available models only
+        runner_result_pairs = [
+            (self.smogy_runner,    smogy_res),
+            (self.sdxl_runner,     sdxl_res),
+            (self.general_runner,  general_res),
+            (self.gen_runner,      gen_res),
+            (self.deepfake_runner, df_res),
+        ]
+        indicator_weight_pairs: List[Tuple[float, float, str]] = []
+        for runner, res in runner_result_pairs:
+            if res.get("model_status") == "AVAILABLE" and res.get("ai_manipulation_indicator") is not None:
+                ind    = res["ai_manipulation_indicator"]
+                weight = self._MODEL_WEIGHTS.get(runner.role, 0.10)
+                indicator_weight_pairs.append((ind, weight, runner.role))
 
-        ensemble_ind, active_role = self._weighted_ensemble_vote(gen_ind, df_ind, sdxl_ind)
+        ensemble_ind, active_role, ensemble_metadata = self._calibrated_ensemble_vote(
+            indicator_weight_pairs
+        )
 
         # Ensemble confidence: average of available model confidences
         conf_values = [
-            r.get("model_confidence") for r in [gen_res, df_res, sdxl_res]
+            r.get("model_confidence") for r in all_results
             if r.get("model_status") == "AVAILABLE" and r.get("model_confidence") is not None
         ]
         ensemble_conf = round(sum(conf_values) / len(conf_values), 4) if conf_values else 0.80
@@ -445,15 +571,16 @@ class HFImageDetector:
 
         return {
             "ai_model_name": "Multi-Model Neural Vision Ensemble",
-            "ai_model_version": "3.0-TripleEngine",
+            "ai_model_version": "4.0-PentaEngine",
             "ai_manipulation_indicator": ensemble_ind,
             "model_confidence": ensemble_conf,
             "model_status": "AVAILABLE",
             "label_mapping": {"0": "UNMANIPULATED", "1": "MANIPULATED"},
             "predicted_label": predicted_lbl,
             "raw_label": active_role,
-            "runtime_device": gen_res.get("runtime_device", "cpu"),
+            "runtime_device": smogy_res.get("runtime_device", "cpu"),
             "inference_timestamp": timestamp,
             "sub_models": sub_models,
-            "error_detail": None
+            "ensemble_metadata": ensemble_metadata,
+            "error_detail": None,
         }

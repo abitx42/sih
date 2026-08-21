@@ -167,35 +167,79 @@ def test_defensive_label_normalization():
 
 def test_multi_model_vision_ensemble_structure():
     """
-    Verifies that HFImageDetector instantiates triple specialized sub-model runners:
-    Generative Diffusion, Facial Deepfake, and Modern Diffusion (SDXL/Flux).
+    Verifies that HFImageDetector instantiates all 5 specialized sub-model runners:
+    Smogy (modern diffusion), Organika SDXL, dima806 general AI vs real,
+    umm-maybe legacy generative, and dima806 facial deepfake.
     """
     detector = HFImageDetector()
+    # Core runners that must exist
+    assert hasattr(detector, "smogy_runner")
+    assert hasattr(detector, "sdxl_runner")
+    assert hasattr(detector, "general_runner")
     assert hasattr(detector, "gen_runner")
     assert hasattr(detector, "deepfake_runner")
-    assert hasattr(detector, "sdxl_runner")
-    assert detector.gen_runner.role == "GENERATIVE_DIFFUSION"
+    # Check roles
+    assert detector.smogy_runner.role == "MODERN_DIFFUSION_SMOGY"
+    assert detector.sdxl_runner.role == "MODERN_DIFFUSION_ORGANIKA"
+    assert detector.general_runner.role == "GENERAL_AI_VS_REAL"
+    assert detector.gen_runner.role == "GENERATIVE_DIFFUSION_LEGACY"
     assert detector.deepfake_runner.role == "FACIAL_DEEPFAKE"
-    assert detector.sdxl_runner.role == "MODERN_DIFFUSION"
+    # Weights must sum to 1.0
+    weight_sum = sum(detector._MODEL_WEIGHTS.values())
+    assert abs(weight_sum - 1.0) < 0.001, f"Model weights sum to {weight_sum}, expected 1.0"
 
 def test_weighted_ensemble_vote():
     """
-    Verifies triple-model weighted fusion logic and strong-signal amplification.
+    Verifies 5-model calibrated ensemble fusion logic:
+    - _calibrated_ensemble_vote replaces the old _weighted_ensemble_vote
+    - Low scores produce low ensemble indicator
+    - High-agreement models produce high ensemble indicator
+    - Partial availability (None values) are handled gracefully
     """
     detector = HFImageDetector()
-    
-    # 1. Balanced low scores -> low ensemble indicator
-    ind, roles = detector._weighted_ensemble_vote(0.10, 0.20, 0.15)
-    assert ind < 0.25
-    assert "GEN" in roles and "DF" in roles and "SDXL" in roles
 
-    # 2. Single strong signal (>= 0.75) gets amplified
-    ind_strong, roles_strong = detector._weighted_ensemble_vote(0.20, 0.20, 0.90)
-    assert ind_strong >= 0.65
+    # New method name is _calibrated_ensemble_vote
+    assert hasattr(detector, "_calibrated_ensemble_vote"), \
+        "HFImageDetector must have _calibrated_ensemble_vote method"
 
-    # 3. Partial availability (only 2 models available)
-    ind_partial, _ = detector._weighted_ensemble_vote(0.80, None, 0.85)
-    assert ind_partial >= 0.80
+    # Signature: List[Tuple[indicator: float, weight: float, role: str]] -> (ensemble, roles_str, metadata)
+
+    # 1. All low scores -> low ensemble indicator
+    ind_low, _, _ = detector._calibrated_ensemble_vote([
+        (0.10, 0.28, "MODERN_DIFFUSION_SMOGY"),
+        (0.15, 0.22, "MODERN_DIFFUSION_ORGANIKA"),
+        (0.12, 0.22, "GENERAL_AI_VS_REAL"),
+        (0.18, 0.16, "GENERATIVE_DIFFUSION_LEGACY"),
+        (0.10, 0.12, "FACIAL_DEEPFAKE"),
+    ])
+    assert ind_low < 0.35, f"Low scores should produce low ensemble, got {ind_low}"
+
+    # 2. All high scores -> high ensemble indicator (agreement bonus applies)
+    ind_high, _, meta = detector._calibrated_ensemble_vote([
+        (0.85, 0.28, "MODERN_DIFFUSION_SMOGY"),
+        (0.90, 0.22, "MODERN_DIFFUSION_ORGANIKA"),
+        (0.88, 0.22, "GENERAL_AI_VS_REAL"),
+        (0.80, 0.16, "GENERATIVE_DIFFUSION_LEGACY"),
+        (0.82, 0.12, "FACIAL_DEEPFAKE"),
+    ])
+    assert ind_high >= 0.80, f"High agreement scores should produce high ensemble, got {ind_high}"
+
+    # 3. Partial availability (fewer models)
+    ind_partial, _, _ = detector._calibrated_ensemble_vote([
+        (0.85, 0.28, "MODERN_DIFFUSION_SMOGY"),
+        (0.90, 0.22, "MODERN_DIFFUSION_ORGANIKA"),
+    ])
+    assert ind_partial >= 0.75, f"High partial scores should still be high, got {ind_partial}"
+
+    # 4. Mixed scores -> disagreement penalty may apply
+    ind_mixed, _, _ = detector._calibrated_ensemble_vote([
+        (0.10, 0.28, "MODERN_DIFFUSION_SMOGY"),
+        (0.90, 0.22, "MODERN_DIFFUSION_ORGANIKA"),
+        (0.15, 0.22, "GENERAL_AI_VS_REAL"),
+        (0.85, 0.16, "GENERATIVE_DIFFUSION_LEGACY"),
+        (0.12, 0.12, "FACIAL_DEEPFAKE"),
+    ])
+    assert 0.0 <= ind_mixed <= 1.0
 
 @pytest.mark.slow
 def test_real_model_local_inference_smoke():

@@ -3,7 +3,7 @@ import io
 import math
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
-from PIL import Image, ImageChops, ImageEnhance, ExifTags
+from PIL import Image, ImageChops, ImageEnhance, ExifTags, ImageFilter
 import numpy as np
 from scipy import ndimage
 
@@ -15,18 +15,35 @@ from app.config import FORENSIC_DIR
 
 class ImageAnalyzer(BaseAnalyzer):
     """
-    Forensic Image Analyzer.
+    Forensic Image Analyzer — v2.0 (5-signal heuristic + DIRE + 5-model ensemble + multi-resolution)
     Combines:
     1. Heuristic Forensic Anomaly Pipeline: ELA (95%), 2D FFT Frequency Analysis,
-       PRNU Noise Residual Consistency, and EXIF metadata validation.
-    2. Spatial Patch Localizer: Sliding ROI decomposition for localized manipulation detection
-       (sensor noise consistency, patch ELA, boundary resampling, and spatial heatmapping).
-    3. Local Hugging Face ML Vision Classifier: 'dima806/deepfake_vs_real_image_detection'.
+       PRNU Noise Residual Consistency, Chromatic Aberration, Bayer CFA analysis.
+    2. DIRE Approximation: DCT-based Diffusion Reconstruction Error (most powerful signal
+       for diffusion-generated images: Flux, SDXL, Midjourney v6, DALL-E 3).
+    3. Multi-Resolution Neural Inference: global + 4 corner crops + center crop,
+       aggregated to catch both global synthesis and localized AI inpainting.
+    4. 5-Model Neural Vision Ensemble (Smogy, Organika, dima806 ai_vs_real,
+       umm-maybe, dima806 deepfake) with calibrated weighted median fusion.
+    5. Spatial Patch Localizer: Sliding ROI decomposition for localized tampering.
+    6. EXIF AI Metadata: Extended detection covering ComfyUI, Firefly, Fooocus,
+       SD PNG text chunks, and 20+ AI tool signatures.
     """
 
     def __init__(self):
         self.hf_detector = HFImageDetector()
         self.patch_localizer = PatchLocalizer()
+        self._dire_analyzer = None
+
+    def _get_dire(self):
+        """Lazy-load DIREAnalyzer to avoid import errors if unavailable."""
+        if self._dire_analyzer is None:
+            try:
+                from app.analyzers.dire_analyzer import DIREAnalyzer
+                self._dire_analyzer = DIREAnalyzer()
+            except Exception:
+                pass
+        return self._dire_analyzer
 
     def analyze(self, file_path: Path, evidence_id: str) -> Dict[str, Any]:
         findings: List[Dict[str, Any]] = []
@@ -175,23 +192,122 @@ class ImageAnalyzer(BaseAnalyzer):
                 explanation="Patch-level spatial analysis shows uniform sensor noise, consistent error level, and seamless boundary gradients across all sub-regions. No isolated manipulation patches detected."
             ))
 
-        # Comprehensive Multi-Signal Forensic Anomaly Score (0.0 - 100.0)
+        # Comprehensive Multi-Signal Forensic Anomaly Score v2.0 (0.0 - 100.0)
+        # New: DIRE gets 15% weight, replacing the weakest CFA signal (10%)
+        # Weights: ELA(20) + FFT(20) + DIRE(15) + Noise(15) + CA(15) + CFA(5) + MaxPatch(10) = 100%
         max_patch_anom = patch_res.get("max_patch_anomaly", 0.0)
-        forensic_anomaly_score = round(
-            (ela_score * 0.20) +
-            (fft_score * 0.20) +
-            (noise_score * 0.15) +
-            (ca_score * 0.15) +
-            (cfa_score * 0.10) +
-            (max_patch_anom * 0.20),
-            1
-        )
+
+        # G2. DIRE Approximation — Diffusion Reconstruction Error
+        dire_res = None
+        dire_score_val = 0.0
+        dire_available = False
+        dire_analyzer = self._get_dire()
+        if dire_analyzer is not None:
+            try:
+                dire_res = dire_analyzer.analyze(img, evidence_id)
+                dire_score_val = dire_res.get("dire_score", 0.0)
+                dire_available = dire_res.get("dire_status") == "AVAILABLE"
+                raw_metrics["dire"] = dire_res
+                if dire_available and dire_score_val > 65:
+                    findings.append(FindingBuilder.create_finding(
+                        evidence_id=evidence_id,
+                        signal_name="DIRE: Low Diffusion Reconstruction Error",
+                        category="AI_DETECTION",
+                        severity="HIGH" if dire_score_val > 80 else "MEDIUM",
+                        score=dire_score_val,
+                        explanation=(
+                            f"Diffusion Reconstruction Error approximation (DCT round-trip) yielded a DIRE score of {dire_score_val:.1f}%. "
+                            "AI-generated images (Flux, SDXL, Midjourney, DALL-E) produce low reconstruction error because "
+                            "diffusion sampling creates frequency-optimal images. Real photos fail the same round-trip "
+                            "with higher error. This is one of the most discriminative signals for modern diffusion outputs."
+                        ),
+                        location_ref="DCT Frequency Domain (DIRE)"
+                    ))
+                elif dire_available:
+                    raw_metrics["dire_note"] = f"DIRE score {dire_score_val:.1f}% — below AI-generation threshold"
+            except Exception as e:
+                raw_metrics["dire_error"] = str(e)
+
+        # Composite score formula
+        if dire_available:
+            forensic_anomaly_score = round(
+                (ela_score * 0.20) +
+                (fft_score * 0.20) +
+                (dire_score_val * 0.15) +
+                (noise_score * 0.15) +
+                (ca_score * 0.15) +
+                (cfa_score * 0.05) +
+                (max_patch_anom * 0.10),
+                1
+            )
+        else:
+            # Fallback without DIRE (original formula)
+            forensic_anomaly_score = round(
+                (ela_score * 0.20) +
+                (fft_score * 0.20) +
+                (noise_score * 0.15) +
+                (ca_score * 0.15) +
+                (cfa_score * 0.10) +
+                (max_patch_anom * 0.20),
+                1
+            )
         raw_metrics["forensic_anomaly_score"] = forensic_anomaly_score
 
         # -------------------------------------------------------------
-        # 2. LOCAL HUGGING FACE ML CLASSIFIER INFERENCE
+        # 2. MULTI-RESOLUTION ML INFERENCE (Global + Crops)
         # -------------------------------------------------------------
+        # Step 1: Global inference on full image
         ml_result = self.hf_detector.predict(img)
+        global_indicator = ml_result.get("ai_manipulation_indicator")
+
+        # Step 2: Multi-resolution crop inference (only if image is large enough)
+        # For images >= 512x512, also run 4 corner crops + center crop at 512x512
+        # This catches localized AI inpainting that global inference may miss
+        crop_indicators = []
+        if width >= 512 and height >= 512 and global_indicator is not None:
+            try:
+                crop_size = min(512, width // 2, height // 2)
+                crops = [
+                    img.crop((0, 0, crop_size, crop_size)),                           # top-left
+                    img.crop((width - crop_size, 0, width, crop_size)),               # top-right
+                    img.crop((0, height - crop_size, crop_size, height)),             # bottom-left
+                    img.crop((width - crop_size, height - crop_size, width, height)), # bottom-right
+                    img.crop(((width - crop_size) // 2, (height - crop_size) // 2,   # center
+                              (width + crop_size) // 2, (height + crop_size) // 2)),
+                ]
+                for crop_img in crops:
+                    try:
+                        crop_res = self.hf_detector.predict(crop_img)
+                        crop_ind = crop_res.get("ai_manipulation_indicator")
+                        if crop_ind is not None and crop_res.get("model_status") == "AVAILABLE":
+                            crop_indicators.append(crop_ind)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        # Step 3: Fuse global + crop indicators
+        # If any crop exceeds 0.75 (strong localized AI signal), use max(global, max_crop * 0.85)
+        # Otherwise use global result unchanged
+        fused_indicator = global_indicator
+        if crop_indicators and global_indicator is not None:
+            max_crop = max(crop_indicators)
+            if max_crop >= 0.75:
+                fused_indicator = round(max(global_indicator, max_crop * 0.85), 4)
+                raw_metrics["multi_resolution_boost"] = True
+                raw_metrics["max_crop_indicator"] = round(max_crop, 4)
+            elif max_crop >= 0.55 and global_indicator < 0.50:
+                # Crop found something the global missed — soft boost
+                fused_indicator = round((global_indicator * 0.65) + (max_crop * 0.35), 4)
+                raw_metrics["multi_resolution_soft_boost"] = True
+            raw_metrics["crop_indicators"] = [round(c, 3) for c in crop_indicators]
+
+        # Apply fused indicator back to ml_result for downstream use
+        if fused_indicator is not None and fused_indicator != global_indicator:
+            ml_result = dict(ml_result)
+            ml_result["ai_manipulation_indicator"] = fused_indicator
+            ml_result["multi_resolution_fused"] = True
+
         raw_metrics["ml_detector"] = ml_result
 
         model_status = ml_result["model_status"]
@@ -275,6 +391,7 @@ class ImageAnalyzer(BaseAnalyzer):
         meta_score = 0.0
         exif_data = {}
 
+        # --- EXIF tag extraction ---
         try:
             raw_exif = img._getexif()
             if raw_exif:
@@ -286,51 +403,118 @@ class ImageAnalyzer(BaseAnalyzer):
         except Exception:
             pass
 
-        software = exif_data.get("Software", "")
-        if software:
-            lower_soft = software.lower()
-            if any(tool in lower_soft for tool in ["photoshop", "gimp", "lightroom", "canva", "picsart", "snapseed"]):
-                meta_score += 45.0
-                findings.append(FindingBuilder.create_finding(
-                    evidence_id=evidence_id,
-                    signal_name="Editing Software Signature in EXIF",
-                    category="METADATA",
-                    severity="MEDIUM",
-                    score=65.0,
-                    explanation=f"EXIF metadata indicates post-processing via '{software}'. File has undergone digital modification."
-                ))
-            elif any(ai_tool in lower_soft for ai_tool in ["stable diffusion", "midjourney", "dall-e", "comfyui", "automatic1111"]):
-                meta_score += 90.0
-                findings.append(FindingBuilder.create_finding(
-                    evidence_id=evidence_id,
-                    signal_name="Generative AI Software Header",
-                    category="METADATA",
-                    severity="CRITICAL",
-                    score=95.0,
-                    explanation=f"EXIF metadata contains explicit generative AI software marker: '{software}'."
-                ))
+        # --- PNG tEXt chunk scanning (ComfyUI, Automatic1111, InvokeAI metadata) ---
+        png_text_chunks = {}
+        try:
+            if hasattr(img, 'text') and img.text:
+                png_text_chunks = dict(img.text)
+        except Exception:
+            pass
 
-        if not exif_data:
-            meta_score += 15.0
+        # Check PNG tEXt chunks for SD/ComfyUI generative parameters
+        sd_text_keys = {"parameters", "workflow", "prompt", "negative_prompt", "invokeai_metadata",
+                        "invokeai_graph", "dream", "sd-metadata"}
+        sd_params_keywords = ["steps:", "cfg scale:", "sampler:", "seed:", "model:", "denoising strength:",
+                               "clip skip:", "hires fix:", "lora:", "controlnet:"]
+
+        for key in sd_text_keys:
+            chunk_val = png_text_chunks.get(key, "")
+            if chunk_val:
+                lower_val = chunk_val.lower()
+                if any(kw in lower_val for kw in sd_params_keywords) or key in ("workflow", "invokeai_metadata", "invokeai_graph"):
+                    meta_score = max(meta_score, 90.0)
+                    exif_data[f"png_{key}"] = chunk_val[:200]
+                    findings.append(FindingBuilder.create_finding(
+                        evidence_id=evidence_id,
+                        signal_name="Generative AI PNG Metadata Chunk Detected",
+                        category="METADATA",
+                        severity="CRITICAL",
+                        score=95.0,
+                        explanation=(
+                            f"PNG tEXt chunk '{key}' contains Stable Diffusion / ComfyUI / InvokeAI generative parameters "
+                            f"(Steps, CFG scale, Sampler, Seed, etc.). This image was produced by an AI image generator."
+                        )
+                    ))
+                    break  # One finding is sufficient
+
+        # --- Software tag: editing tools vs AI generators ---
+        # Extended AI generator list (20+ tools for 2024-2025 coverage)
+        _AI_GENERATORS = [
+            "stable diffusion", "midjourney", "dall-e", "dalle", "comfyui",
+            "automatic1111", "a1111", "invokeai", "invoke ai", "fooocus",
+            "flux", "flux.1", "playground ai", "adobe firefly", "firefly",
+            "microsoft designer", "bing image creator", "imagen", "ideogram",
+            "lexica", "nightcafe", "dream studio", "dreamstudio",
+            "canva ai", "canva magic", "adobe content credentials",
+            "novelai", "novel ai", "tensor art", "civitai",
+        ]
+        _EDITING_TOOLS = [
+            "photoshop", "gimp", "lightroom", "canva", "picsart",
+            "snapseed", "capture one", "darktable", "affinity photo",
+            "luminar", "on1", "dx0", "paintshop", "pixelmator",
+        ]
+
+        software = exif_data.get("Software", "")
+        user_comment = exif_data.get("UserComment", "")
+
+        # Check Software tag + UserComment for AI generator signatures
+        combined_meta = (software + " " + user_comment).lower()
+
+        if any(ai_tool in combined_meta for ai_tool in _AI_GENERATORS):
+            detected_tool = next((t for t in _AI_GENERATORS if t in combined_meta), software or "AI Generator")
+            meta_score = max(meta_score, 90.0)
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Generative AI Software Signature in EXIF",
+                category="METADATA",
+                severity="CRITICAL",
+                score=95.0,
+                explanation=f"EXIF metadata contains explicit generative AI software marker: '{detected_tool}'. This file was generated by an AI image synthesis tool."
+            ))
+        elif software and any(tool in software.lower() for tool in _EDITING_TOOLS):
+            meta_score = max(meta_score, 45.0)
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Photo Editing Software Signature in EXIF",
+                category="METADATA",
+                severity="MEDIUM",
+                score=65.0,
+                explanation=f"EXIF metadata indicates post-processing via '{software}'. File has undergone digital modification in an image editing tool."
+            ))
+
+        # --- Check for missing EXIF (AI images rarely have camera EXIF) ---
+        has_camera_exif = bool(exif_data.get("Make") or exif_data.get("Model") or exif_data.get("DateTimeOriginal"))
+        if not exif_data and not png_text_chunks:
+            meta_score = max(meta_score, 15.0)
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
                 signal_name="EXIF Metadata Missing / Stripped",
                 category="METADATA",
                 severity="LOW",
                 score=25.0,
-                explanation="No camera hardware EXIF tags detected. Metadata may have been stripped by messaging apps or export tools."
+                explanation="No camera hardware EXIF tags detected. Metadata may have been stripped by messaging apps, social media platforms, or export tools. AI-generated images typically lack camera EXIF entirely."
+            ))
+        elif has_camera_exif:
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Hardware Camera EXIF Present",
+                category="METADATA",
+                severity="INFO",
+                score=5.0,
+                explanation=f"Hardware camera capture metadata found. Make: {exif_data.get('Make', 'N/A')}, Model: {exif_data.get('Model', 'N/A')}. Presence of authentic camera EXIF reduces AI-generation probability, though EXIF can be injected."
             ))
         else:
             findings.append(FindingBuilder.create_finding(
                 evidence_id=evidence_id,
-                signal_name="EXIF Camera Metadata Present",
+                signal_name="Partial EXIF — No Camera Hardware Tags",
                 category="METADATA",
-                severity="INFO",
-                score=5.0,
-                explanation=f"Hardware capture metadata found. Make: {exif_data.get('Make', 'N/A')}, Model: {exif_data.get('Model', 'N/A')}."
+                severity="LOW",
+                score=20.0,
+                explanation=f"EXIF metadata present but lacks camera hardware identifiers (Make/Model/DateTimeOriginal). Software tag: '{software or 'None'}'."
             ))
 
         return findings, min(100.0, meta_score), exif_data
+
 
     def _perform_ela(self, img: Image.Image, file_path: Path, evidence_id: str) -> (float, Path, Dict[str, Any]):
         try:
