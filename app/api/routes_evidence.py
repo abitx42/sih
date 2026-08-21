@@ -960,6 +960,15 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
     elif artifact_type in ("manipulation_heatmap", "heatmap"):
         p = FORENSIC_DIR / f"manipulation_heatmap_{evidence_id}.png"
         media = "image/png"
+    elif artifact_type == "reference_diff":
+        p = FORENSIC_DIR / f"reference_diff_{evidence_id}.png"
+        media = "image/png"
+    elif artifact_type == "reference_side_by_side":
+        p = FORENSIC_DIR / f"reference_side_by_side_{evidence_id}.png"
+        media = "image/png"
+    elif artifact_type == "web_match_diff":
+        p = FORENSIC_DIR / f"web_match_diff_{evidence_id}.png"
+        media = "image/png"
     elif artifact_type == "video_frame":
         p = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
         media = "image/jpeg"

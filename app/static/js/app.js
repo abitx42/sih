@@ -2607,3 +2607,105 @@ async function triggerWebProvenanceScan() {
     }
   }
 }
+
+
+// ── Phase 3: Interactive Region Inspector & Auto-Compare ─────────────────────
+
+let currentComparisonData = null;
+
+async function triggerAutoCompareWebSource() {
+  if (!currentEvidenceId) return;
+
+  const btn = document.getElementById("btn-auto-compare-web");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Aligning & Segmenting Regions...";
+  }
+
+  try {
+    const res = await fetch(`/api/evidence/${currentEvidenceId}/auto-compare-web`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ match_title: "Identified Reference Source" })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Comparison error: ${err.detail || "Request failed"}`, "error");
+      return;
+    }
+
+    const data = await res.json();
+    currentComparisonData = data;
+    renderComparisonWorkspace(data);
+    showToast("Deep region segmentation and structural comparison complete!", "success");
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "⚡ One-Click Deep Region Compare";
+    }
+  }
+}
+
+function renderComparisonWorkspace(data) {
+  if (!data) return;
+
+  const section = document.getElementById("prov-workspace-section");
+  const imgEl = document.getElementById("prov-workspace-img");
+  const regionsGrid = document.getElementById("prov-regions-grid");
+
+  if (section) section.style.display = "block";
+
+  if (imgEl && data.evidence_id) {
+    imgEl.src = `/api/evidence/${data.evidence_id}/forensic-artifact/reference_diff?t=${Date.now()}`;
+  }
+
+  const regions = data.changed_regions || [];
+  if (regionsGrid) {
+    if (regions.length > 0) {
+      regionsGrid.innerHTML = regions.map(r => `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-left: 3px solid ${r.badge_color || 'var(--brand)'}; border-radius: 6px; padding: 0.6rem 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <span style="font-size: 0.78rem; font-weight: 700; color: var(--cream);">${escapeHTML(r.region_label || 'Region')}</span>
+            <span class="badge" style="background: ${r.badge_color || '#ef4444'}20; color: ${r.badge_color || '#ef4444'}; font-size: 0.62rem; font-weight: 700;">
+              ${escapeHTML((r.category || 'Altered').replace(/_/g, ' '))}
+            </span>
+          </div>
+          <div style="font-size: 0.7rem; color: var(--brand); margin-bottom: 0.25rem;">
+            Deviation: ${r.changed_percentage}% altered pixels (BBox: ${JSON.stringify(r.bbox_norm || [])})
+          </div>
+          <p style="font-size: 0.72rem; color: var(--text-secondary); line-height: 1.3;">
+            ${escapeHTML(r.description || '')}
+          </p>
+        </div>
+      `).join("");
+    } else {
+      regionsGrid.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.78rem; padding: 0.5rem;">No significant regional tampering deviations detected. Image exhibits uniform structural alignment.</div>';
+    }
+  }
+}
+
+function switchComparisonLayer(layer) {
+  if (!currentEvidenceId) return;
+  const imgEl = document.getElementById("prov-workspace-img");
+  if (!imgEl) return;
+
+  const btnDiff = document.getElementById("btn-layer-diff");
+  const btnTriple = document.getElementById("btn-layer-triple");
+  const btnEv = document.getElementById("btn-layer-ev");
+
+  [btnDiff, btnTriple, btnEv].forEach(b => b && b.classList.remove("active"));
+
+  if (layer === "diff") {
+    if (btnDiff) btnDiff.classList.add("active");
+    imgEl.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/reference_diff?t=${Date.now()}`;
+  } else if (layer === "triple") {
+    if (btnTriple) btnTriple.classList.add("active");
+    imgEl.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/reference_side_by_side?t=${Date.now()}`;
+  } else if (layer === "evidence") {
+    if (btnEv) btnEv.classList.add("active");
+    imgEl.src = `/api/evidence/${currentEvidenceId}/preview?t=${Date.now()}`;
+  }
+}
