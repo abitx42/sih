@@ -17,6 +17,7 @@ from app.api.routes_dashboard import router as dashboard_router
 from app.api.routes_diff import router as diff_router
 from app.api.routes_review import router as review_router
 from app.api.routes_reference import router as reference_router
+from app.api.routes_auth import router as auth_router
 
 # Configure logging
 logging.basicConfig(
@@ -60,6 +61,7 @@ app.include_router(reports_router)
 app.include_router(diff_router)
 app.include_router(review_router)
 app.include_router(reference_router)
+app.include_router(auth_router)
 
 # Mount Static Files (Web UI)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -74,6 +76,15 @@ def serve_index():
     if index_file.exists():
         return FileResponse(str(index_file))
     return {"message": "Truth Lens Backend API is active. Web UI initializing."}
+
+@app.get("/login")
+@app.get("/login.html")
+def serve_login():
+    """Serve the login/signup page."""
+    login_file = STATIC_DIR / "login.html"
+    if login_file.exists():
+        return FileResponse(str(login_file))
+    return FileResponse(str(STATIC_DIR / "index.html"))
 
 @app.get("/health")
 @app.get("/api/health")

@@ -207,6 +207,66 @@ def init_db():
         )
         """)
 
+        # 8. Users Table (Authentication)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id       TEXT PRIMARY KEY,
+            email         TEXT UNIQUE NOT NULL,
+            name          TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'INVESTIGATOR',
+            created_at    TEXT NOT NULL,
+            last_login    TEXT,
+            is_active     INTEGER NOT NULL DEFAULT 1,
+            tc_accepted   INTEGER NOT NULL DEFAULT 0,
+            tc_accepted_at TEXT,
+            data_consent  INTEGER NOT NULL DEFAULT 0,
+            data_consent_at TEXT
+        )
+        """)
+
+        # Migration: ensure all user columns exist
+        cursor.execute("PRAGMA table_info(users)")
+        user_cols = [c["name"] for c in cursor.fetchall()]
+        for col, defn in [
+            ("last_login", "TEXT"),
+            ("tc_accepted", "INTEGER DEFAULT 0"),
+            ("tc_accepted_at", "TEXT"),
+            ("data_consent", "INTEGER DEFAULT 0"),
+            ("data_consent_at", "TEXT"),
+        ]:
+            if col not in user_cols:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {defn}")
+
+        # 9. User Sessions Table (for token audit / optional revocation)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            session_id TEXT PRIMARY KEY,
+            user_id    TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            is_active  INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+        )
+        """)
+
+        # 10. Training Dataset Table (for self-learning pipeline — Phase 4)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS training_dataset (
+            sample_id       TEXT PRIMARY KEY,
+            evidence_id     TEXT NOT NULL,
+            image_path      TEXT NOT NULL,
+            confirmed_label TEXT NOT NULL,
+            confidence      REAL NOT NULL DEFAULT 1.0,
+            labeled_by      TEXT NOT NULL DEFAULT 'system',
+            labeled_at      TEXT NOT NULL,
+            used_in_training INTEGER NOT NULL DEFAULT 0,
+            model_version   TEXT,
+            FOREIGN KEY (evidence_id) REFERENCES evidence (evidence_id) ON DELETE CASCADE
+        )
+        """)
+
         # Insert default demo case if no cases exist
         cursor.execute("SELECT COUNT(*) as count FROM cases")
         if cursor.fetchone()["count"] == 0:
