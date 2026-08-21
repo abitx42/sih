@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Truth Lens — Digital Evidence Forensics Platform</title>
+  <title>Truth Lens · Forensic Darkroom</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -17,18 +17,11 @@
   <header class="app-header">
     <div class="brand-container" onclick="switchView('dashboard')" style="cursor: pointer;">
       <div class="brand-logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="2" x2="12" y2="6"></line>
-          <line x1="12" y1="18" x2="12" y2="22"></line>
-          <line x1="2" y1="12" x2="6" y2="12"></line>
-          <line x1="18" y1="12" x2="22" y2="12"></line>
-          <circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity="0.25"></circle>
-        </svg>
+        <span style="font-family: 'DM Serif Display', serif; font-style: italic; font-size: 1.1rem; color: var(--brand); letter-spacing: -0.02em; line-height: 1;">TL</span>
       </div>
       <div class="brand-info">
         <h1>Truth Lens</h1>
-        <p>DIGITAL EVIDENCE FORENSICS PLATFORM</p>
+        <p>FORENSIC DARKROOM · DIGITAL EVIDENCE</p>
       </div>
     </div>
 
@@ -76,19 +69,23 @@
     <section id="view-dashboard" class="view-section active">
       <!-- Full-Width Hero Section -->
       <div class="hero-section">
-        <div class="eyebrow-tag">SIH PS-27 · KAVACH</div>
-        <h1 class="hero-title">See the signals.<br>Review the evidence.</h1>
+        <div class="eyebrow-tag">SIH PS-27 · KAVACH · FORENSIC DARKROOM</div>
+        <h1 class="hero-title"><em>Every pixel</em><br>has a story.</h1>
         <p class="hero-subhead">
-          Deterministic multi-signal forensic verification: cryptographic SHA-256 bitstream baseline, triple neural vision ensemble, optical physics, ELA/FFT heuristics, and tamper-evident court reports — 100% offline.
+          Deterministic multi-signal forensic verification — SHA-256 bitstream baseline, triple neural vision ensemble, ELA/FFT optical physics, and tamper-evident court dossiers. Developed for KAVACH 2024.
         </p>
         <div class="hero-actions">
           <button class="btn btn-primary" onclick="switchView('upload')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
             Ingest Evidence
           </button>
           <button class="btn btn-secondary" onclick="switchView('cases')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             Browse Cases
+          </button>
+          <button class="btn btn-secondary" onclick="openCommandPalette()" style="border-color: rgba(245,166,35,0.3);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Quick Search <span style="font-size: 10px; color: var(--brand); margin-left: 2px;">⌘K</span>
           </button>
         </div>
       </div>
