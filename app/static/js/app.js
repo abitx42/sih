@@ -58,6 +58,30 @@ function initNavigation() {
   switchView("dashboard");
 }
 
+// Count-up numeral animation helper (respects prefers-reduced-motion)
+function animateCountUp(elementId, targetValue, duration = 800) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const target = parseInt(targetValue, 10) || 0;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || target <= 0) {
+    el.innerText = target;
+    return;
+  }
+  let startTime = null;
+  const step = (timestamp) => {
+    if (!startTime) startTime = timestamp;
+    const progress = Math.min((timestamp - startTime) / duration, 1);
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    el.innerText = Math.floor(easeOut * target);
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    } else {
+      el.innerText = target;
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
 // 1. Dashboard Operations
 async function loadDashboardData() {
   try {
@@ -65,10 +89,10 @@ async function loadDashboardData() {
     if (!res.ok) return;
     const data = await res.json();
 
-    document.getElementById("stat-cases").innerText = data.total_cases || 0;
-    document.getElementById("stat-evidence").innerText = data.total_evidence || 0;
-    document.getElementById("stat-high-risk").innerText = data.risk_distribution["HIGH RISK"] || 0;
-    document.getElementById("stat-low-risk").innerText = data.risk_distribution["LOW RISK"] || 0;
+    animateCountUp("stat-cases", data.total_cases || 0);
+    animateCountUp("stat-evidence", data.total_evidence || 0);
+    animateCountUp("stat-high-risk", data.risk_distribution["HIGH RISK"] || 0);
+    animateCountUp("stat-low-risk", data.risk_distribution["LOW RISK"] || 0);
 
     renderRiskChart(data.risk_distribution);
     renderDashboardEvidence(data.recent_evidence || []);
@@ -91,21 +115,30 @@ function renderRiskChart(riskDist) {
   riskChartInstance = new Chart(ctx, {
     type: "doughnut",
     data: {
-      labels: ["Low Risk", "Review Req.", "High Risk"],
+      labels: ["Low Risk", "Review Required", "High Risk"],
       datasets: [{
         data: [low, med, high],
-        backgroundColor: ["#10b981", "#f59e0b", "#ef4444"],
-        borderColor: "#111827",
-        borderWidth: 2
+        backgroundColor: ["#34D399", "#FBBF24", "#F87171"],
+        borderColor: "#131820",
+        borderWidth: 3,
+        hoverOffset: 4
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      cutout: "72%",
       plugins: {
         legend: {
           position: "bottom",
-          labels: { color: "#94a3b8", font: { size: 11 } }
+          labels: {
+            color: "#8B94A3",
+            font: { family: "'Inter', sans-serif", size: 11 },
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            padding: 12
+          }
         }
       }
     }
@@ -117,14 +150,20 @@ function renderDashboardEvidence(items) {
   if (!tbody) return;
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim);">No digital evidence ingested yet. Click '+ New Ingestion' to upload.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No digital evidence ingested yet. Click '+ Ingest' to begin.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = items.map(item => {
-    let riskBadge = `<span class="badge badge-low">LOW RISK</span>`;
-    if (item.risk_category === "HIGH RISK") riskBadge = `<span class="badge badge-high">HIGH RISK</span>`;
-    else if (item.risk_category === "REVIEW REQUIRED") riskBadge = `<span class="badge badge-medium">REVIEW REQ.</span>`;
+    let riskClass = "low";
+    let riskLabel = "LOW RISK";
+    if (item.risk_category === "HIGH RISK") {
+      riskClass = "high";
+      riskLabel = "HIGH RISK";
+    } else if (item.risk_category === "REVIEW REQUIRED") {
+      riskClass = "review";
+      riskLabel = "REVIEW REQ.";
+    }
 
     const safeId = escapeHTML(item.evidence_id);
     const safeFilename = escapeHTML(item.original_filename);
@@ -133,13 +172,16 @@ function renderDashboardEvidence(items) {
 
     return `
       <tr>
-        <td><strong>${safeId}</strong></td>
-        <td>${safeFilename}</td>
+        <td><span class="case-ref-chip">${safeId}</span></td>
+        <td style="font-weight: 500;">${safeFilename}</td>
         <td><span class="badge badge-modality">${safeModality}</span></td>
-        <td><span class="hash-mono">${safeHash}...</span></td>
-        <td>${riskBadge} (${item.forensic_risk_score || 0}/100)</td>
+        <td><span class="data-mono">${safeHash}...</span></td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="openEvidenceInLab('${safeId}')">Inspect Lab</button>
+          <span class="verdict-badge ${riskClass}">${riskLabel}</span>
+          <span class="data-mono" style="color: var(--text-secondary); margin-left: 6px;">${item.forensic_risk_score || 0}/100</span>
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="openEvidenceInLab('${safeId}')">Inspect Lab ↗</button>
         </td>
       </tr>
     `;
@@ -151,18 +193,18 @@ function renderDashboardCustody(events) {
   if (!tbody) return;
 
   if (events.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim);">No custody events recorded.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No custody events recorded.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = events.map(e => `
     <tr>
-      <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
-      <td><strong>${escapeHTML(e.evidence_id)}</strong></td>
-      <td><span class="badge badge-modality">${escapeHTML(e.action)}</span></td>
-      <td>${escapeHTML(e.actor)}</td>
-      <td><span class="hash-mono">${escapeHTML((e.recorded_sha256 || '').substring(0, 12))}...</span></td>
-      <td style="font-size: 0.82rem;">${escapeHTML(e.details)}</td>
+      <td class="data-mono" style="color: var(--text-secondary); font-size: 0.76rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
+      <td><span class="case-ref-chip">${escapeHTML(e.evidence_id)}</span></td>
+      <td><span class="data-mono" style="background: var(--panel-raised); padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">${escapeHTML(e.action)}</span></td>
+      <td style="font-weight: 500;">${escapeHTML(e.actor)}</td>
+      <td><span class="data-mono" style="color: var(--brand);">${escapeHTML((e.recorded_sha256 || '').substring(0, 14))}...</span></td>
+      <td style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHTML(e.details)}</td>
     </tr>
   `).join("");
 }
@@ -1194,19 +1236,19 @@ async function loadCustodyLedger() {
     if (!tbody) return;
 
     if (events.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim);">No custody records found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No custody records found in cryptographic ledger.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = events.map(e => `
       <tr>
-        <td><strong>${escapeHTML(e.event_id)}</strong></td>
-        <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
-        <td><strong>${escapeHTML(e.evidence_id)}</strong></td>
-        <td><span class="badge badge-modality">${escapeHTML(e.action)}</span></td>
-        <td>${escapeHTML(e.actor)}</td>
-        <td><span class="hash-mono">${escapeHTML((e.recorded_sha256 || '').substring(0, 16))}...</span></td>
-        <td style="font-size: 0.82rem;">${escapeHTML(e.details)}</td>
+        <td><span class="data-mono">${escapeHTML(e.event_id)}</span></td>
+        <td class="data-mono" style="color: var(--text-secondary); font-size: 0.76rem;">${escapeHTML((e.timestamp || '').substring(0, 19).replace('T', ' '))}</td>
+        <td><span class="case-ref-chip">${escapeHTML(e.evidence_id)}</span></td>
+        <td><span class="data-mono" style="background: var(--panel-raised); padding: 3px 8px; border-radius: 4px; font-size: 0.74rem;">${escapeHTML(e.action)}</span></td>
+        <td style="font-weight: 500;">${escapeHTML(e.actor)}</td>
+        <td><span class="data-mono" style="color: var(--brand);">${escapeHTML((e.recorded_sha256 || '').substring(0, 16))}...</span></td>
+        <td style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHTML(e.details)}</td>
       </tr>
     `).join("");
   } catch (err) {
@@ -1232,21 +1274,21 @@ async function loadCasesList() {
     if (!tbody) return;
 
     if (cases.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No cases created yet. Click "+ Create New Case" above.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No cases created yet. Click "+ Create New Case" above.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = cases.map(c => `
       <tr>
-        <td><strong>${escapeHTML(c.case_id)}</strong></td>
-        <td>${escapeHTML(c.title)}</td>
+        <td><span class="case-ref-chip">${escapeHTML(c.case_id)}</span></td>
+        <td style="font-weight: 500;">${escapeHTML(c.title)}</td>
         <td>${escapeHTML(c.lead_investigator)}</td>
-        <td style="color: var(--text-muted); font-size: 0.8rem;">${escapeHTML((c.created_at || '').substring(0, 10))}</td>
-        <td><span class="badge badge-modality">${c.evidence_count || 0} Exhibits</span></td>
-        <td><span class="badge badge-low">${escapeHTML(c.status)}</span></td>
+        <td class="data-mono" style="color: var(--text-secondary); font-size: 0.76rem;">${escapeHTML((c.created_at || '').substring(0, 10))}</td>
+        <td><span class="badge badge-modality"><strong class="data-mono" style="margin-right: 4px;">${c.evidence_count || 0}</strong> Exhibits</span></td>
+        <td><span class="verdict-badge low">${escapeHTML(c.status || 'ACTIVE')}</span></td>
         <td>
-          <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" onclick="openCaseWorkspace('${escapeHTML(c.case_id)}')">
-            📂 Open Workspace
+          <button class="btn btn-secondary btn-sm" onclick="openCaseWorkspace('${escapeHTML(c.case_id)}')">
+            Open Workspace ↗
           </button>
         </td>
       </tr>
@@ -1271,24 +1313,23 @@ async function loadCasesDropdown() {
 }
 
 function openNewCaseModal() {
-  // Create a clean inline modal instead of browser prompts
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.id = "new-case-modal";
   overlay.innerHTML = `
     <div class="modal-box">
-      <div class="modal-title">🗂️ Create New Investigation Case</div>
-      <div class="modal-field">
-        <label class="modal-label">Investigation Title</label>
-        <input type="text" id="new-case-title" class="modal-input" placeholder="e.g. Operation CyberShield 2026" autofocus>
+      <div class="modal-title" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">Create New Investigation Case</div>
+      <div class="modal-field" style="margin-bottom: 1rem;">
+        <label class="modal-label" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem;">Investigation Title</label>
+        <input type="text" id="new-case-title" class="form-input" placeholder="e.g. Operation CyberShield 2026" autofocus>
       </div>
-      <div class="modal-field">
-        <label class="modal-label">Lead Forensic Investigator</label>
-        <input type="text" id="new-case-lead" class="modal-input" value="Insp. Rajesh Verma (Digital Forensics Unit)">
+      <div class="modal-field" style="margin-bottom: 1.5rem;">
+        <label class="modal-label" style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem;">Lead Forensic Investigator</label>
+        <input type="text" id="new-case-lead" class="form-input" value="Insp. Rajesh Verma (Digital Forensics Unit)">
       </div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="document.getElementById('new-case-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" onclick="submitNewCaseModal()">Create Case</button>
+      <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('new-case-modal').remove()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="submitNewCaseModal()">Create Case</button>
       </div>
     </div>
   `;
