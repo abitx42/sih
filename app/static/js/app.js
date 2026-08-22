@@ -3971,3 +3971,69 @@ async function loadCourtroomDebate(evidenceId) {
     }
   } catch (e) {}
 }
+
+
+// =========================================================================
+// 13. SECTION 65B (BSA 2023) LEGAL COURTROOM CERTIFICATE CONTROLLER
+// =========================================================================
+
+async function openLegalCertificateModal() {
+  if (!currentEvidenceId) {
+    showToast("Please select or ingest an evidence exhibit first.", "warning");
+    return;
+  }
+
+  const modal = document.getElementById("legal-cert-modal");
+  if (modal) modal.style.display = "flex";
+
+  const dlBtn = document.getElementById("cert-download-pdf-btn");
+  if (dlBtn) dlBtn.href = `/api/reports/${currentEvidenceId}/certificate-pdf`;
+
+  try {
+    const res = await fetch(`/api/reports/${currentEvidenceId}/certificate/bsa-65b`);
+    if (!res.ok) {
+      alert("Please ensure forensic analysis has completed for this exhibit.");
+      closeLegalCertificateModal();
+      return;
+    }
+    const data = await res.json();
+
+    const refEl = document.getElementById("cert-ref-id");
+    const caseEl = document.getElementById("cert-case-id");
+    const evEl = document.getElementById("cert-ev-id");
+    const fnEl = document.getElementById("cert-filename");
+    const sizeEl = document.getElementById("cert-filesize");
+    const shaEl = document.getElementById("cert-sha256");
+
+    const judTitle = document.getElementById("cert-jud-title");
+    const judBadge = document.getElementById("cert-jud-badge");
+    const admEl = document.getElementById("cert-admissibility-val");
+    const decreeEl = document.getElementById("cert-decree-text");
+    const officerEl = document.getElementById("cert-officer-name");
+
+    if (refEl) refEl.textContent = `CERTIFICATE REF: ${data.certificate_id}`;
+    if (caseEl) caseEl.textContent = `${data.case_id} - ${data.case_title}`;
+    if (evEl) evEl.textContent = data.evidence_id;
+    if (fnEl) fnEl.textContent = data.original_filename;
+    if (sizeEl) sizeEl.textContent = `${(data.file_size_bytes / 1024).toFixed(1)} KB`;
+    if (shaEl) shaEl.textContent = data.sha256_hash;
+
+    const v = data.forensic_verdict || {};
+    if (judTitle) judTitle.textContent = `JUDICIAL STATUS: ${v.classification || 'EVALUATED'}`;
+    if (judBadge) {
+      judBadge.textContent = (v.classification || '').includes('SYNTHETIC') ? 'CONFIRMED AI' : 'CERTIFIED AUTHENTIC';
+      judBadge.className = (v.classification || '').includes('SYNTHETIC') ? 'badge badge-high' : 'badge badge-low';
+    }
+    if (admEl) admEl.textContent = v.admissibility || 'EVALUATED';
+    if (decreeEl) decreeEl.textContent = `"${v.judicial_decree || ''}"`;
+    if (officerEl && data.certifying_officer) officerEl.textContent = data.certifying_officer.name;
+
+  } catch (e) {
+    console.warn("Certificate load notice:", e);
+  }
+}
+
+function closeLegalCertificateModal() {
+  const modal = document.getElementById("legal-cert-modal");
+  if (modal) modal.style.display = "none";
+}

@@ -134,3 +134,78 @@ def generate_and_download_case_report(case_id: str, actor: str = "Lead Forensic 
         filename=pdf_path.name,
         media_type="application/pdf"
     )
+
+
+# =========================================================================
+# SECTION 65B (BSA 2023) LEGAL COURTROOM CERTIFICATE ENDPOINTS
+# =========================================================================
+
+@router.get("/{evidence_id}/certificate/bsa-65b")
+def get_legal_certificate_payload(evidence_id: str):
+    """
+    Returns structured Section 65B(4) / Section 63 BSA 2023 legal certificate data.
+    """
+    from app.core.legal_certificate import LegalCertificateGenerator
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
+        case_info = cursor.fetchone() or {"case_id": "CASE-2026-001", "title": "General Investigation"}
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        forensic_res = cursor.fetchone()
+        if not forensic_res:
+            raise HTTPException(status_code=400, detail="Forensic analysis must be completed first.")
+
+    return LegalCertificateGenerator.create_certificate_payload(
+        evidence=evidence,
+        case=case_info,
+        forensic_res=forensic_res
+    )
+
+
+@router.get("/{evidence_id}/certificate-pdf")
+def download_legal_certificate_pdf(evidence_id: str, actor: str = "Lead Forensic Examiner"):
+    """
+    Compiles and downloads official certified Section 65B (BSA 2023) PDF Annexure.
+    """
+    from app.core.legal_certificate import LegalCertificateGenerator
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        evidence = cursor.fetchone()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
+        case_info = cursor.fetchone() or {"case_id": "CASE-2026-001", "title": "General Investigation"}
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        forensic_res = cursor.fetchone()
+        if not forensic_res:
+            raise HTTPException(status_code=400, detail="Forensic analysis must be completed first.")
+
+    pdf_path = LegalCertificateGenerator.generate_pdf(
+        evidence=evidence,
+        case=case_info,
+        forensic_res=forensic_res,
+        officer_name=actor
+    )
+
+    ChainOfCustodyLogger.record_event(
+        evidence_id=evidence_id,
+        action="LEGAL_CERTIFICATE_BSA65B_EXPORTED",
+        actor=actor,
+        recorded_sha256=evidence["sha256_hash"],
+        details=f"Official Section 65B (BSA 2023) Court Certificate exported: '{pdf_path.name}'."
+    )
+
+    return FileResponse(
+        path=str(pdf_path),
+        filename=pdf_path.name,
+        media_type="application/pdf"
+    )

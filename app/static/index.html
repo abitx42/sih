@@ -2085,5 +2085,112 @@
     </div>
   </div>
 
+
+  <!-- ========================================================================= -->
+  <!-- 📜 SECTION 65B (BSA 2023) LEGAL COURTROOM CERTIFICATE MODAL               -->
+  <!-- ========================================================================= -->
+  <div id="legal-cert-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto; animation: fadeIn 0.25s ease;">
+    <div style="width: 100%; max-width: 760px; background: var(--ink-mid, #1A1710); border: 1px solid var(--brand); border-top: 5px solid var(--brand); border-radius: 16px; box-shadow: 0 0 100px rgba(245, 166, 35, 0.15), 0 24px 64px rgba(0,0,0,0.85); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
+      
+      <!-- Top Modal Header -->
+      <div style="padding: 1.25rem 1.5rem; background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--hairline); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">⚖️</span>
+          <div>
+            <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: var(--brand); margin: 0;">
+              Statutory Certificate of Electronic Evidence
+            </h3>
+            <div style="font-size: 0.72rem; color: var(--text-secondary);">Under Section 63 BSA 2023 / Section 65B(4) Indian Evidence Act</div>
+          </div>
+        </div>
+        <button type="button" onclick="closeLegalCertificateModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.3rem;">✕</button>
+      </div>
+
+      <!-- Certificate Scrollable Paper Body -->
+      <div style="padding: 1.5rem; overflow-y: auto; flex: 1; font-size: 0.82rem; line-height: 1.5;" id="cert-printable-area">
+        
+        <!-- Header Banner & QR Stamp -->
+        <div style="display: grid; grid-template-columns: 1fr 110px; gap: 1rem; align-items: center; border-bottom: 2px solid var(--brand); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: #fff; letter-spacing: 0.04em;">GOVERNMENT OF INDIA · DIGITAL EVIDENCE ARCHIVE</div>
+            <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">National Forensic Intelligence Platform · KAVACH / SIH 2026</div>
+            <div style="font-family: var(--font-data); font-size: 0.8rem; color: var(--brand); font-weight: 700; margin-top: 6px;" id="cert-ref-id">
+              CERTIFICATE REF: BSA-65B-XXXXXX
+            </div>
+          </div>
+
+          <!-- Live QR Code Box -->
+          <div style="text-align: center; background: #fff; padding: 6px; border-radius: 6px; border: 1px solid var(--hairline);">
+            <div id="cert-qr-container" style="display: flex; align-items: center; justify-content: center; height: 75px; width: 75px; margin: 0 auto;">
+              <!-- Dynamic QR code SVG -->
+              <svg width="75" height="75" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><circle cx="17.5" cy="17.5" r="2.5"></circle></svg>
+            </div>
+            <div style="font-size: 0.58rem; color: #000; font-weight: 700; margin-top: 2px;">📱 SCAN TO VERIFY</div>
+          </div>
+        </div>
+
+        <!-- Exhibit Metadata Grid -->
+        <div style="background: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.75rem;">
+          <div>Case ID: <strong id="cert-case-id" style="color: #fff;">CASE-2026-001</strong></div>
+          <div>Evidence ID: <strong id="cert-ev-id" class="data-mono" style="color: var(--brand);">EV-2026-XXXX</strong></div>
+          <div>Original File: <strong id="cert-filename" style="color: #fff;">exhibit.jpg</strong></div>
+          <div>File Size: <strong id="cert-filesize" style="color: #fff;">0.0 KB</strong></div>
+          <div style="grid-column: 1 / -1;">SHA-256 Genesis: <strong id="cert-sha256" class="data-mono" style="color: var(--tag-accent); font-size: 0.7rem;">e3b0c442...</strong></div>
+        </div>
+
+        <!-- Statutory Declarations -->
+        <div style="margin-bottom: 1rem;">
+          <div style="font-size: 0.72rem; color: var(--brand); font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">
+            📜 Statutory Declaration of Operating Integrity:
+          </div>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.75rem; color: var(--cream);">
+            <p style="margin-bottom: 0.4rem;">1. The electronic record described herein was ingested, parsed, and verified by an automated cryptographic forensics computer system in lawful control of the certifying authority.</p>
+            <p style="margin-bottom: 0.4rem;">2. Throughout the material period of analysis, the computer system operated properly without technical malfunction affecting the contents or integrity of the electronic record.</p>
+            <p style="margin-bottom: 0.4rem;">3. The cryptographic bitstream hash (SHA-256) matches the bit-for-bit pristine baseline recorded at genesis intake.</p>
+            <p style="margin-bottom: 0;">4. Multi-signal mathematical analysis (PRNU sensor ballistics, DIRE frequency analysis, and neural vision ensembles) confirms the findings stated in this certificate.</p>
+          </div>
+        </div>
+
+        <!-- Judicial Decree Finding Box -->
+        <div style="background: rgba(245,166,35,0.06); border: 1px solid var(--brand); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <span style="font-weight: 700; font-size: 0.8rem; color: var(--brand);" id="cert-jud-title">JUDICIAL STATUS: EVALUATING...</span>
+            <span class="badge badge-high" id="cert-jud-badge">HIGH RISK</span>
+          </div>
+          <div style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 0.4rem;">
+            Admissibility: <strong id="cert-admissibility-val" style="color: #fff;">INADMISSIBLE AS FACTUAL EVIDENCE</strong>
+          </div>
+          <p id="cert-decree-text" style="font-size: 0.78rem; color: var(--cream); font-style: italic; margin: 0; line-height: 1.45;"></p>
+        </div>
+
+        <!-- Signing Officer Block -->
+        <div style="border-top: 1px solid var(--hairline); padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: flex-end; font-size: 0.74rem;">
+          <div style="color: var(--text-secondary);">
+            <div>System: <strong>Truth Lens Forensic Core v1.2.0</strong></div>
+            <div>ISO/IEC 27037:2012 &amp; Section 79A IT Act Compliant</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="color: var(--brand); font-weight: 700;">[Cryptographically Signed]</div>
+            <div id="cert-officer-name" style="font-weight: 700; color: #fff;">Insp. Rajesh Verma</div>
+            <div style="color: var(--text-secondary); font-size: 0.68rem;">Lead Forensic Examiner, Digital Evidence Unit</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Bottom Actions -->
+      <div style="padding: 1rem 1.5rem; background: rgba(0,0,0,0.4); border-top: 1px solid var(--hairline); display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeLegalCertificateModal()">Close</button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Print Annexure</button>
+          <a id="cert-download-pdf-btn" href="#" target="_blank" class="btn btn-primary btn-sm" style="text-decoration: none;">
+            📥 Download Certified PDF &rarr;
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </body>
 </html>
