@@ -36,12 +36,19 @@ class AutoCompareRequest(BaseModel):
 
 
 @router.post("/api/evidence/{evidence_id}/reference-compare")
+@router.post("/api/reference/compare/{evidence_id}")
 async def submit_reference_comparison(
     evidence_id: str,
-    reference_original: UploadFile = File(...),
+    reference_original: Optional[UploadFile] = File(default=None),
+    reference_file: Optional[UploadFile] = File(default=None),
+    file: Optional[UploadFile] = File(default=None),
     submitted_by: str = Form(default="Investigator"),
 ):
     """Upload a reference image and compare against the evidence exhibit."""
+    upload = reference_original or reference_file or file
+    if not upload:
+        raise HTTPException(status_code=400, detail="Reference image file is required.")
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
@@ -51,13 +58,13 @@ async def submit_reference_comparison(
     if ev.get("modality") != "IMAGE":
         raise HTTPException(status_code=400, detail="Reference comparison is only available for IMAGE exhibits.")
 
-    content = await reference_original.read()
+    content = await upload.read()
     if len(content) > settings.REFERENCE_MAX_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="Reference image exceeds maximum allowed size.")
     if len(content) < 512:
         raise HTTPException(status_code=400, detail="Reference image file is too small or empty.")
 
-    ref_filename = sanitize_filename(reference_original.filename or "reference.jpg")
+    ref_filename = sanitize_filename((upload.filename if hasattr(upload, "filename") else None) or "reference.jpg")
     comparison_id = f"REF-{uuid.uuid4().hex[:8].upper()}"
     ext = Path(ref_filename).suffix or ".jpg"
     stored_ref_name = f"{comparison_id}{ext}"

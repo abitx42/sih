@@ -70,3 +70,25 @@ def confirm_ground_truth_label(body: ConfirmLabelRequest):
 def export_training_manifest():
     """Export complete training manifest for LoRA fine-tuning."""
     return SelfLearningEngine.export_training_manifest()
+
+
+class QuickReviewRequest(BaseModel):
+    examiner_verdict: Optional[str] = "CONFIRMED_AUTHENTIC_REAL"
+    confirmed_label: Optional[str] = None
+    notes: Optional[str] = ""
+    submitted_by: Optional[str] = "Lead Examiner"
+
+
+@router.post("/review/{evidence_id}")
+def submit_quick_learning_review(evidence_id: str, body: QuickReviewRequest):
+    raw_label = body.confirmed_label or body.examiner_verdict or "AUTHENTIC_REAL"
+    label = "AI_GENERATED" if "AI" in raw_label.upper() or "FAKE" in raw_label.upper() else "AUTHENTIC_REAL"
+    res = SelfLearningEngine.record_review_feedback(
+        evidence_id=evidence_id,
+        verdict="AGREE" if label == "AI_GENERATED" else "DISAGREE",
+        reviewer_name=body.submitted_by or "Lead Examiner",
+        explicit_label=label
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Evidence exhibit or forensic result not found.")
+    return {"success": True, "message": "Review recorded in training dataset.", "evidence_id": evidence_id}

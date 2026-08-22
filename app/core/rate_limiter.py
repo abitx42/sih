@@ -28,6 +28,12 @@ class SlidingWindowRateLimiter:
         # Prune older timestamps
         self.requests[ip] = [t for t in self.requests[ip] if t > cutoff]
 
+        
+        # Memory safety: prune empty IP records periodically
+        if len(self.requests) > 5000:
+            inactive_ips = [k for k, v in self.requests.items() if not v or v[-1] < cutoff]
+            for k in inactive_ips[:1000]:
+                del self.requests[k]
         current_count = len(self.requests[ip])
         if current_count >= limit:
             oldest = self.requests[ip][0]

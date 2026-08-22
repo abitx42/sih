@@ -10,6 +10,7 @@ from app.core.chain_of_custody import ChainOfCustodyLogger
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
 @router.get("/{evidence_id}/download")
+@router.get("/{evidence_id}/pdf")
 def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic Examiner"):
     with get_db() as conn:
         cursor = conn.cursor()

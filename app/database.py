@@ -313,6 +313,35 @@ def init_db():
         )
         """)
 
+        # 13. Feedback & Bug Reports Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS feedback (
+            feedback_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT,
+            is_anonymous INTEGER NOT NULL DEFAULT 0,
+            category TEXT NOT NULL,
+            description TEXT NOT NULL,
+            evidence_id TEXT,
+            rating INTEGER NOT NULL DEFAULT 5,
+            attachment_path TEXT,
+            created_at TEXT NOT NULL
+        )
+        """)
+
+        # Migration: ensure all feedback columns exist
+        cursor.execute("PRAGMA table_info(feedback)")
+        fb_cols = [c["name"] for c in cursor.fetchall()]
+        for col, defn in [
+            ("submitted_at", "TEXT"),
+            ("created_at", "TEXT"),
+            ("attachment_path", "TEXT"),
+            ("evidence_id", "TEXT"),
+            ("rating", "INTEGER DEFAULT 5")
+        ]:
+            if col not in fb_cols:
+                cursor.execute(f"ALTER TABLE feedback ADD COLUMN {col} {defn}")
+
         # Insert default baseline model version if table empty
         cursor.execute("SELECT COUNT(*) as count FROM model_versions")
         if cursor.fetchone()["count"] == 0:

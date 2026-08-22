@@ -92,7 +92,7 @@ class SingleModelRunner:
         except Exception as e:
             self._is_loaded = False
             self._load_error = str(e)
-            logger.warning(f"Unable to load local HF model '{self.model_name}': {e}")
+            logger.debug(f"HF model '{self.model_name}' ({self.role}) offline/cache note: {e}")
             return False
 
     def _classify_label_defensively(self, raw_label: str) -> str:

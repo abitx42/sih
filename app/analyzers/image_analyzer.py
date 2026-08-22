@@ -49,7 +49,15 @@ class ImageAnalyzer(BaseAnalyzer):
         findings: List[Dict[str, Any]] = []
         raw_metrics: Dict[str, Any] = {}
 
-        img = Image.open(file_path).convert("RGB")
+        raw_pil = Image.open(file_path)
+        if raw_pil.mode in ("RGBA", "LA") or (raw_pil.mode == "P" and "transparency" in raw_pil.info):
+            # Alpha composite onto neutral white background to eliminate edge alpha spike
+            bg = Image.new("RGB", raw_pil.size, (255, 255, 255))
+            raw_rgba = raw_pil.convert("RGBA")
+            bg.paste(raw_rgba, mask=raw_rgba.split()[3])
+            img = bg
+        else:
+            img = raw_pil.convert("RGB")
         width, height = img.size
         raw_metrics["dimensions"] = f"{width}x{height}"
         raw_metrics["aspect_ratio"] = round(width / max(1, height), 3)

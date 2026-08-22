@@ -57,7 +57,7 @@ class PatchLocalizer:
 
         # Adaptive patch size based on image dimensions
         min_dim = min(width, height)
-        patch_size = max(32, min(self.target_patch_size, min_dim // 4))
+        patch_size = max(8, min(self.target_patch_size, min_dim))
         stride = max(16, patch_size // 2)
 
         # Sliding window analysis
