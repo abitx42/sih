@@ -26,15 +26,18 @@
       // Fetch user info async (non-blocking — page still loads)
       if (token) {
         fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } })
-          .then(r => r.ok ? r.json() : null)
-          .then(user => {
-            if (!user) {
-              // Token invalid / expired
+          .then(r => {
+            if (r.status === 401) {
+              // Only redirect to login if token is explicitly expired/unauthorized
               localStorage.removeItem('tl_token');
               localStorage.removeItem('tl_guest');
-              window.location.replace('/login.html');
-              return;
+              window.location.replace('/login');
+              return null;
             }
+            return r.ok ? r.json() : null;
+          })
+          .then(user => {
+            if (!user) return;
             window.TL_USER = user;
             // Update header user pill if rendered
             const pill = document.getElementById('user-pill');

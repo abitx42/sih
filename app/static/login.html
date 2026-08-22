@@ -278,7 +278,7 @@ window._pendingEmail = '';
   const isGuest = localStorage.getItem('tl_guest') === '1';
 
   if (isGuest) {
-    window.location.href = '/index.html';
+    window.location.href = '/';
     return;
   }
 
@@ -292,7 +292,7 @@ window._pendingEmail = '';
         window._pendingToken = tok;
         showTC();
       } else {
-        window.location.href = '/index.html';
+        window.location.href = '/';
       }
     } else {
       localStorage.removeItem('tl_token');
@@ -360,7 +360,7 @@ async function triggerGoogleSignIn() {
     }
     localStorage.setItem("tl_token", data.token);
     localStorage.removeItem("tl_guest");
-    window.location.href = "/index.html";
+    window.location.href = '/';
   } catch (e) {
     alert("Connection error during Google Sign-In.");
   }
@@ -378,7 +378,7 @@ async function handleGoogleCallback(response) {
     if (res.ok && data.token) {
       localStorage.setItem("tl_token", data.token);
       localStorage.removeItem("tl_guest");
-      window.location.href = "/index.html";
+      window.location.href = '/';
     }
   } catch (e) {
     console.error("Google Auth error:", e);
@@ -402,7 +402,7 @@ async function doSignIn() {
     localStorage.setItem('tl_token', d.token);
     localStorage.removeItem('tl_guest');
     if (!d.user.tc_accepted) { showTC(); }
-    else { window.location.href = '/index.html'; }
+    else { window.location.href = '/'; }
   } catch (e) { err('err-signin', 'Connection error. Is the server running?'); }
   finally { setBtn('btn-signin', false, 'Sign In →'); }
 }
@@ -485,7 +485,7 @@ async function doGuest() {
   } catch (e) {
     localStorage.setItem('tl_guest', '1');
   }
-  window.location.href = '/index.html';
+  window.location.href = '/';
 }
 
 async function acceptTerms() {
@@ -500,7 +500,7 @@ async function acceptTerms() {
     } catch (e) {}
     localStorage.setItem('tl_token', tok);
   }
-  window.location.href = '/index.html';
+  window.location.href = '/';
 }
 </script>
 </body>

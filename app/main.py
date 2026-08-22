@@ -88,6 +88,10 @@ if not STATIC_DIR.exists():
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
+@app.get("/index.html")
+@app.get("/index")
+@app.get("/dashboard")
+@app.get("/app")
 def serve_index():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
@@ -96,6 +100,8 @@ def serve_index():
 
 @app.get("/login")
 @app.get("/login.html")
+@app.get("/auth")
+@app.get("/signin")
 def serve_login():
     """Serve the login/signup page."""
     login_file = STATIC_DIR / "login.html"
