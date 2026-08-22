@@ -469,7 +469,10 @@ async function pollSingleEvidence(evidenceId, cardElem) {
             <span class="badge badge-high" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3);">✕ FAILED</span>
           `;
           cardElem.querySelector(".action-col").innerHTML = `
-            <span style="font-size: 0.72rem; color: #ef4444;">${escapeHTML(data.error_message || 'Analysis error')}</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
+              <span style="font-size: 0.72rem; color: #ef4444;">${escapeHTML(data.error_message || 'Analysis error')}</span>
+              <button class="btn btn-secondary btn-sm" onclick="retryEvidenceAnalysis('${evidenceId}', this)" style="padding: 0.2rem 0.55rem; font-size: 0.7rem; border-color: #ef4444; color: #ef4444;">🔄 Retry</button>
+            </div>
           `;
           return { success: false, evidenceId, error: data.error_message };
         }
@@ -3103,5 +3106,37 @@ async function triggerCloudCrossCheck() {
       btn.disabled = false;
       btn.textContent = "⚡ Run Cloud Multi-Model Cross-Check";
     }
+  }
+}
+
+
+async function retryEvidenceAnalysis(evidenceId, btnElem) {
+  if (btnElem) {
+    btnElem.disabled = true;
+    btnElem.textContent = "Restarting...";
+  }
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/re-analyze`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || "Failed to restart analysis.");
+      if (btnElem) { btnElem.disabled = false; btnElem.textContent = "🔄 Retry"; }
+      return;
+    }
+    showToast("Analysis pipeline restarted.", "info");
+    const cardElem = document.getElementById(`bulk-item-${evidenceId}`) || (btnElem ? btnElem.closest(".bulk-queue-item") : null);
+    if (cardElem) {
+      cardElem.className = "bulk-queue-item";
+      cardElem.querySelector(".status-col").innerHTML = `
+        <span class="badge badge-status-analyzing" style="font-size: 0.65rem;">⟳ ANALYZING</span>
+      `;
+      cardElem.querySelector(".action-col").innerHTML = `
+        <span style="font-size: 0.72rem; color: var(--text-secondary);">Processing multi-specialist pipeline...</span>
+      `;
+      pollSingleEvidence(evidenceId, cardElem);
+    }
+  } catch (e) {
+    alert("Connection error while restarting analysis.");
+    if (btnElem) { btnElem.disabled = false; btnElem.textContent = "🔄 Retry"; }
   }
 }

@@ -1328,3 +1328,55 @@ def get_web_provenance_search_results(evidence_id: str):
     from app.api.routes_web_search import get_web_search_results
     return get_web_search_results(evidence_id)
 
+
+
+@router.post("/{evidence_id}/re-analyze")
+async def re_analyze_evidence(evidence_id: str, background_tasks: BackgroundTasks):
+    """
+    Restart the automated forensic analysis pipeline for an existing exhibit
+    (useful after server interruptions, network timeouts, or model updates).
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence exhibit not found.")
+
+        file_path = EVIDENCE_DIR / ev["stored_filename"]
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Original evidence file missing from storage.")
+
+        now = datetime.utcnow().isoformat() + "Z"
+        initial_stages = {
+            "INTEGRITY_BASELINE": {"stage_key": "INTEGRITY_BASELINE", "status": "COMPLETED", "details": f"SHA-256 baseline computed ({ev['sha256_hash'][:16]}...)"},
+            "METADATA_PROVENANCE": {"stage_key": "METADATA_PROVENANCE", "status": "QUEUED", "details": "Queued for metadata extraction"},
+            "AI_DETECTOR_ENSEMBLE": {"stage_key": "AI_DETECTOR_ENSEMBLE", "status": "QUEUED", "details": "Queued for multi-specialist ensemble"},
+            "PIXEL_FORENSICS": {"stage_key": "PIXEL_FORENSICS", "status": "QUEUED", "details": "Queued for ELA & noise residual"},
+            "LOCAL_REGION_ANALYSIS": {"stage_key": "LOCAL_REGION_ANALYSIS", "status": "QUEUED", "details": "Queued for patch localizer"},
+            "EXTERNAL_DETECTORS": {"stage_key": "EXTERNAL_DETECTORS", "status": "QUEUED", "details": "Queued for external corroboration"},
+            "EVIDENCE_CORRELATION": {"stage_key": "EVIDENCE_CORRELATION", "status": "QUEUED", "details": "Queued for evidence synthesis"}
+        }
+
+        cursor.execute("""
+            UPDATE evidence 
+            SET status = 'ANALYZING', pipeline_status = 'ANALYZING', error_message = NULL,
+                analysis_started_at = ?, pipeline_stages_json = ?
+            WHERE evidence_id = ?
+        """, (now, json.dumps(initial_stages), evidence_id))
+
+    ChainOfCustodyLogger.record_event(
+        evidence_id=evidence_id,
+        action="ANALYSIS_RESTARTED",
+        actor="Investigator",
+        recorded_sha256=ev["sha256_hash"],
+        details="Forensic analysis pipeline manually restarted."
+    )
+
+    background_tasks.add_task(execute_forensic_pipeline, evidence_id)
+
+    return {
+        "success": True,
+        "evidence_id": evidence_id,
+        "message": "Forensic pipeline successfully restarted in background."
+    }
