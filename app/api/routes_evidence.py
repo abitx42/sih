@@ -1603,3 +1603,23 @@ def correlate_camera_sensors(body: SensorMatchRequest):
     """
     from app.core.prnu_correlator import PRNUCorrelator
     return PRNUCorrelator.correlate_exhibits(body.evidence_id_a, body.evidence_id_b)
+
+
+@router.get("/{evidence_id}/c2pa-manifest")
+def get_c2pa_manifest_analysis(evidence_id: str):
+    """
+    Returns deep C2PA / Content Credentials manifest, actions tree, and certificate chain.
+    """
+    from app.core.c2pa_manifest_inspector import C2PAManifestInspector
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+    fp = EVIDENCE_DIR / ev["stored_filename"]
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="Evidence file missing.")
+
+    return C2PAManifestInspector.inspect_file(fp, evidence_id)

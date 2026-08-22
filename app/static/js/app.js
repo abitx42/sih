@@ -4258,3 +4258,49 @@ async function runSensorCrossMatch() {
     console.warn("Sensor match error:", e);
   }
 }
+
+
+// =========================================================================
+// 17. C2PA / CONTENT CREDENTIALS MANIFEST CONTROLLER
+// =========================================================================
+
+async function updateC2PAProvenanceUI(evidenceId) {
+  if (!evidenceId) return;
+
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/c2pa-manifest`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const badge = document.getElementById("c2pa-manifest-badge");
+    const genEl = document.getElementById("c2pa-generator-name");
+    const signEl = document.getElementById("c2pa-signer-name");
+    const srcEl = document.getElementById("c2pa-source-type");
+    const descEl = document.getElementById("c2pa-manifest-desc");
+    const actList = document.getElementById("c2pa-actions-list");
+
+    if (badge) {
+      badge.textContent = data.has_c2pa_manifest ? "C2PA MANIFEST VERIFIED" : "NO C2PA SIGNATURE";
+      badge.className = data.has_c2pa_manifest ? "badge badge-low" : "badge badge-modality";
+    }
+    if (genEl) genEl.textContent = data.claim_generator || "Direct Bitstream";
+    if (signEl) signEl.textContent = data.signing_authority || "Unsigned Local Stream";
+    if (srcEl) srcEl.textContent = data.digital_source_type || "UNKNOWN";
+    if (descEl) descEl.textContent = data.status_description;
+
+    if (actList) {
+      const acts = data.action_assertions || [];
+      if (acts.length > 0) {
+        actList.innerHTML = acts.map(a => 
+          `<div style="background: rgba(255,255,255,0.02); border-left: 2px solid #38bdf8; padding: 4px 8px; border-radius: 4px; font-size: 0.74rem;">
+            <strong>${escapeHTML(a.action)}</strong> &middot; <span style="color: var(--text-secondary);">${escapeHTML(a.description || '')}</span>
+          </div>`
+        ).join("");
+      } else {
+        actList.innerHTML = `<div style="font-size: 0.72rem; color: var(--text-secondary);">No action history recorded.</div>`;
+      }
+    }
+  } catch (e) {
+    console.warn("C2PA fetch notice:", e);
+  }
+}
