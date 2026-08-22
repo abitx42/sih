@@ -2709,3 +2709,139 @@ function switchComparisonLayer(layer) {
     imgEl.src = `/api/evidence/${currentEvidenceId}/preview?t=${Date.now()}`;
   }
 }
+
+
+// ── Phase 4: Self-Learning & Active Learning Queue ───────────────────────────
+
+async function loadSelfLearningStats() {
+  try {
+    const res = await fetch("/api/learning/stats");
+    if (!res.ok) return;
+    const stats = await res.json();
+
+    const elTotal = document.getElementById("learn-total-samples");
+    const elBalance = document.getElementById("learn-class-balance");
+    const elQueue = document.getElementById("learn-queue-count");
+    const elReady = document.getElementById("learn-readiness-pct");
+    const elBar = document.getElementById("learn-readiness-bar");
+
+    if (elTotal) elTotal.textContent = stats.total_samples || 0;
+    if (elBalance) elBalance.textContent = `${stats.ai_generated_count || 0} AI / ${stats.authentic_real_count || 0} Real`;
+    if (elQueue) elQueue.textContent = stats.active_learning_queue_size || 0;
+    if (elReady) elReady.textContent = `${stats.readiness_percentage || 0}%`;
+    if (elBar) elBar.style.width = `${stats.readiness_percentage || 0}%`;
+
+    loadActiveLearningQueue();
+  } catch (e) {
+    console.warn("Failed to load self-learning stats:", e);
+  }
+}
+
+async function loadActiveLearningQueue() {
+  const tbody = document.getElementById("learn-queue-table-body");
+  if (!tbody) return;
+
+  try {
+    const res = await fetch("/api/learning/queue?limit=10");
+    if (!res.ok) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Queue unavailable</td></tr>';
+      return;
+    }
+
+    const data = await res.json();
+    const items = data.items || [];
+
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--phosphor); padding: 1rem;">✨ All exhibits calibrated. No active learning uncertainty flags in queue.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = items.map(item => `
+      <tr>
+        <td>
+          <a href="javascript:void(0)" onclick="openEvidenceInLab('${escapeHTML(item.evidence_id)}')" style="color: var(--brand); font-weight: 600; text-decoration: none;">
+            ${escapeHTML(item.evidence_id)}
+          </a>
+          <div style="font-size: 0.7rem; color: var(--text-secondary);">${escapeHTML(item.filename)}</div>
+        </td>
+        <td>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--cream);">
+            ${item.risk_score}/100
+          </span>
+          <div style="font-size: 0.65rem; color: var(--text-secondary);">${escapeHTML(item.risk_category)}</div>
+        </td>
+        <td>
+          <span class="badge ${item.ensemble_conflict ? 'badge-risk-high' : 'badge-risk-medium'}" style="font-size: 0.62rem;">
+            ${escapeHTML(item.priority_reason)}
+          </span>
+        </td>
+        <td>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; color: var(--brand);">
+            ${Math.round(item.uncertainty_score * 100)}% Uncertainty
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; gap: 0.35rem;">
+            <button class="btn btn-secondary btn-sm" onclick="confirmActiveLearningLabel('${escapeHTML(item.evidence_id)}', 'AUTHENTIC_REAL')" style="font-size: 0.68rem; padding: 0.2rem 0.5rem; border-color: var(--phosphor); color: var(--phosphor);" title="Confirm verified authentic camera capture">
+              ✓ Confirm Real
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="confirmActiveLearningLabel('${escapeHTML(item.evidence_id)}', 'AI_GENERATED')" style="font-size: 0.68rem; padding: 0.2rem 0.5rem; border-color: var(--danger); color: var(--danger);" title="Confirm verified synthetic/AI image">
+              ⚠️ Confirm AI
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Error loading active learning queue.</td></tr>';
+  }
+}
+
+async function confirmActiveLearningLabel(evidenceId, confirmedLabel) {
+  try {
+    const res = await fetch("/api/learning/confirm-label", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        evidence_id: evidenceId,
+        confirmed_label: confirmedLabel,
+        reviewer_name: (window.TL_USER && window.TL_USER.name) || "Lead Forensic Examiner"
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Labeling error: ${err.detail || 'Failed'}`, "error");
+      return;
+    }
+
+    showToast(`Ground-truth confirmed as ${confirmedLabel.replace('_', ' ')}! Sample cataloged.`, "success");
+    loadSelfLearningStats();
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+  }
+}
+
+async function exportTrainingManifest() {
+  try {
+    const res = await fetch("/api/learning/export-manifest");
+    if (!res.ok) {
+      showToast("Failed to export manifest.", "error");
+      return;
+    }
+    const manifest = await res.json();
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `truthlens_training_manifest_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${manifest.total_samples || 0} training samples manifest!`, "success");
+  } catch (e) {
+    showToast(`Export error: ${e}`, "error");
+  }
+}

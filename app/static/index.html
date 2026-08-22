@@ -228,6 +228,78 @@
         </div>
       </div>
 
+      
+      <!-- Self-Learning Feedback Loop & Active Learning Queue (Phase 4) -->
+      <div class="card-panel" style="margin-top: var(--space-6);">
+        <div class="panel-header" style="flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+              🧠 Self-Learning Feedback Loop &amp; Active Learning Hub
+            </h3>
+            <p style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">
+              Continuous ground-truth data collection from examiner verdicts and active learning triage for borderline exhibits.
+            </p>
+          </div>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="exportTrainingManifest()" style="font-size: 0.72rem;">
+              📥 Export Dataset Manifest
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="loadSelfLearningStats()" style="font-size: 0.72rem;">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Learning KPI Strip -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
+            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Verified Training Samples</div>
+            <div id="learn-total-samples" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--brand); margin-top: 0.25rem;">0</div>
+            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.2rem;">Target for LoRA Retrain: 500</div>
+          </div>
+          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
+            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Class Balance (AI / Real)</div>
+            <div id="learn-class-balance" style="font-size: 1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--cream); margin-top: 0.25rem;">0 / 0</div>
+            <div style="font-size: 0.65rem; color: var(--phosphor); margin-top: 0.2rem;" id="learn-balance-sub">Equally weighted</div>
+          </div>
+          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
+            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Active Learning Queue</div>
+            <div id="learn-queue-count" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: #f59e0b; margin-top: 0.25rem;">0</div>
+            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.2rem;">Borderline (0.35–0.65) Samples</div>
+          </div>
+          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
+            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Retrain Readiness</div>
+            <div id="learn-readiness-pct" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--phosphor); margin-top: 0.25rem;">0%</div>
+            <div style="height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 0.35rem;">
+              <div id="learn-readiness-bar" style="height: 100%; width: 0%; background: var(--phosphor); transition: width 0.4s;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Learning Queue Table -->
+        <div>
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--cream); margin-bottom: 0.5rem; text-transform: uppercase;">
+            🎯 Active Learning Priority Triage (Uncertain Exhibits Awaiting Human Verification)
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Exhibit ID &amp; File</th>
+                  <th>Model Score</th>
+                  <th>Priority Flag</th>
+                  <th>Uncertainty</th>
+                  <th>1-Click Ground Truth Label</th>
+                </tr>
+              </thead>
+              <tbody id="learn-queue-table-body">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading active learning queue...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Live Chain of Custody Stream -->
       <div class="card-panel" style="margin-top: var(--space-6);">
         <div class="panel-header">

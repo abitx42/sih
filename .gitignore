@@ -55,6 +55,8 @@ storage/references/*
 !storage/references/.gitkeep
 storage/demo_run/*
 !storage/demo_run/.gitkeep
+storage/training_data/*
+!storage/training_data/.gitkeep
 
 # OS / Editor
 

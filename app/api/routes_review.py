@@ -77,6 +77,17 @@ def submit_review(evidence_id: str, req: InvestigatorReviewRequest):
         details=f"Investigator verdict: {verdict}. Notes: {notes or 'None provided'}."
     )
 
+    # Self-Learning Feedback Loop (Phase 4): Ingest confirmed sample into training dataset
+    try:
+        from app.core.self_learning import SelfLearningEngine
+        SelfLearningEngine.record_review_feedback(
+            evidence_id=evidence_id,
+            verdict=verdict,
+            reviewer_name=req.reviewer_name
+        )
+    except Exception as e:
+        logger.warning(f"Self-learning review ingestion warning: {e}")
+
     return InvestigatorReviewResponse(
         review_id=review_id,
         evidence_id=evidence_id,
