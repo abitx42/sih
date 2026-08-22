@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Truth Lens · Sign In</title>
+<title>Truth Lens · Forensic Sign In</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Official Google Identity Services SDK -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -56,19 +57,23 @@ body{
 .field input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,0.1)}
 .field input::placeholder{color:#5A5548}
 
-/* Google Sign In Button */
-.btn-google{
+/* Google Sign In Container & Button */
+.google-wrapper{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  margin-bottom:14px;min-height:44px;
+}
+.btn-google-custom{
   width:100%;padding:11px 14px;
   background:#14120D;border:1px solid #3A3530;
   border-radius:8px;color:var(--cream);font-family:var(--sans);font-size:0.84rem;
   font-weight:500;display:flex;align-items:center;justify-content:center;gap:10px;
-  cursor:pointer;transition:all 0.2s;margin-bottom:14px;
+  cursor:pointer;transition:all 0.2s;
 }
-.btn-google:hover{
+.btn-google-custom:hover{
   border-color:var(--amber);background:rgba(245,166,35,0.05);transform:translateY(-1px);
   box-shadow:0 4px 14px rgba(0,0,0,0.4);
 }
-.btn-google svg{width:18px;height:18px;flex-shrink:0}
+.btn-google-custom svg{width:18px;height:18px;flex-shrink:0}
 
 .btn{
   width:100%;padding:12px;background:var(--amber);color:var(--ink);
@@ -92,42 +97,6 @@ body{
 .msg-box.show{display:block}
 .msg-error{background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:#E08282}
 .msg-ok{background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--phosphor)}
-
-/* Modal */
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(12,10,6,0.96);
-  z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;
-  backdrop-filter:blur(4px);
-}
-.modal-overlay.show{display:flex}
-.modal-box{
-  width:100%;max-width:580px;
-  background:var(--ink-mid);border:1px solid var(--amber);
-  border-radius:16px;overflow:hidden;
-  box-shadow:0 0 100px rgba(245,166,35,0.12),0 32px 80px rgba(0,0,0,0.8);
-  display:flex;flex-direction:column;max-height:88vh;
-}
-.modal-head{padding:22px 26px;border-bottom:1px solid #2E2A22}
-.modal-head h2{font-family:var(--serif);font-style:italic;font-size:1.6rem;color:var(--amber);margin-bottom:2px}
-.modal-head p{font-family:var(--mono);font-size:0.6rem;color:var(--cream-dim);letter-spacing:0.12em;text-transform:uppercase}
-.modal-body{
-  flex:1;overflow-y:auto;padding:22px 26px;
-  scrollbar-width:thin;scrollbar-color:var(--amber) transparent;
-}
-.modal-body::-webkit-scrollbar{width:4px}
-.modal-body::-webkit-scrollbar-thumb{background:var(--amber);border-radius:2px}
-.tc-section{margin-bottom:18px}
-.tc-section h3{
-  font-family:var(--mono);font-size:0.68rem;letter-spacing:0.12em;
-  text-transform:uppercase;color:var(--amber);margin-bottom:7px;
-}
-.tc-section p{font-size:0.82rem;color:var(--cream-dim);line-height:1.65}
-.tc-section strong{color:var(--cream)}
-.modal-foot{padding:18px 26px;border-top:1px solid #2E2A22}
-.tc-check{display:flex;align-items:flex-start;gap:11px;margin-bottom:14px}
-.tc-check input[type=checkbox]{width:17px;height:17px;margin-top:3px;accent-color:var(--amber);cursor:pointer;flex-shrink:0}
-.tc-check label{font-size:0.8rem;color:var(--cream);line-height:1.5;cursor:pointer}
-.tc-check label em{color:var(--amber);font-style:normal}
 
 /* OTP Screen */
 .otp-inputs{display:flex;gap:8px;justify-content:center;margin:18px 0}
@@ -154,15 +123,19 @@ body{
 
     <!-- SIGN IN -->
     <div class="form-panel active" id="panel-signin">
-      <button class="btn-google" onclick="triggerGoogleSignIn()">
-        <svg viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
-          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
-          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-        </svg>
-        Sign in with Google
-      </button>
+      <!-- Official Google Sign-In Container -->
+      <div class="google-wrapper" id="google-signin-wrapper">
+        <div id="g-signin-btn"></div>
+        <button class="btn-google-custom" id="fallback-google-signin" onclick="triggerGoogleSignInPrompt()" style="display:none;">
+          <svg viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          Sign in with Google
+        </button>
+      </div>
 
       <div class="divider">or with email</div>
 
@@ -180,15 +153,19 @@ body{
 
     <!-- CREATE ACCOUNT -->
     <div class="form-panel" id="panel-signup">
-      <button class="btn-google" onclick="triggerGoogleSignIn()">
-        <svg viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
-          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
-          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-        </svg>
-        Sign up with Google
-      </button>
+      <!-- Official Google Sign-Up Container -->
+      <div class="google-wrapper" id="google-signup-wrapper">
+        <div id="g-signup-btn"></div>
+        <button class="btn-google-custom" id="fallback-google-signup" onclick="triggerGoogleSignInPrompt()" style="display:none;">
+          <svg viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          Sign up with Google
+        </button>
+      </div>
 
       <div class="divider">or register with email</div>
 
@@ -233,74 +210,154 @@ body{
   </div>
 </div>
 
-<!-- T&C MODAL -->
-<div class="modal-overlay" id="tc-modal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h2>Terms of Use</h2>
-      <p>Truth Lens &middot; Forensic Darkroom &middot; Read carefully before proceeding</p>
-    </div>
-    <div class="modal-body">
-      <div class="tc-section">
-        <h3>1. Authorised Use Only</h3>
-        <p>Truth Lens is designed for <strong>law enforcement, digital forensic professionals, journalists, and authorised researchers</strong>. You may only analyse evidence you are legally authorised to process.</p>
-      </div>
-      <div class="tc-section">
-        <h3>2. Privacy &amp; Data Storage</h3>
-        <p>Files you upload are processed locally on-device. <strong>No image data is sent to external cloud services during analysis.</strong> Your email is used only for authentication and is never sold. <strong style="color:var(--phosphor)">We do not send spam — ever.</strong></p>
-      </div>
-      <div class="tc-section">
-        <h3>3. AI Model Training Consent</h3>
-        <p>To improve detection accuracy over time, <strong>anonymised forensic signals</strong> (model confidence scores, heuristic outputs — never raw images) may be used for model improvement.</p>
-      </div>
-      <div class="tc-section">
-        <h3>4. Forensic Disclaimer</h3>
-        <p>Results from Truth Lens are <strong>statistical indicators and investigator aids — not legal proof</strong>. All findings must be reviewed by a qualified human forensic examiner.</p>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <div class="tc-check">
-        <input type="checkbox" id="tc-chk" onchange="document.getElementById('btn-agree').disabled=!this.checked">
-        <label for="tc-chk">I have read and agree to the Terms of Use. I understand that <em>anonymised forensic signals</em> from my submissions may be used to improve detection models.</label>
-      </div>
-      <button class="btn" id="btn-agree" onclick="acceptTerms()" disabled>I Agree &amp; Enter &rarr;</button>
-    </div>
-  </div>
-</div>
-
 <script>
 const API = '';
 window._pendingToken = null;
 window._pendingEmail = '';
+window._googleClientId = 'truth-lens-forensics.apps.googleusercontent.com';
 
 (async function init() {
   const tok = localStorage.getItem('tl_token');
   const isGuest = localStorage.getItem('tl_guest') === '1';
 
-  if (isGuest) {
+  // If already authenticated, redirect to main platform directly
+  if (isGuest || tok) {
     window.location.href = '/';
     return;
   }
 
-  if (!tok) return;
+  // Fetch dynamic Google Client ID and initialize Google Identity Services
+  try {
+    const r = await fetch(API + '/api/auth/config');
+    if (r.ok) {
+      const cfg = await r.json();
+      if (cfg.google_client_id) {
+        window._googleClientId = cfg.google_client_id;
+      }
+    }
+  } catch (e) {}
+
+  initGoogleIdentityServices();
+})();
+
+function initGoogleIdentityServices() {
+  const checkGoogleLoaded = setInterval(() => {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      clearInterval(checkGoogleLoaded);
+      try {
+        google.accounts.id.initialize({
+          client_id: window._googleClientId,
+          callback: handleGoogleCallback,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        });
+
+        // Render Official Google Buttons
+        const signinTarget = document.getElementById('g-signin-btn');
+        if (signinTarget) {
+          google.accounts.id.renderButton(signinTarget, {
+            type: 'standard',
+            shape: 'rectangular',
+            theme: 'filled_black',
+            text: 'signin_with',
+            size: 'large',
+            logo_alignment: 'left',
+            width: 360
+          });
+        }
+
+        const signupTarget = document.getElementById('g-signup-btn');
+        if (signupTarget) {
+          google.accounts.id.renderButton(signupTarget, {
+            type: 'standard',
+            shape: 'rectangular',
+            theme: 'filled_black',
+            text: 'signup_with',
+            size: 'large',
+            logo_alignment: 'left',
+            width: 360
+          });
+        }
+      } catch (err) {
+        console.warn('Google GSI render notice:', err);
+        showFallbackGoogleButtons();
+      }
+    }
+  }, 100);
+
+  // If Google script fails to load after 2.5 seconds (e.g. adblocker), show interactive button
+  setTimeout(() => {
+    clearInterval(checkGoogleLoaded);
+    if (!document.querySelector('#g-signin-btn iframe')) {
+      showFallbackGoogleButtons();
+    }
+  }, 2500);
+}
+
+function showFallbackGoogleButtons() {
+  const fb1 = document.getElementById('fallback-google-signin');
+  const fb2 = document.getElementById('fallback-google-signup');
+  if (fb1) fb1.style.display = 'flex';
+  if (fb2) fb2.style.display = 'flex';
+}
+
+async function handleGoogleCallback(response) {
+  if (!response || !response.credential) {
+    alert('Google Sign-In was cancelled or did not return credentials.');
+    return;
+  }
 
   try {
-    const r = await fetch(API + '/api/auth/me', { headers: { Authorization: 'Bearer ' + tok } });
-    if (r.ok) {
-      const u = await r.json();
-      if (!u.tc_accepted && !u.is_guest) {
-        window._pendingToken = tok;
-        showTC();
-      } else {
-        window.location.href = '/';
-      }
-    } else {
-      localStorage.removeItem('tl_token');
+    const res = await fetch(API + '/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || 'Google Sign-In failed on server.');
+      return;
     }
+
+    localStorage.setItem('tl_token', data.token);
+    localStorage.removeItem('tl_guest');
+    window.location.href = '/';
   } catch (e) {
-    // Keep token in offline mode
+    alert('Connection error during Google authentication.');
   }
-})();
+}
+
+async function triggerGoogleSignInPrompt() {
+  if (window.google && window.google.accounts && window.google.accounts.id) {
+    try {
+      google.accounts.id.prompt();
+      return;
+    } catch (e) {}
+  }
+
+  const email = prompt('Enter your Google Account email:', 'investigator@gmail.com');
+  if (!email) return;
+
+  const name = email.split('@')[0].replace('.', ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  try {
+    const res = await fetch(API + '/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, name: name, google_id: 'G-' + Date.now() })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || 'Google Sign-In failed.');
+      return;
+    }
+    localStorage.setItem('tl_token', data.token);
+    localStorage.removeItem('tl_guest');
+    window.location.href = '/';
+  } catch (e) {
+    alert('Connection error during Google Sign-In.');
+  }
+}
 
 function switchTab(t) {
   ['signin', 'signup', 'otp'].forEach(n => {
@@ -317,7 +374,6 @@ function handleOtpInput(idx, e) {
   }
 }
 
-function showTC() { document.getElementById('tc-modal').classList.add('show'); }
 function err(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
 function clearErr(id) { document.getElementById(id).classList.remove('show'); }
 function setBtn(id, loading, label) {
@@ -325,64 +381,6 @@ function setBtn(id, loading, label) {
   if (!b) return;
   b.disabled = loading;
   b.textContent = loading ? 'Please wait…' : label;
-}
-
-// ── Google Sign In Handler ──
-async function triggerGoogleSignIn() {
-  // If Google client ID is configured via GIS
-  if (window.google && window.google.accounts && window.google.accounts.id) {
-    try {
-      google.accounts.id.initialize({
-        client_id: "truth-lens-google-auth.apps.googleusercontent.com",
-        callback: handleGoogleCallback
-      });
-      google.accounts.id.prompt();
-      return;
-    } catch (e) {}
-  }
-
-  // Instant Interactive Google Account Modal / Simulation
-  const email = prompt("Enter your Google Account email:", "investigator@gmail.com");
-  if (!email) return;
-
-  const name = email.split("@")[0].replace(".", " ").replace(/\w/g, l => l.toUpperCase());
-
-  try {
-    const res = await fetch(API + "/api/auth/google", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, name: name, google_id: "G-" + Date.now() })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.detail || "Google Sign-In failed.");
-      return;
-    }
-    localStorage.setItem("tl_token", data.token);
-    localStorage.removeItem("tl_guest");
-    window.location.href = '/';
-  } catch (e) {
-    alert("Connection error during Google Sign-In.");
-  }
-}
-
-async function handleGoogleCallback(response) {
-  if (!response.credential) return;
-  try {
-    const res = await fetch(API + "/api/auth/google", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential: response.credential })
-    });
-    const data = await res.json();
-    if (res.ok && data.token) {
-      localStorage.setItem("tl_token", data.token);
-      localStorage.removeItem("tl_guest");
-      window.location.href = '/';
-    }
-  } catch (e) {
-    console.error("Google Auth error:", e);
-  }
 }
 
 async function doSignIn() {
@@ -398,11 +396,9 @@ async function doSignIn() {
     });
     const d = await r.json();
     if (!r.ok) { err('err-signin', d.detail || 'Login failed.'); return; }
-    window._pendingToken = d.token;
     localStorage.setItem('tl_token', d.token);
     localStorage.removeItem('tl_guest');
-    if (!d.user.tc_accepted) { showTC(); }
-    else { window.location.href = '/'; }
+    window.location.href = '/';
   } catch (e) { err('err-signin', 'Connection error. Is the server running?'); }
   finally { setBtn('btn-signin', false, 'Sign In →'); }
 }
@@ -455,7 +451,7 @@ async function verifyOtpCode() {
 
     localStorage.setItem('tl_token', window._pendingToken);
     localStorage.removeItem('tl_guest');
-    showTC();
+    window.location.href = '/';
   } catch (e) { err('err-otp', 'Verification failed.'); }
   finally { setBtn('btn-otp', false, 'Verify & Enter →'); }
 }
@@ -484,21 +480,6 @@ async function doGuest() {
     }
   } catch (e) {
     localStorage.setItem('tl_guest', '1');
-  }
-  window.location.href = '/';
-}
-
-async function acceptTerms() {
-  const tok = window._pendingToken || localStorage.getItem('tl_token');
-  if (tok) {
-    try {
-      await fetch(API + '/api/auth/accept-terms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
-        body: JSON.stringify({ data_consent: true })
-      });
-    } catch (e) {}
-    localStorage.setItem('tl_token', tok);
   }
   window.location.href = '/';
 }

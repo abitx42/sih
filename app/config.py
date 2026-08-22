@@ -32,6 +32,7 @@ for directory in [STORAGE_DIR, EVIDENCE_DIR, THUMBNAILS_DIR, FORENSIC_DIR, REPOR
     directory.mkdir(parents=True, exist_ok=True)
 
 class Settings:
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "truth-lens-forensics.apps.googleusercontent.com").strip()
     PROJECT_NAME: str = "Truth Lens"
     TAGLINE: str = "Digital Evidence Forensics Platform"
     SHORT_TAGLINE: str = "See the signals. Review the evidence."
