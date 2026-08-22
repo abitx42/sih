@@ -389,7 +389,12 @@ class HFImageDetector:
         raw_indicators: List[float] = []
 
         for (ind, weight, role_label) in indicator_weight_pairs:
-            cal = 1.0 / (1.0 + math.exp(-(ind - 0.5) * 3.0))
+            # Full dynamic range preserving S-curve calibration:
+            # Maps 0.0 -> 0.0 (100% Real), 0.5 -> 0.5 (Neutral), 1.0 -> 1.0 (100% AI)
+            # High-confidence real samples (<0.15) remain >90% authentic.
+            # High-confidence AI samples (>0.80) remain >90% AI.
+            p_c = max(1e-6, min(1.0 - 1e-6, ind))
+            cal = (p_c ** 2.2) / (p_c ** 2.2 + (1.0 - p_c) ** 2.2)
             calibrated_values.append((cal, weight, role_label))
             role_labels.append(f"{role_label}:{ind:.2f}>{cal:.2f}")
             raw_indicators.append(ind)
