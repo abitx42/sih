@@ -20,6 +20,7 @@ from app.api.routes_reference import router as reference_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_web_search import router as web_search_router
 from app.api.routes_learning import router as learning_router
+from app.api.routes_training import router as training_router
 
 # Configure logging
 logging.basicConfig(
@@ -66,6 +67,7 @@ app.include_router(reference_router)
 app.include_router(auth_router)
 app.include_router(web_search_router)
 app.include_router(learning_router)
+app.include_router(training_router)
 
 # Mount Static Files (Web UI)
 STATIC_DIR = Path(__file__).resolve().parent / "static"

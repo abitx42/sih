@@ -2845,3 +2845,159 @@ async function exportTrainingManifest() {
     showToast(`Export error: ${e}`, "error");
   }
 }
+
+
+// ── Phase 5: LoRA Fine-Tuning & Model Versioning ─────────────────────────────
+
+let loraPollInterval = null;
+
+async function loadModelVersions() {
+  const tbody = document.getElementById("model-versions-table-body");
+  if (!tbody) return;
+
+  try {
+    const res = await fetch("/api/training/versions");
+    if (!res.ok) return;
+    const data = await res.json();
+    const versions = data.versions || [];
+
+    if (versions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No model versions registered.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = versions.map(v => `
+      <tr style="${v.is_active ? 'background: rgba(245,166,35,0.04);' : ''}">
+        <td>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: ${v.is_active ? 'var(--brand)' : 'var(--cream)'};">
+            ${escapeHTML(v.version_id)}
+          </span>
+          ${v.is_active ? '<span class="badge badge-risk-low" style="font-size: 0.6rem; margin-left: 0.4rem;">ACTIVE</span>' : ''}
+          <div style="font-size: 0.65rem; color: var(--text-secondary);">${escapeHTML(v.created_at ? v.created_at.slice(0,10) : '')}</div>
+        </td>
+        <td style="font-size: 0.72rem; color: var(--text-secondary);">
+          ${escapeHTML(v.base_model || 'HF Ensemble')}
+        </td>
+        <td style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem;">
+          ${v.samples_count || 0}
+        </td>
+        <td>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--phosphor);">
+            ${v.validation_accuracy}%
+          </span>
+        </td>
+        <td style="font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--text-secondary);">
+          ${v.training_loss}
+        </td>
+        <td>
+          <span class="badge ${v.is_active ? 'badge-risk-low' : 'badge-modality'}" style="font-size: 0.62rem;">
+            ${escapeHTML(v.status || 'ARCHIVED')}
+          </span>
+        </td>
+        <td>
+          ${v.is_active ? '<span style="font-size: 0.7rem; color: var(--brand);">✓ In Production</span>' : `
+            <button class="btn btn-secondary btn-sm" onclick="rollbackModelVersion('${escapeHTML(v.version_id)}')" style="font-size: 0.68rem; padding: 0.2rem 0.5rem;">
+              ↺ Activate Checkpoint
+            </button>
+          `}
+        </td>
+      </tr>
+    `).join("");
+
+  } catch (e) {
+    console.warn("Failed to load model versions:", e);
+  }
+}
+
+async function triggerLoRATraining() {
+  const btn = document.getElementById("btn-trigger-lora");
+  const pBox = document.getElementById("lora-training-progress-box");
+  const pText = document.getElementById("lora-train-status-text");
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Fine-Tuning Active...";
+  }
+  if (pBox) pBox.style.display = "block";
+  if (pText) pText.textContent = "Initializing LoRA adaptation session...";
+
+  try {
+    const res = await fetch("/api/training/trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ epochs: 5, learning_rate: 0.0002, batch_size: 16 })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Training error: ${err.detail || "Request failed"}`, "error");
+      if (btn) { btn.disabled = false; btn.textContent = "⚡ Trigger LoRA Adaptation"; }
+      return;
+    }
+
+    showToast("LoRA fine-tuning session initiated!", "success");
+
+    if (loraPollInterval) clearInterval(loraPollInterval);
+    loraPollInterval = setInterval(pollTrainingStatus, 600);
+
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+    if (btn) { btn.disabled = false; btn.textContent = "⚡ Trigger LoRA Adaptation"; }
+  }
+}
+
+async function pollTrainingStatus() {
+  try {
+    const res = await fetch("/api/training/status");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const pPct = document.getElementById("lora-train-pct");
+    const pBar = document.getElementById("lora-train-bar");
+    const pText = document.getElementById("lora-train-status-text");
+    const pLogs = document.getElementById("lora-train-logs");
+    const btn = document.getElementById("btn-trigger-lora");
+
+    if (pPct) pPct.textContent = `${data.progress_pct}%`;
+    if (pBar) pBar.style.width = `${data.progress_pct}%`;
+    if (pText) pText.textContent = `Epoch ${data.current_epoch}/${data.total_epochs} (Loss: ${data.current_loss}, Val Acc: ${data.val_accuracy}%)`;
+
+    if (pLogs && data.recent_logs) {
+      pLogs.innerHTML = data.recent_logs.map(l => `<div>${escapeHTML(l)}</div>`).join("");
+      pLogs.scrollTop = pLogs.scrollHeight;
+    }
+
+    if (!data.is_running) {
+      clearInterval(loraPollInterval);
+      loraPollInterval = null;
+      if (btn) { btn.disabled = false; btn.textContent = "⚡ Trigger LoRA Adaptation"; }
+
+      if (data.status === "COMPLETED") {
+        showToast(`LoRA adapter fine-tuning complete! Val Accuracy: ${data.val_accuracy}%`, "success");
+      } else if (data.status === "FAILED") {
+        showToast(`Training session failed: ${data.error_message}`, "error");
+      }
+      loadModelVersions();
+      loadSelfLearningStats();
+    }
+  } catch (e) {
+    console.warn("Polling error:", e);
+  }
+}
+
+async function rollbackModelVersion(versionId) {
+  try {
+    const res = await fetch(`/api/training/rollback/${versionId}`, {
+      method: "POST"
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Rollback error: ${err.detail || "Failed"}`, "error");
+      return;
+    }
+    showToast(`Model rolled back and activated: ${versionId}`, "success");
+    loadModelVersions();
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+  }
+}
