@@ -4304,3 +4304,55 @@ async function updateC2PAProvenanceUI(evidenceId) {
     console.warn("C2PA fetch notice:", e);
   }
 }
+
+
+// =========================================================================
+// 18. CASE INTELLIGENCE MATRIX & SENSOR NETWORK CONTROLLER
+// =========================================================================
+
+async function loadCaseSensorClusters(caseId) {
+  if (!caseId) return;
+  const container = document.getElementById("case-sensor-clusters-container");
+  if (!container) return;
+
+  try {
+    const res = await fetch(`/api/cases/${caseId}/sensor-clusters`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const clusters = data.clusters || [];
+
+    if (clusters.length === 0) {
+      container.innerHTML = `<div style="color: var(--text-secondary); padding: 1rem; font-size: 0.78rem;">No exhibits found in this case yet.</div>`;
+      return;
+    }
+
+    container.innerHTML = clusters.map(c => {
+      const isSynth = (c.cluster_name || '').includes('Synthetic');
+      const borderCol = isSynth ? '#ef4444' : '#22c55e';
+      const badgeCol = isSynth ? 'badge-high' : 'badge-low';
+
+      return `
+        <div style="background: var(--ink); border: 1px solid var(--hairline); border-top: 3px solid ${borderCol}; border-radius: 8px; padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong style="font-size: 0.85rem; color: #fff;">${escapeHTML(c.cluster_name)}</strong>
+            <span class="badge ${badgeCol}" style="font-size: 0.65rem;">${c.exhibits.length} Exhibits</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            ${escapeHTML(c.sensor_type || c.generator || 'Hardware Cluster')}
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+            ${c.exhibits.map(e => `
+              <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 4px 8px; border-radius: 4px; font-size: 0.74rem;">
+                <span class="data-mono" style="color: var(--brand); cursor: pointer;" onclick="openEvidenceInLab('${e.evidence_id}')">${escapeHTML(e.evidence_id)}</span>
+                <span style="color: var(--cream);">${escapeHTML(e.filename)}</span>
+                <span class="badge ${e.risk_score >= 60 ? 'badge-high' : 'badge-low'}" style="font-size: 0.65rem;">${e.risk_score.toFixed(1)}/100</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    console.warn("Case clusters error:", e);
+  }
+}

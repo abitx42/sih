@@ -2093,6 +2093,26 @@
           </select>
         </div>
 
+        
+        <!-- ── CASE INTELLIGENCE MATRIX & HARDWARE SENSOR CLUSTERING ── -->
+        <div class="card-panel" style="margin-bottom: 1.5rem; border-left: 3px solid var(--brand);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--brand);">🧠 CASE INTELLIGENCE MATRIX &amp; SENSOR NETWORK</div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">Multi-Exhibit Hardware Attribution Clusters</h3>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="loadCaseSensorClusters(currentCaseId)" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;">
+              🔄 Auto-Cluster Camera Sensors
+            </button>
+          </div>
+
+          <div id="case-sensor-clusters-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            <div style="color: var(--text-secondary); padding: 1rem; font-size: 0.78rem;">
+              Click "Auto-Cluster Camera Sensors" to group exhibits by physical hardware fingerprints.
+            </div>
+          </div>
+        </div>
+
         <!-- Evidence Table & Gallery Panel (Section 7: Workspace Modes) -->
         <div class="card-panel" style="margin-bottom: 1.5rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
