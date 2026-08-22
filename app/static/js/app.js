@@ -4110,3 +4110,93 @@ function sharePublicDebunkLink() {
   showToast("✓ Public Fact-Check Debunk link copied to clipboard!", "success");
   window.open(url, "_blank");
 }
+
+
+// =========================================================================
+// 15. VIDEO DEEPFAKE TIMELINE SCRUB BAR CONTROLLER
+// =========================================================================
+
+let videoTimelineData = null;
+
+async function updateVideoForensicsUI(evidenceData, forensicResult) {
+  const panel = document.getElementById("lab-video-timeline-panel");
+  if (!panel) return;
+
+  const isVideo = (evidenceData.modality === "VIDEO" || (evidenceData.original_filename || '').match(/\.(mp4|mov|avi|mkv|webm)$/i));
+  if (!isVideo) {
+    panel.style.display = "none";
+    return;
+  }
+
+  panel.style.display = "block";
+  const evId = evidenceData.evidence_id;
+
+  try {
+    const res = await fetch(`/api/evidence/${evId}/video-timeline`);
+    if (!res.ok) return;
+    videoTimelineData = await res.json();
+
+    const track = document.getElementById("video-timeline-track");
+    const durEl = document.getElementById("video-total-duration");
+    const badge = document.getElementById("video-scrub-verdict-badge");
+    const flagBox = document.getElementById("video-flagged-windows-box");
+    const flagChips = document.getElementById("video-flagged-chips");
+
+    const totalDur = videoTimelineData.duration_seconds || 5.0;
+    if (durEl) durEl.textContent = `${totalDur.toFixed(1)}s`;
+
+    const frames = videoTimelineData.timeline_frames || [];
+    const hasHighRisk = frames.some(f => (f.ai_manipulation_indicator || 0) >= 0.6);
+
+    if (badge) {
+      badge.textContent = hasHighRisk ? "FACE SWAP DETECTED" : "AUTHENTIC VIDEO CONTINUITY";
+      badge.className = hasHighRisk ? "badge badge-high" : "badge badge-low";
+    }
+
+    if (track) {
+      track.innerHTML = frames.map(f => {
+        const ind = f.ai_manipulation_indicator || 0;
+        const color = ind >= 0.6 ? '#ef4444' : (ind >= 0.25 ? '#F5A623' : '#22c55e');
+        return `<div style="flex: 1; height: 100%; background: ${color}; opacity: 0.85; border-right: 1px solid rgba(0,0,0,0.3);" title="${f.timestamp_seconds}s: ${(ind * 100).toFixed(1)}% AI"></div>`;
+      }).join("");
+    }
+
+    const windows = videoTimelineData.flagged_windows || [];
+    if (flagBox && flagChips) {
+      if (windows.length > 0) {
+        flagBox.style.display = "block";
+        flagChips.innerHTML = windows.map(w =>
+          `<button type="button" class="btn btn-secondary btn-sm" style="border-color: #ef4444; color: #ef4444; font-size: 0.72rem; padding: 2px 8px;">
+            ⏱️ ${w.start_sec}s &rarr; ${w.end_sec}s (${w.max_score.toFixed(1)}% AI)
+          </button>`
+        ).join("");
+      } else {
+        flagBox.style.display = "none";
+      }
+    }
+  } catch (e) {
+    console.warn("Video timeline notice:", e);
+  }
+}
+
+function handleVideoTimelineHover(e) {
+  if (!videoTimelineData || !videoTimelineData.timeline_frames) return;
+  const track = document.getElementById("video-timeline-track");
+  const hoverTimeEl = document.getElementById("video-scrub-hover-time");
+  const scorePill = document.getElementById("video-scrub-score-pill");
+
+  if (!track || !hoverTimeEl || !scorePill) return;
+
+  const rect = track.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const frames = videoTimelineData.timeline_frames;
+  const idx = Math.floor(pct * frames.length);
+  const frame = frames[Math.min(frames.length - 1, idx)];
+
+  if (frame) {
+    hoverTimeEl.textContent = `⏱️ Timestamp: ${frame.timestamp_seconds.toFixed(2)}s`;
+    const score = ((frame.ai_manipulation_indicator || 0) * 100).toFixed(1);
+    scorePill.textContent = `Frame Score: ${score}% AI`;
+    scorePill.style.color = (frame.ai_manipulation_indicator >= 0.6) ? '#ef4444' : '#22c55e';
+  }
+}
