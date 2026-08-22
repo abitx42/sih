@@ -94,6 +94,12 @@
     </nav>
 
     <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <!-- Global Quick Ingest Button -->
+      <button class="btn btn-primary btn-sm" onclick="switchView('upload')" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600;" title="Ingest Digital Evidence">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        <span>+ Ingest</span>
+      </button>
+
       <button class="status-pill" onclick="openCommandPalette()" style="cursor: pointer; border: 1px solid var(--hairline); background: var(--panel);" title="Quick Forensic Search (Cmd+K / Ctrl+K)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <span style="color: var(--text-secondary);">Search</span>
@@ -439,8 +445,16 @@
 
     <!-- 2. EVIDENCE INTAKE / UPLOAD VIEW -->
     <section id="view-upload" class="view-section">
-      <h2 class="section-title">Digital Evidence Intake & Ingestion</h2>
-      <p class="section-desc">Securely ingest single or bulk digital exhibits (up to 10 files per batch). Automatically calculates cryptographic SHA-256 baseline, registers custody events, and dispatches background multi-signal forensic verification.</p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 class="section-title" style="margin-bottom: 0.25rem;">Digital Evidence Intake &amp; Ingestion</h2>
+          <p class="section-desc" style="margin-bottom: 0;">Securely ingest single or bulk digital exhibits (up to 10 files per batch). Multi-signal verification, SHA-256 hash baseline, and custody registration.</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetIngestForNewBatch()" style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; font-size: 0.75rem;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          + New Ingest Batch
+        </button>
+      </div>
 
       <div style="max-width: 860px; margin: 0 auto;">
         <div class="card-panel">
@@ -526,7 +540,12 @@
           <div id="upload-progress-box" style="display: none; padding: 1.5rem 0 0 0; margin-top: 1.5rem; border-top: 1px solid var(--hairline);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
               <div style="font-size: 1.05rem; font-weight: 700; color: #fff;" id="batch-progress-title">Forensic Assessment Queue</div>
-              <span class="badge badge-status-analyzing" id="batch-progress-summary">Processing...</span>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="badge badge-status-analyzing" id="batch-progress-summary">Processing...</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="resetIngestForNewBatch()" style="padding: 0.25rem 0.6rem; font-size: 0.72rem;">
+                  ➕ Ingest Another Exhibit
+                </button>
+              </div>
             </div>
             
             <!-- Live Multi-Specialist Pipeline Activity Tracker -->
@@ -539,6 +558,15 @@
             </div>
 
             <div class="bulk-queue-container" id="bulk-queue-items"></div>
+            <div id="ingest-another-footer" style="margin-top: 1rem; padding: 0.75rem 1rem; background: var(--ink); border: 1px dashed var(--brand); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+              <div>
+                <span style="font-weight: 600; font-size: 0.82rem; color: #fff;">Want to analyze more files?</span>
+                <div style="font-size: 0.72rem; color: var(--text-secondary);">Drop new exhibits or start another batch analysis.</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="resetIngestForNewBatch()">
+                ➕ Ingest New Exhibit
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -556,6 +584,10 @@
           <p id="lab-filename" class="data-mono" style="color: var(--text-secondary); font-size: 0.8rem;">filename.jpg</p>
         </div>
         <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+          <button class="btn btn-primary btn-sm" onclick="switchView('upload')" title="Ingest next exhibit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            + Ingest Next Exhibit
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="reverifyIntegrity()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
             Re-Verify Hash
@@ -1217,9 +1249,10 @@
           <h2 class="section-title">🎓 Forensic Model Training &amp; Calibration Studio</h2>
           <p class="section-desc" style="margin-bottom: 0;">Interactive Ground-Truth Labeling &amp; Real-Time Model Calibration. Label exhibits to sharpen model confidence and eliminate ambiguous scores.</p>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-secondary" onclick="loadTrainingStudioData()">🔄 Refresh Queue</button>
-          <button class="btn btn-primary" onclick="triggerManualModelTraining()">⚡ Retrain &amp; Calibrate Now</button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="switchView('upload')">➕ Ingest Files to Train</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadTrainingStudioData()">🔄 Refresh Queue</button>
+          <button class="btn btn-primary btn-sm" onclick="triggerManualModelTraining()">⚡ Retrain &amp; Calibrate Now</button>
         </div>
       </div>
 

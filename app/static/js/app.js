@@ -3278,3 +3278,19 @@ async function triggerManualModelTraining() {
     alert("Failed to start training session.");
   }
 }
+
+
+function resetIngestForNewBatch() {
+  switchView('upload');
+  clearSelectedFiles();
+  const fileInput = document.getElementById("file-input");
+  if (fileInput) fileInput.value = "";
+  const progBox = document.getElementById("upload-progress-box");
+  if (progBox) progBox.style.display = "none";
+  const dropzone = document.getElementById("upload-dropzone");
+  if (dropzone) {
+    dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    dropzone.style.borderColor = "var(--brand)";
+    setTimeout(() => { dropzone.style.borderColor = ""; }, 1200);
+  }
+}
