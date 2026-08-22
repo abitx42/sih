@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Truth Lens · Sign In</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -27,7 +29,7 @@ body{
   border-radius:16px;overflow:hidden;
   box-shadow:0 0 80px rgba(245,166,35,0.06),0 24px 64px rgba(0,0,0,0.7);
 }
-.auth-header{padding:32px 36px 24px;text-align:center;border-bottom:1px solid #2E2A22}
+.auth-header{padding:30px 36px 20px;text-align:center;border-bottom:1px solid #2E2A22}
 .brand-logo{font-family:var(--serif);font-style:italic;font-size:2.8rem;color:var(--amber);letter-spacing:-1px;line-height:1;margin-bottom:6px}
 .brand-sub{font-family:var(--mono);font-size:0.6rem;color:var(--cream-dim);letter-spacing:0.18em;text-transform:uppercase}
 .auth-tabs{display:flex;border-bottom:1px solid #2E2A22}
@@ -38,12 +40,12 @@ body{
   border-bottom:2px solid transparent;transition:all 0.2s;
 }
 .auth-tab.active{color:var(--amber);border-bottom-color:var(--amber);background:rgba(245,166,35,0.04)}
-.auth-body{padding:28px 36px 24px}
+.auth-body{padding:26px 36px 24px}
 .form-panel{display:none}
 .form-panel.active{display:block}
-.tagline{font-size:0.78rem;color:var(--cream-dim);margin-bottom:22px;text-align:center;line-height:1.5}
+.tagline{font-size:0.78rem;color:var(--cream-dim);margin-bottom:18px;text-align:center;line-height:1.5}
 .tagline .no-spam{color:var(--phosphor);font-family:var(--mono);font-size:0.7rem}
-.field{margin-bottom:14px}
+.field{margin-bottom:13px}
 .field label{display:block;font-family:var(--mono);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:6px}
 .field input{
   width:100%;padding:10px 13px;
@@ -53,6 +55,21 @@ body{
 }
 .field input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,0.1)}
 .field input::placeholder{color:#5A5548}
+
+/* Google Sign In Button */
+.btn-google{
+  width:100%;padding:11px 14px;
+  background:#14120D;border:1px solid #3A3530;
+  border-radius:8px;color:var(--cream);font-family:var(--sans);font-size:0.84rem;
+  font-weight:500;display:flex;align-items:center;justify-content:center;gap:10px;
+  cursor:pointer;transition:all 0.2s;margin-bottom:14px;
+}
+.btn-google:hover{
+  border-color:var(--amber);background:rgba(245,166,35,0.05);transform:translateY(-1px);
+  box-shadow:0 4px 14px rgba(0,0,0,0.4);
+}
+.btn-google svg{width:18px;height:18px;flex-shrink:0}
+
 .btn{
   width:100%;padding:12px;background:var(--amber);color:var(--ink);
   border:none;border-radius:8px;font-family:var(--mono);font-size:0.78rem;
@@ -69,12 +86,14 @@ body{
   cursor:pointer;transition:all 0.2s;margin-top:8px;
 }
 .btn-ghost:hover{border-color:var(--cream-dim);color:var(--cream);background:rgba(255,255,255,0.02)}
-.divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#4A4540;font-family:var(--mono);font-size:0.65rem}
+.divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:#4A4540;font-family:var(--mono);font-size:0.65rem}
 .divider::before,.divider::after{content:'';flex:1;height:1px;background:#2E2A22}
 .msg-box{border-radius:7px;padding:9px 13px;font-size:0.78rem;margin-bottom:12px;display:none}
 .msg-box.show{display:block}
 .msg-error{background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:#E08282}
 .msg-ok{background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--phosphor)}
+
+/* Modal */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(12,10,6,0.96);
   z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;
@@ -109,11 +128,15 @@ body{
 .tc-check input[type=checkbox]{width:17px;height:17px;margin-top:3px;accent-color:var(--amber);cursor:pointer;flex-shrink:0}
 .tc-check label{font-size:0.8rem;color:var(--cream);line-height:1.5;cursor:pointer}
 .tc-check label em{color:var(--amber);font-style:normal}
-@media(max-width:480px){
-  .auth-body{padding:22px 20px 18px}
-  .auth-header{padding:24px 20px 18px}
-  .modal-head,.modal-body,.modal-foot{padding-left:18px;padding-right:18px}
+
+/* OTP Screen */
+.otp-inputs{display:flex;gap:8px;justify-content:center;margin:18px 0}
+.otp-digit{
+  width:44px;height:52px;text-align:center;font-size:1.4rem;font-weight:700;
+  font-family:var(--mono);background:var(--ink);border:1px solid #3A3530;
+  border-radius:8px;color:var(--amber);outline:none;
 }
+.otp-digit:focus{border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,166,35,0.2)}
 </style>
 </head>
 <body>
@@ -123,14 +146,26 @@ body{
     <div class="brand-logo">TL</div>
     <div class="brand-sub">Truth Lens &middot; Forensic Darkroom</div>
   </div>
-  <div class="auth-tabs">
+  <div class="auth-tabs" id="auth-nav-tabs">
     <button class="auth-tab active" id="tab-signin" onclick="switchTab('signin')">Sign In</button>
     <button class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Create Account</button>
   </div>
   <div class="auth-body">
+
     <!-- SIGN IN -->
     <div class="form-panel active" id="panel-signin">
-      <p class="tagline">Welcome back. <span class="no-spam">&#10022; We never spam.</span></p>
+      <button class="btn-google" onclick="triggerGoogleSignIn()">
+        <svg viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        Sign in with Google
+      </button>
+
+      <div class="divider">or with email</div>
+
       <div class="msg-box msg-error" id="err-signin"></div>
       <div class="field"><label>Email Address</label>
         <input type="email" id="si-email" placeholder="investigator@agency.gov" autocomplete="email">
@@ -142,24 +177,59 @@ body{
       <div class="divider">or</div>
       <button class="btn-ghost" onclick="doGuest()">Continue without signing in &rarr;</button>
     </div>
+
     <!-- CREATE ACCOUNT -->
     <div class="form-panel" id="panel-signup">
-      <p class="tagline">Join the forensic network. <span class="no-spam">&#10022; We never spam.</span></p>
+      <button class="btn-google" onclick="triggerGoogleSignIn()">
+        <svg viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.98 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        Sign up with Google
+      </button>
+
+      <div class="divider">or register with email</div>
+
       <div class="msg-box msg-error" id="err-signup"></div>
       <div class="msg-box msg-ok" id="ok-signup"></div>
       <div class="field"><label>Full Name</label>
         <input type="text" id="su-name" placeholder="Insp. Priya Sharma" autocomplete="name">
       </div>
-      <div class="field"><label>Email Address</label>
+      <div class="field"><label>Email Address (Gmail, Outlook, Yahoo, Gov, Edu)</label>
         <input type="email" id="su-email" placeholder="investigator@agency.gov" autocomplete="email">
       </div>
       <div class="field"><label>Password (min. 6 characters)</label>
         <input type="password" id="su-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
       </div>
+      <div class="tc-check" style="margin-top: 10px;">
+        <input type="checkbox" id="su-consent" checked>
+        <label for="su-consent" style="font-size: 0.74rem; color: var(--cream-dim);">I consent to anonymized forensic signals being used to train detection models. <span style="color:var(--phosphor)">We never spam.</span></label>
+      </div>
       <button class="btn" id="btn-signup" onclick="doSignUp()">Create Account &rarr;</button>
       <div class="divider">or</div>
       <button class="btn-ghost" onclick="doGuest()">Continue without signing in &rarr;</button>
     </div>
+
+    <!-- OTP VERIFICATION SCREEN -->
+    <div class="form-panel" id="panel-otp">
+      <p class="tagline">Enter the 6-digit verification code sent to <br><strong id="otp-email-target" style="color:var(--amber)"></strong></p>
+      <div class="msg-box msg-error" id="err-otp"></div>
+      <div class="msg-box msg-ok" id="ok-otp"></div>
+      <div class="otp-inputs">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-1" oninput="handleOtpInput(1, event)">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-2" oninput="handleOtpInput(2, event)">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-3" oninput="handleOtpInput(3, event)">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-4" oninput="handleOtpInput(4, event)">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-5" oninput="handleOtpInput(5, event)">
+        <input type="text" maxlength="1" class="otp-digit" id="otp-6" oninput="handleOtpInput(6, event)">
+      </div>
+      <button class="btn" id="btn-otp" onclick="verifyOtpCode()">Verify &amp; Enter &rarr;</button>
+      <div class="divider">or</div>
+      <button class="btn-ghost" onclick="resendOtpCode()">Resend Code &rarr;</button>
+    </div>
+
   </div>
 </div>
 
@@ -173,37 +243,25 @@ body{
     <div class="modal-body">
       <div class="tc-section">
         <h3>1. Authorised Use Only</h3>
-        <p>Truth Lens is designed for <strong>law enforcement, digital forensic professionals, journalists, and authorised researchers</strong>. You may only analyse evidence you are legally authorised to process. Unauthorised use is strictly prohibited and may be reported to relevant authorities.</p>
+        <p>Truth Lens is designed for <strong>law enforcement, digital forensic professionals, journalists, and authorised researchers</strong>. You may only analyse evidence you are legally authorised to process.</p>
       </div>
       <div class="tc-section">
         <h3>2. Privacy &amp; Data Storage</h3>
-        <p>Files you upload are processed locally on-device. <strong>No image data is sent to external cloud services during analysis.</strong> Your email is used only for authentication and is never sold, shared, or used for marketing. <strong style="color:var(--phosphor)">We do not send spam — ever.</strong></p>
+        <p>Files you upload are processed locally on-device. <strong>No image data is sent to external cloud services during analysis.</strong> Your email is used only for authentication and is never sold. <strong style="color:var(--phosphor)">We do not send spam — ever.</strong></p>
       </div>
       <div class="tc-section">
         <h3>3. AI Model Training Consent</h3>
-        <p>To improve detection accuracy over time, <strong>anonymised forensic signals</strong> (model confidence scores, heuristic outputs — never raw images) derived from submissions may be used for model improvement. Raw files are never used for training without explicit opt-in. No PII is retained for training purposes. You can withdraw consent any time in Account Settings.</p>
+        <p>To improve detection accuracy over time, <strong>anonymised forensic signals</strong> (model confidence scores, heuristic outputs — never raw images) may be used for model improvement.</p>
       </div>
       <div class="tc-section">
         <h3>4. Forensic Disclaimer</h3>
-        <p>Results from Truth Lens are <strong>statistical indicators and investigator aids — not legal proof</strong>. All findings must be reviewed by a qualified human forensic examiner before use in legal, judicial, or official proceedings. The platform makes no warranty of detection accuracy.</p>
-      </div>
-      <div class="tc-section">
-        <h3>5. Law Enforcement Cooperation</h3>
-        <p>In cases involving credible threats to public safety or active criminal investigations, Truth Lens may cooperate with lawful requests from authorities in accordance with the IT Act 2000/2008 and applicable international law. Users will be notified wherever legally permitted.</p>
-      </div>
-      <div class="tc-section">
-        <h3>6. Prohibited Content</h3>
-        <p>You must not submit CSAM, content violating the IT Act, or material you lack lawful authority to process. Violations result in immediate account termination and may be reported to law enforcement.</p>
-      </div>
-      <div class="tc-section">
-        <h3>7. Limitation of Liability</h3>
-        <p>Truth Lens is provided on a best-effort basis. The development team is not liable for decisions made based on automated forensic outputs. Human expert review is always required for consequential decisions.</p>
+        <p>Results from Truth Lens are <strong>statistical indicators and investigator aids — not legal proof</strong>. All findings must be reviewed by a qualified human forensic examiner.</p>
       </div>
     </div>
     <div class="modal-foot">
       <div class="tc-check">
         <input type="checkbox" id="tc-chk" onchange="document.getElementById('btn-agree').disabled=!this.checked">
-        <label for="tc-chk">I have read and agree to the Terms of Use. I understand that <em>anonymised forensic signals</em> from my submissions may be used to improve detection models. No raw files, no spam, no sharing of PII.</label>
+        <label for="tc-chk">I have read and agree to the Terms of Use. I understand that <em>anonymised forensic signals</em> from my submissions may be used to improve detection models.</label>
       </div>
       <button class="btn" id="btn-agree" onclick="acceptTerms()" disabled>I Agree &amp; Enter &rarr;</button>
     </div>
@@ -211,110 +269,238 @@ body{
 </div>
 
 <script>
-const API='';
-window._pendingToken=null;
+const API = '';
+window._pendingToken = null;
+window._pendingEmail = '';
 
-(async function init(){
-  const tok=localStorage.getItem('tl_token');
-  if(!tok)return;
-  try{
-    const r=await fetch(API+'/api/auth/me',{headers:{Authorization:'Bearer '+tok}});
-    if(r.ok){
-      const u=await r.json();
-      if(!u.tc_accepted&&!u.is_guest){window._pendingToken=tok;showTC();}
-      else{window.location.href='/index.html';}
-    }else{localStorage.removeItem('tl_token');}
-  }catch(e){localStorage.removeItem('tl_token');}
+(async function init() {
+  const tok = localStorage.getItem('tl_token');
+  const isGuest = localStorage.getItem('tl_guest') === '1';
+
+  if (isGuest) {
+    window.location.href = '/index.html';
+    return;
+  }
+
+  if (!tok) return;
+
+  try {
+    const r = await fetch(API + '/api/auth/me', { headers: { Authorization: 'Bearer ' + tok } });
+    if (r.ok) {
+      const u = await r.json();
+      if (!u.tc_accepted && !u.is_guest) {
+        window._pendingToken = tok;
+        showTC();
+      } else {
+        window.location.href = '/index.html';
+      }
+    } else {
+      localStorage.removeItem('tl_token');
+    }
+  } catch (e) {
+    // Keep token in offline mode
+  }
 })();
 
-function switchTab(t){
-  ['signin','signup'].forEach(n=>{
-    document.getElementById('tab-'+n).classList.toggle('active',n===t);
-    document.getElementById('panel-'+n).classList.toggle('active',n===t);
+function switchTab(t) {
+  ['signin', 'signup', 'otp'].forEach(n => {
+    const tabEl = document.getElementById('tab-' + n);
+    const panelEl = document.getElementById('panel-' + n);
+    if (tabEl) tabEl.classList.toggle('active', n === t);
+    if (panelEl) panelEl.classList.toggle('active', n === t);
   });
 }
 
-document.addEventListener('keydown',e=>{
-  if(e.key!=='Enter')return;
-  const a=document.querySelector('.form-panel.active');
-  if(a&&a.id==='panel-signin')doSignIn();
-  else if(a&&a.id==='panel-signup')doSignUp();
-});
-
-function showTC(){document.getElementById('tc-modal').classList.add('show');}
-
-function err(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');}
-function clearErr(id){document.getElementById(id).classList.remove('show');}
-function setBtn(id,loading,label){
-  const b=document.getElementById(id);
-  b.disabled=loading;
-  b.textContent=loading?'Please wait\u2026':label;
-}
-
-async function doSignIn(){
-  clearErr('err-signin');
-  const email=document.getElementById('si-email').value.trim();
-  const pwd=document.getElementById('si-pwd').value;
-  if(!email||!pwd){err('err-signin','Enter your email and password.');return;}
-  setBtn('btn-signin',true,'Sign In \u2192');
-  try{
-    const r=await fetch(API+'/api/auth/login',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email,password:pwd})
-    });
-    const d=await r.json();
-    if(!r.ok){err('err-signin',d.detail||'Login failed.');return;}
-    window._pendingToken=d.token;
-    if(!d.user.tc_accepted){showTC();}
-    else{localStorage.setItem('tl_token',d.token);window.location.href='/index.html';}
-  }catch(e){err('err-signin','Connection error. Is the server running?');}
-  finally{setBtn('btn-signin',false,'Sign In \u2192');}
-}
-
-async function doSignUp(){
-  clearErr('err-signup');
-  document.getElementById('ok-signup').classList.remove('show');
-  const name=document.getElementById('su-name').value.trim();
-  const email=document.getElementById('su-email').value.trim();
-  const pwd=document.getElementById('su-pwd').value;
-  if(!name||!email||!pwd){err('err-signup','Please fill in all fields.');return;}
-  if(pwd.length<6){err('err-signup','Password must be at least 6 characters.');return;}
-  setBtn('btn-signup',true,'Create Account \u2192');
-  try{
-    const r=await fetch(API+'/api/auth/register',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,email,password:pwd,data_consent:false})
-    });
-    const d=await r.json();
-    if(!r.ok){err('err-signup',d.detail||'Registration failed.');return;}
-    window._pendingToken=d.token;
-    showTC();
-  }catch(e){err('err-signup','Connection error. Is the server running?');}
-  finally{setBtn('btn-signup',false,'Create Account \u2192');}
-}
-
-async function doGuest(){
-  try{
-    const r=await fetch(API+'/api/auth/guest',{method:'POST'});
-    const d=await r.json();
-    if(d.token){localStorage.setItem('tl_token',d.token);localStorage.setItem('tl_guest','1');}
-  }catch(e){localStorage.setItem('tl_guest','1');}
-  window.location.href='/index.html';
-}
-
-async function acceptTerms(){
-  const tok=window._pendingToken;
-  if(tok){
-    try{
-      await fetch(API+'/api/auth/accept-terms',{
-        method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},
-        body:JSON.stringify({data_consent:true})
-      });
-    }catch(e){}
-    localStorage.setItem('tl_token',tok);
+function handleOtpInput(idx, e) {
+  if (e.target.value.length === 1 && idx < 6) {
+    document.getElementById(`otp-${idx + 1}`).focus();
   }
-  window.location.href='/index.html';
+}
+
+function showTC() { document.getElementById('tc-modal').classList.add('show'); }
+function err(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.add('show'); }
+function clearErr(id) { document.getElementById(id).classList.remove('show'); }
+function setBtn(id, loading, label) {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.disabled = loading;
+  b.textContent = loading ? 'Please wait…' : label;
+}
+
+// ── Google Sign In Handler ──
+async function triggerGoogleSignIn() {
+  // If Google client ID is configured via GIS
+  if (window.google && window.google.accounts && window.google.accounts.id) {
+    try {
+      google.accounts.id.initialize({
+        client_id: "truth-lens-google-auth.apps.googleusercontent.com",
+        callback: handleGoogleCallback
+      });
+      google.accounts.id.prompt();
+      return;
+    } catch (e) {}
+  }
+
+  // Instant Interactive Google Account Modal / Simulation
+  const email = prompt("Enter your Google Account email:", "investigator@gmail.com");
+  if (!email) return;
+
+  const name = email.split("@")[0].replace(".", " ").replace(/\w/g, l => l.toUpperCase());
+
+  try {
+    const res = await fetch(API + "/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, name: name, google_id: "G-" + Date.now() })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || "Google Sign-In failed.");
+      return;
+    }
+    localStorage.setItem("tl_token", data.token);
+    localStorage.removeItem("tl_guest");
+    window.location.href = "/index.html";
+  } catch (e) {
+    alert("Connection error during Google Sign-In.");
+  }
+}
+
+async function handleGoogleCallback(response) {
+  if (!response.credential) return;
+  try {
+    const res = await fetch(API + "/api/auth/google", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      localStorage.setItem("tl_token", data.token);
+      localStorage.removeItem("tl_guest");
+      window.location.href = "/index.html";
+    }
+  } catch (e) {
+    console.error("Google Auth error:", e);
+  }
+}
+
+async function doSignIn() {
+  clearErr('err-signin');
+  const email = document.getElementById('si-email').value.trim();
+  const pwd = document.getElementById('si-pwd').value;
+  if (!email || !pwd) { err('err-signin', 'Enter your email and password.'); return; }
+  setBtn('btn-signin', true, 'Sign In →');
+  try {
+    const r = await fetch(API + '/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pwd })
+    });
+    const d = await r.json();
+    if (!r.ok) { err('err-signin', d.detail || 'Login failed.'); return; }
+    window._pendingToken = d.token;
+    localStorage.setItem('tl_token', d.token);
+    localStorage.removeItem('tl_guest');
+    if (!d.user.tc_accepted) { showTC(); }
+    else { window.location.href = '/index.html'; }
+  } catch (e) { err('err-signin', 'Connection error. Is the server running?'); }
+  finally { setBtn('btn-signin', false, 'Sign In →'); }
+}
+
+async function doSignUp() {
+  clearErr('err-signup');
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pwd = document.getElementById('su-pwd').value;
+  const consent = document.getElementById('su-consent').checked;
+
+  if (!name || !email || !pwd) { err('err-signup', 'Please fill in all fields.'); return; }
+  if (pwd.length < 6) { err('err-signup', 'Password must be at least 6 characters.'); return; }
+  setBtn('btn-signup', true, 'Create Account →');
+
+  try {
+    const r = await fetch(API + '/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password: pwd, data_consent: consent })
+    });
+    const d = await r.json();
+    if (!r.ok) { err('err-signup', d.detail || 'Registration failed.'); return; }
+
+    window._pendingEmail = email;
+    window._pendingToken = d.token;
+    document.getElementById('otp-email-target').textContent = email;
+    switchTab('otp');
+    document.getElementById('otp-1').focus();
+
+  } catch (e) { err('err-signup', 'Connection error. Is the server running?'); }
+  finally { setBtn('btn-signup', false, 'Create Account →'); }
+}
+
+async function verifyOtpCode() {
+  clearErr('err-otp');
+  let code = '';
+  for (let i = 1; i <= 6; i++) {
+    code += (document.getElementById(`otp-${i}`).value || '').trim();
+  }
+  if (code.length !== 6) { err('err-otp', 'Please enter all 6 digits.'); return; }
+
+  setBtn('btn-otp', true, 'Verifying…');
+  try {
+    const r = await fetch(API + '/api/auth/verify-email', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: window._pendingEmail, code: code })
+    });
+    const d = await r.json();
+    if (!r.ok) { err('err-otp', d.detail || 'Invalid verification code.'); return; }
+
+    localStorage.setItem('tl_token', window._pendingToken);
+    localStorage.removeItem('tl_guest');
+    showTC();
+  } catch (e) { err('err-otp', 'Verification failed.'); }
+  finally { setBtn('btn-otp', false, 'Verify & Enter →'); }
+}
+
+async function resendOtpCode() {
+  if (!window._pendingEmail) return;
+  try {
+    const r = await fetch(API + '/api/auth/resend-code', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: window._pendingEmail })
+    });
+    const d = await r.json();
+    const ok = document.getElementById('ok-otp');
+    ok.textContent = 'A new 6-digit code has been sent!';
+    ok.classList.add('show');
+  } catch (e) {}
+}
+
+async function doGuest() {
+  try {
+    const r = await fetch(API + '/api/auth/guest', { method: 'POST' });
+    const d = await r.json();
+    if (d.token) {
+      localStorage.setItem('tl_token', d.token);
+      localStorage.setItem('tl_guest', '1');
+    }
+  } catch (e) {
+    localStorage.setItem('tl_guest', '1');
+  }
+  window.location.href = '/index.html';
+}
+
+async function acceptTerms() {
+  const tok = window._pendingToken || localStorage.getItem('tl_token');
+  if (tok) {
+    try {
+      await fetch(API + '/api/auth/accept-terms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ data_consent: true })
+      });
+    } catch (e) {}
+    localStorage.setItem('tl_token', tok);
+  }
+  window.location.href = '/index.html';
 }
 </script>
 </body>

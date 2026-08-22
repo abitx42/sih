@@ -237,6 +237,9 @@ def init_db():
             ("email_verified", "INTEGER DEFAULT 0"),
             ("verification_code", "TEXT"),
             ("verification_code_expires_at", "TEXT"),
+            ("auth_provider", "TEXT DEFAULT 'LOCAL'"),
+            ("google_id", "TEXT"),
+            ("avatar_url", "TEXT"),
         ]:
             if col not in user_cols:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {defn}")
