@@ -4356,3 +4356,100 @@ async function loadCaseSensorClusters(caseId) {
     console.warn("Case clusters error:", e);
   }
 }
+
+
+// =========================================================================
+// 19. REAL-TIME FORENSIC COPILOT VOICE ASSISTANT & AUDIO BRIEFER
+// =========================================================================
+
+let copilotRecognition = null;
+let isCopilotRecording = false;
+let isSpeakingNarrative = false;
+
+function toggleCopilotVoiceInput() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    showToast("Voice recognition is not supported in this browser.", "warning");
+    return;
+  }
+
+  const micBtn = document.getElementById("btn-copilot-voice");
+  const inputEl = document.getElementById("copilot-user-input");
+
+  if (isCopilotRecording) {
+    if (copilotRecognition) copilotRecognition.stop();
+    isCopilotRecording = false;
+    if (micBtn) { micBtn.textContent = "🎙️ Voice"; micBtn.style.background = ""; }
+    return;
+  }
+
+  copilotRecognition = new SpeechRec();
+  copilotRecognition.lang = 'en-US';
+  copilotRecognition.interimResults = false;
+
+  copilotRecognition.onstart = () => {
+    isCopilotRecording = true;
+    if (micBtn) { micBtn.textContent = "🔴 Listening..."; micBtn.style.background = "rgba(239,68,68,0.2)"; }
+    showToast("Listening... Speak your forensic query now.", "info");
+  };
+
+  copilotRecognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    if (inputEl) inputEl.value = transcript;
+    isCopilotRecording = false;
+    if (micBtn) { micBtn.textContent = "🎙️ Voice"; micBtn.style.background = ""; }
+    showToast(`Voice captured: "${transcript}"`, "success");
+  };
+
+  copilotRecognition.onerror = (event) => {
+    console.warn("Speech recognition notice:", event.error);
+    isCopilotRecording = false;
+    if (micBtn) { micBtn.textContent = "🎙️ Voice"; micBtn.style.background = ""; }
+  };
+
+  copilotRecognition.onend = () => {
+    isCopilotRecording = false;
+    if (micBtn) { micBtn.textContent = "🎙️ Voice"; micBtn.style.background = ""; }
+  };
+
+  copilotRecognition.start();
+}
+
+function toggleSpeechNarrative() {
+  if (!window.speechSynthesis) {
+    showToast("Text-to-Speech is not supported in this browser.", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-speak-narrative");
+  if (isSpeakingNarrative || window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    isSpeakingNarrative = false;
+    if (btn) btn.textContent = "🔊 Audio Briefing";
+    return;
+  }
+
+  const narrativeEl = document.getElementById("copilot-narrative");
+  const text = narrativeEl ? narrativeEl.innerText : "No forensic narrative available.";
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+
+  utterance.onstart = () => {
+    isSpeakingNarrative = true;
+    if (btn) btn.textContent = "⏹️ Stop Audio";
+  };
+
+  utterance.onend = () => {
+    isSpeakingNarrative = false;
+    if (btn) btn.textContent = "🔊 Audio Briefing";
+  };
+
+  utterance.onerror = () => {
+    isSpeakingNarrative = false;
+    if (btn) btn.textContent = "🔊 Audio Briefing";
+  };
+
+  window.speechSynthesis.speak(utterance);
+}

@@ -1181,7 +1181,12 @@
           </div>
 
           <div style="margin-bottom: 1rem;">
-            <h4 style="font-size: 0.83rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.3rem;">Executive Narrative</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+              <h4 style="font-size: 0.83rem; color: var(--text-secondary); text-transform: uppercase; margin: 0;">Executive Narrative</h4>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleSpeechNarrative()" id="btn-speak-narrative" style="font-size: 0.68rem; padding: 2px 8px; border-color: var(--brand); color: var(--brand);">
+                🔊 Audio Briefing
+              </button>
+            </div>
             <p id="copilot-narrative" style="font-size: 0.85rem; line-height: 1.4; color: var(--text-main); background: var(--panel); padding: 0.7rem; border-radius: 8px; border: 1px solid var(--hairline);">
               Select an evidence exhibit to view forensic synthesis.
             </p>
@@ -1202,6 +1207,9 @@
             </div>
             <form class="chat-input-bar" onsubmit="handleCopilotChat(event)">
               <input type="text" id="copilot-user-input" class="chat-input" placeholder="Ask Copilot a question...">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-copilot-voice" onclick="toggleCopilotVoiceInput()" title="Dictate question via Voice" style="padding: 0.4rem 0.6rem; border-color: var(--brand); color: var(--brand);">
+                🎙️ Voice
+              </button>
               <button type="submit" class="btn btn-primary btn-sm">Send</button>
             </form>
           </div>
