@@ -4200,3 +4200,61 @@ function handleVideoTimelineHover(e) {
     scorePill.style.color = (frame.ai_manipulation_indicator >= 0.6) ? '#ef4444' : '#22c55e';
   }
 }
+
+
+// =========================================================================
+// 16. PRNU SENSOR CROSS-MATCH CONTROLLER
+// =========================================================================
+
+async function runSensorCrossMatch() {
+  if (!currentEvidenceId) {
+    showToast("Please select Exhibit A first.", "warning");
+    return;
+  }
+  const targetId = (document.getElementById("sensor-match-target-id").value || "").trim();
+  if (!targetId) {
+    showToast("Please enter target Evidence ID (Exhibit B) to correlate.", "warning");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/evidence/sensor-match/correlate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        evidence_id_a: currentEvidenceId,
+        evidence_id_b: targetId
+      })
+    });
+
+    if (!res.ok) {
+      alert("Could not cross-correlate exhibits. Ensure both exhibits exist.");
+      return;
+    }
+    const data = await res.json();
+
+    const box = document.getElementById("sensor-match-results");
+    const vTitle = document.getElementById("sm-verdict-title");
+    const vBadge = document.getElementById("sm-verdict-badge");
+    const corrEl = document.getElementById("sm-corr-val");
+    const pceEl = document.getElementById("sm-pce-val");
+    const confEl = document.getElementById("sm-conf-val");
+    const defEl = document.getElementById("sm-defects-val");
+    const rulingEl = document.getElementById("sm-ruling-text");
+
+    if (box) box.style.display = "block";
+    if (vTitle) vTitle.textContent = data.sensor_match_verdict_text;
+    if (vBadge) {
+      vBadge.textContent = data.is_same_camera_match ? "CONFIRMED MATCH" : "DIFFERENT SENSORS";
+      vBadge.className = data.is_same_camera_match ? "badge badge-low" : "badge badge-modality";
+    }
+    if (corrEl) corrEl.textContent = data.correlation_coefficient.toFixed(3);
+    if (pceEl) pceEl.textContent = data.pce_cross_score.toFixed(1);
+    if (confEl) confEl.textContent = `${data.match_confidence_pct.toFixed(1)}%`;
+    if (defEl) defEl.textContent = `${data.shared_silicon_defects_count} Points`;
+    if (rulingEl) rulingEl.textContent = data.forensic_judicial_ruling;
+
+  } catch (e) {
+    console.warn("Sensor match error:", e);
+  }
+}

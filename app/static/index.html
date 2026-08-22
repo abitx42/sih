@@ -1466,6 +1466,56 @@
         </div>
       </div>
 
+      
+        <!-- ── CROSS-EXHIBIT PRNU SENSOR MATCH & CAMERA CORRELATOR CARD ── -->
+        <div class="card-panel" style="margin-top: 1.25rem; border-top: 3px solid var(--tag-accent);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--tag-accent);">📷 CROSS-EXHIBIT SENSOR MATCH &amp; SILICON CORRELATOR</div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">Microscopic Camera Sensor Hardware Attribution</h3>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Test if 2 exhibits share the same physical camera sensor</span>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+            <input type="text" id="sensor-match-target-id" placeholder="Target Evidence ID (e.g. EV-2026-XXXXXX)" style="flex: 1; min-width: 240px; background: var(--ink); border: 1px solid var(--hairline); color: #fff; padding: 0.6rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-family: var(--font-data);">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="runSensorCrossMatch()" style="border-color: var(--tag-accent); color: var(--tag-accent); font-weight: 700; padding: 0.6rem 1rem;">
+              🔬 Correlate Sensors &rarr;
+            </button>
+          </div>
+
+          <!-- Correlator Results Card -->
+          <div id="sensor-match-results" style="display: none; background: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span id="sm-verdict-title" style="font-weight: 700; font-size: 0.95rem; color: var(--brand);">SAME PHYSICAL CAMERA SENSOR MATCH</span>
+              <span class="badge badge-low" id="sm-verdict-badge">CONFIRMED MATCH</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">CORRELATION (NCC)</div>
+                <div id="sm-corr-val" style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">0.000</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">PCE CROSS SCORE</div>
+                <div id="sm-pce-val" style="font-size: 1.1rem; font-weight: 700; color: var(--brand); margin-top: 2px;">0.0</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">MATCH CERTAINTY</div>
+                <div id="sm-conf-val" style="font-size: 1.1rem; font-weight: 700; color: #22c55e; margin-top: 2px;">0.0%</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">SHARED DEFECTS</div>
+                <div id="sm-defects-val" style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">0 Points</div>
+              </div>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.5); padding: 0.75rem 1rem; border-radius: 6px; border: 1px solid var(--hairline); font-size: 0.78rem; color: var(--cream); line-height: 1.45;" id="sm-ruling-text">
+              Judicial ruling output...
+            </div>
+          </div>
+        </div>
+
       <!-- ── TAB: AI Courtroom & Prompt Inversion Engine ── -->
       <div id="lab-tab-courtroom" class="lab-tab-content">
         

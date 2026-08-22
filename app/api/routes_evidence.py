@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.config import EVIDENCE_DIR, FORENSIC_DIR, settings
 from app.database import get_db
@@ -1588,3 +1589,17 @@ def get_video_timeline_analysis(evidence_id: str):
         "temporal_flicker_score": raw_metrics.get("temporal_luminance_variation_score", 12.0),
         "inter_frame_inconsistency_score": raw_metrics.get("inter_frame_inconsistency_score", 10.0)
     }
+
+
+class SensorMatchRequest(BaseModel):
+    evidence_id_a: str
+    evidence_id_b: str
+
+
+@router.post("/sensor-match/correlate")
+def correlate_camera_sensors(body: SensorMatchRequest):
+    """
+    Cross-correlates microscopic PRNU silicon sensor noise fingerprints between two exhibits.
+    """
+    from app.core.prnu_correlator import PRNUCorrelator
+    return PRNUCorrelator.correlate_exhibits(body.evidence_id_a, body.evidence_id_b)
