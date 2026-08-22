@@ -55,6 +55,9 @@ class RobustnessTester:
 
         try:
             base_img = Image.open(file_path).convert("RGB")
+            bw, bh = base_img.size
+            if bw < 64 or bh < 64:
+                base_img = base_img.resize((max(64, bw * 8), max(64, bh * 8)), Image.Resampling.LANCZOS)
         except Exception as e:
             return {"error": f"Could not open image: {e}", "transforms": []}
 

@@ -531,8 +531,14 @@ async function handleEvidenceUpload(e) {
     });
 
     if (!res.ok && res.status !== 202) {
-      const err = await res.json();
-      alert(`Bulk ingestion failed: ${escapeHTML(err.detail || 'Unknown error')}`);
+      let errDetail = "Unknown ingestion error";
+      try {
+        const err = await res.json();
+        errDetail = err.detail || JSON.stringify(err);
+      } catch (parseErr) {
+        errDetail = await res.text();
+      }
+      alert(`Bulk ingestion failed: ${escapeHTML(errDetail)}`);
       form.style.display = "block";
       progressBox.style.display = "none";
       return;
@@ -3279,6 +3285,18 @@ async function triggerManualModelTraining() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ epochs: 5, learning_rate: 0.0002, batch_size: 16 })
     });
+    if (!res.ok) {
+      let errDetail = "Failed to start training";
+      try {
+        const err = await res.json();
+        errDetail = err.detail || JSON.stringify(err);
+      } catch (parseErr) {
+        errDetail = await res.text();
+      }
+      if (banner) banner.style.display = "none";
+      showToast(`Training error: ${errDetail}`, "error");
+      return;
+    }
     const data = await res.json();
 
     let progress = 15;
@@ -3329,7 +3347,7 @@ function resetIngestForNewBatch() {
 
 let currentGauntletChallenge = null;
 let currentMiniChallenge = null;
-let gauntletStreak = 0;
+let gauntletStreak = parseInt(localStorage.getItem('tl_gauntlet_streak') || '0', 10);
 let challengeStartTime = 0;
 
 async function loadGauntletChallenge() {
@@ -3391,9 +3409,11 @@ async function submitGauntletGuess(guess) {
     // Update streak
     if (result.is_correct) {
       gauntletStreak++;
+      localStorage.setItem('tl_gauntlet_streak', gauntletStreak.toString());
       showToast(`🎯 Correct! Streak: ${gauntletStreak} 🔥`, "success");
     } else {
       gauntletStreak = 0;
+      localStorage.setItem('tl_gauntlet_streak', '0');
       showToast("❌ Incorrect! Truth Lens identified synthetic artifacts.", "warning");
     }
 

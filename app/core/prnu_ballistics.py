@@ -37,6 +37,15 @@ class PRNUBallisticsEngine:
     VERSION = "2.0.0"
 
     @classmethod
+    def extract_ballistics(
+        cls,
+        image_input: Union[str, Path, Image.Image],
+        evidence_id: str = "EVIDENCE"
+    ) -> Dict[str, Any]:
+        """Alias for analyze_prnu for backward compatibility."""
+        return cls.analyze_prnu(image_input, evidence_id)
+
+    @classmethod
     def analyze_prnu(
         cls,
         image_input: Union[str, Path, Image.Image],
@@ -54,9 +63,13 @@ class PRNUBallisticsEngine:
                 return cls._error_result("Invalid image input")
 
             w, h = img.size
+            if w < 64 or h < 64:
+                img = img.resize((max(64, w * 8), max(64, h * 8)), Image.Resampling.LANCZOS)
+                w, h = img.size
+
             # Standardize analysis scale for fair comparison
             target_w = min(w, 768)
-            target_h = int(h * (target_w / w))
+            target_h = max(64, int(h * (target_w / w)))
             img_resized = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
             
             arr = np.array(img_resized, dtype=np.float32)

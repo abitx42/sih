@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import datetime
 from contextlib import contextmanager
+from fastapi import HTTPException
 from app.config import DB_PATH, settings
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,9 @@ def get_db():
     try:
         yield conn
         conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         logger.error(f"Database error: {e}")

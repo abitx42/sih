@@ -47,8 +47,10 @@ class PromptInversionEngine:
     def invert_prompt(
         cls,
         image_input: Union[str, Path, Image.Image],
-        forensic_context: Optional[Dict[str, Any]] = None,
-        evidence_id: str = "EVIDENCE"
+        forensic_context: Optional[Any] = None,
+        evidence_id: str = "EVIDENCE",
+        *args,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Analyzes the image structure and forensic indicators to reconstruct
@@ -85,9 +87,9 @@ class PromptInversionEngine:
             contrast = sum(std_dev) / 3.0
 
             # 2. Extract Discovered Web Keywords / Prompts if available
-            ctx = forensic_context or {}
-            discovered_prompt = ctx.get("discovered_prompt")
-            discovered_platform = ctx.get("ai_platform") or ctx.get("generator_type")
+            ctx = forensic_context if isinstance(forensic_context, dict) else {}
+            discovered_prompt = ctx.get("discovered_prompt") if isinstance(ctx, dict) else None
+            discovered_platform = (ctx.get("ai_platform") or ctx.get("generator_type")) if isinstance(ctx, dict) else None
 
             # Determine probable subject archetype
             subject_tags = []
@@ -105,7 +107,10 @@ class PromptInversionEngine:
                 lighting = "natural ambient daylight with subtle bounce"
 
             # 3. Model Checkpoint Family Classification
-            ai_indicator = ctx.get("ai_manipulation_indicator", 0.8)
+            if isinstance(forensic_context, (float, int)):
+                ai_indicator = float(forensic_context) / 100.0 if float(forensic_context) > 1.0 else float(forensic_context)
+            else:
+                ai_indicator = ctx.get("ai_manipulation_indicator", 0.8) if isinstance(ctx, dict) else 0.8
             if discovered_platform:
                 model_family = discovered_platform
             elif ai_indicator > 0.90:
@@ -154,6 +159,7 @@ class PromptInversionEngine:
                 "reconstructed_positive_prompt": reconstructed_prompt,
                 "inferred_negative_prompt": cls.NEGATIVE_PROMPT_DEFAULTS,
                 "model_family": model_family,
+                "inferred_model_family": model_family,
                 "style_modifiers": style_modifiers,
                 "estimated_steps": 35,
                 "estimated_cfg_scale": 7.0,
@@ -179,6 +185,7 @@ class PromptInversionEngine:
             "reconstructed_positive_prompt": "Photorealistic scene with cinematic lighting --v 6.0",
             "inferred_negative_prompt": cls.NEGATIVE_PROMPT_DEFAULTS,
             "model_family": "Generative Diffusion (SDXL / Midjourney)",
+            "inferred_model_family": "Generative Diffusion (SDXL / Midjourney)",
             "style_modifiers": ["cinematic lighting", "photorealistic 8k"],
             "estimated_steps": 30,
             "estimated_cfg_scale": 7.0,

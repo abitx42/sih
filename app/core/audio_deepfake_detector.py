@@ -22,6 +22,30 @@ class AudioDeepfakeDetector:
     VERSION = "2.0.0"
 
     @classmethod
+    def analyze_audio(
+        cls,
+        file_input: Any,
+        evidence_id: str = "EVIDENCE"
+    ) -> Dict[str, Any]:
+        """Accepts audio file path or numpy array and executes acoustic analysis."""
+        if isinstance(file_input, np.ndarray):
+            return cls.analyze_audio_stream(file_input, sample_rate=22050, evidence_id=evidence_id)
+        try:
+            from pathlib import Path
+            p = Path(file_input)
+            if not p.exists():
+                return cls._fallback_result("Audio file not found on disk")
+            from app.analyzers.audio_analyzer import AudioAnalyzer
+            analyzer = AudioAnalyzer()
+            data, meta = analyzer._decode_audio(p)
+            if data is None or len(data) == 0:
+                return cls._fallback_result("Could not decode audio bitstream")
+            sr = meta.get("sample_rate_hz", 22050)
+            return cls.analyze_audio_stream(data, sample_rate=sr, evidence_id=evidence_id)
+        except Exception as e:
+            return cls._fallback_result(f"Audio analysis error: {e}")
+
+    @classmethod
     def analyze_audio_stream(
         cls,
         audio_data: np.ndarray,
