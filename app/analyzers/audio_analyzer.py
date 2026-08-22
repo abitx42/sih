@@ -187,23 +187,38 @@ class AudioAnalyzer(BaseAnalyzer):
         )
         raw_metrics["forensic_anomaly_score"] = forensic_anomaly_score
 
-        # 6. ML Model Status (Honest: Unavailable)
-        findings.append(FindingBuilder.create_finding(
-            evidence_id=evidence_id,
-            signal_name="Audio ML Deepfake Model: ANALYSIS UNAVAILABLE",
-            category="AI_DETECTION",
-            severity="MEDIUM",
-            score=50.0,
-            explanation="No local neural vocoder classifier is integrated. Verification is based strictly on physical acoustic signals (waveform, spectrogram, clipping, and spectral continuity). Automated AI manipulation indicator is withheld.",
-            location_ref="Local Inference Engine"
-        ))
+# 6. Advanced Acoustic VoicePrint & Neural Vocoder Detection
+        from app.core.audio_deepfake_detector import AudioDeepfakeDetector
+        deepfake_res = AudioDeepfakeDetector.analyze_audio_stream(audio_data, sample_rate, evidence_id)
+        raw_metrics["deepfake_voice"] = deepfake_res
+
+        if deepfake_res.get("verdict") == "SYNTHETIC_VOICE_CLONE_DETECTED":
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Neural Voice Synthesis & Vocoder Phase Dispersion",
+                category="AI_DETECTION",
+                severity="HIGH",
+                score=round(deepfake_res["ai_voice_confidence"], 1),
+                explanation=deepfake_res["description"],
+                location_ref="Vocal Formant Acoustic Domain"
+            ))
+        else:
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Biological Vocal Tract Acoustic Dispersion",
+                category="AI_DETECTION",
+                severity="INFO",
+                score=round(deepfake_res["ai_voice_confidence"], 1),
+                explanation=deepfake_res["description"],
+                location_ref="Vocal Formant Acoustic Domain"
+            ))
 
         return {
-            "ai_model_name": None,
-            "ai_model_version": None,
-            "ai_manipulation_indicator": None,
-            "model_confidence": None,
-            "model_status": "ANALYSIS UNAVAILABLE",
+            "ai_model_name": "Acoustic VoicePrint & Neural Vocoder Detector",
+            "ai_model_version": "2.0.0",
+            "ai_manipulation_indicator": deepfake_res["ai_manipulation_indicator"],
+            "model_confidence": deepfake_res["ai_voice_confidence"],
+            "model_status": "AVAILABLE",
             "forensic_anomaly_score": forensic_anomaly_score,
             "signal_anomalies_score": forensic_anomaly_score,
             "metadata_anomaly_score": 10.0,

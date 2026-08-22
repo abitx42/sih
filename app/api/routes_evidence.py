@@ -1482,3 +1482,33 @@ def get_courtroom_debate(evidence_id: str):
         fr = cursor.fetchone() or {}
 
     return CourtroomDebateEngine.conduct_debate(evidence_id, ev.get("original_filename", "exhibit.jpg"), fr)
+
+
+@router.get("/{evidence_id}/audio-acoustic-analysis")
+def get_audio_acoustic_analysis(evidence_id: str):
+    """
+    Returns voice deepfake acoustic metrics, phase dispersion, and vocoder attribution.
+    """
+    from app.core.audio_deepfake_detector import AudioDeepfakeDetector
+    from app.analyzers.audio_analyzer import AudioAnalyzer
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        fr = cursor.fetchone()
+
+    fp = EVIDENCE_DIR / ev["stored_filename"]
+    if not fp.exists():
+        raise HTTPException(status_code=404, detail="Evidence file missing.")
+
+    analyzer = AudioAnalyzer()
+    audio_data, meta = analyzer._decode_audio(fp)
+    if audio_data is None:
+        return AudioDeepfakeDetector._fallback_result("Could not decode audio bitstream.")
+
+    return AudioDeepfakeDetector.analyze_audio_stream(audio_data, meta.get("sample_rate_hz", 22050), evidence_id)

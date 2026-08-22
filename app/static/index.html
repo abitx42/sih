@@ -859,6 +859,52 @@
           </div>
         </div>
 
+        
+        <!-- ── AUDIO DEEPFAKE & ACOUSTIC VOICEPRINT PANEL (Visible for Audio Exhibits) ── -->
+        <div class="card-panel" id="lab-audio-deepfake-panel" style="display: none; margin-top: 1rem; border-left: 3px solid var(--brand);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.7rem; color: var(--brand);">🎙️ ACOUSTIC VOICEPRINT &amp; NEURAL VOCODER DETECTOR</div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">Voice Clone Synthesis &amp; Phase Discontinuity Analysis</h3>
+            </div>
+            <span class="badge badge-high" id="audio-deepfake-verdict-badge" style="font-size: 0.72rem;">SYNTHETIC VOICE CLONE</span>
+          </div>
+
+          <!-- Vocoder Attribution & Phase Telemetry -->
+          <div style="background: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 0.75rem;">
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">VOCODER ATTRIBUTION</div>
+                <div id="audio-vocoder-name" style="font-size: 0.85rem; font-weight: 700; color: var(--brand); margin-top: 2px;">HiFi-GAN / VAE</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">PHASE ENTROPY</div>
+                <div id="audio-phase-entropy" style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-top: 2px;">2.14 (Anomalous)</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">SPECTRAL FLATNESS</div>
+                <div id="audio-flatness-val" style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-top: 2px;">0.042</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; border: 1px solid var(--hairline);">
+                <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">SPLICE CUTS FOUND</div>
+                <div id="audio-splice-count" style="font-size: 0.95rem; font-weight: 700; color: #ef4444; margin-top: 2px;">3 Jump Points</div>
+              </div>
+            </div>
+
+            <div id="audio-deepfake-desc" style="font-size: 0.78rem; color: var(--cream); line-height: 1.45; background: rgba(0,0,0,0.3); padding: 0.6rem 0.8rem; border-radius: 6px;">
+              Acoustic analysis in progress...
+            </div>
+          </div>
+
+          <!-- Interactive Splicing Jump Timestamps -->
+          <div id="audio-splice-timestamps-box" style="display: none; background: rgba(239,68,68,0.05); border: 1px dashed rgba(239,68,68,0.3); border-radius: 6px; padding: 0.6rem 0.8rem;">
+            <div style="font-size: 0.68rem; color: #ef4444; font-weight: 700; text-transform: uppercase; margin-bottom: 0.35rem;">
+              ⚠️ Millisecond Precision Splicing Boundary Timestamps:
+            </div>
+            <div id="audio-splice-tags" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
+          </div>
+        </div>
+
         <!-- Evidence Diff Mode -->
         <div class="card-panel" id="lab-diff-panel" style="display: none;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">

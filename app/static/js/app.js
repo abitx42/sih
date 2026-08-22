@@ -4037,3 +4037,62 @@ function closeLegalCertificateModal() {
   const modal = document.getElementById("legal-cert-modal");
   if (modal) modal.style.display = "none";
 }
+
+
+// =========================================================================
+// 14. AUDIO DEEPFAKE & ACOUSTIC SPECTRAL CONTROLLER
+// =========================================================================
+
+async function updateAudioForensicsUI(evidenceData, forensicResult) {
+  const panel = document.getElementById("lab-audio-deepfake-panel");
+  if (!panel) return;
+
+  const isAudio = (evidenceData.modality === "AUDIO" || (evidenceData.original_filename || '').match(/\.(wav|mp3|m4a|aac|flac|ogg)$/i));
+  if (!isAudio) {
+    panel.style.display = "none";
+    return;
+  }
+
+  panel.style.display = "block";
+  const evId = evidenceData.evidence_id;
+
+  try {
+    const res = await fetch(`/api/evidence/${evId}/audio-acoustic-analysis`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const badge = document.getElementById("audio-deepfake-verdict-badge");
+    const vocoderEl = document.getElementById("audio-vocoder-name");
+    const phaseEl = document.getElementById("audio-phase-entropy");
+    const flatEl = document.getElementById("audio-flatness-val");
+    const spliceEl = document.getElementById("audio-splice-count");
+    const descEl = document.getElementById("audio-deepfake-desc");
+    const spliceBox = document.getElementById("audio-splice-timestamps-box");
+    const spliceTags = document.getElementById("audio-splice-tags");
+
+    const isSynthetic = (data.verdict === "SYNTHETIC_VOICE_CLONE_DETECTED" || data.ai_manipulation_indicator >= 0.6);
+
+    if (badge) {
+      badge.textContent = isSynthetic ? "SYNTHETIC VOICE CLONE" : "BIOLOGICAL HUMAN VOICE";
+      badge.className = isSynthetic ? "badge badge-high" : "badge badge-low";
+    }
+    if (vocoderEl) vocoderEl.textContent = data.vocoder_attribution || "Neural Vocoder";
+    if (phaseEl) phaseEl.textContent = `${data.phase_entropy} (${data.phase_entropy > 1.8 ? 'Anomalous' : 'Natural'})`;
+    if (flatEl) flatEl.textContent = data.spectral_flatness;
+    if (spliceEl) spliceEl.textContent = `${data.splice_count} Jump Points`;
+    if (descEl) descEl.textContent = data.description;
+
+    if (spliceBox && spliceTags) {
+      if (data.splice_timestamps_sec && data.splice_timestamps_sec.length > 0) {
+        spliceBox.style.display = "block";
+        spliceTags.innerHTML = data.splice_timestamps_sec.map(t => 
+          `<span class="badge badge-high" style="font-size: 0.68rem; font-family: var(--font-data);">⏱️ ${t.toFixed(3)}s</span>`
+        ).join("");
+      } else {
+        spliceBox.style.display = "none";
+      }
+    }
+  } catch (e) {
+    console.warn("Audio acoustic fetch notice:", e);
+  }
+}

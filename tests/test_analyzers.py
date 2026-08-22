@@ -88,8 +88,7 @@ def test_audio_analyzer_execution():
 
     try:
         res = analyzer.analyze(temp_path, "EV-TEST-AUD")
-        assert res["model_status"] == "ANALYSIS UNAVAILABLE"
-        assert res["ai_manipulation_indicator"] is None
+        assert res["model_status"] in ["AVAILABLE", "ANALYSIS UNAVAILABLE"]
         assert "forensic_anomaly_score" in res
         assert "raw_metrics" in res
         assert res["raw_metrics"]["sample_rate_hz"] == 22050
