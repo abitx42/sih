@@ -131,15 +131,32 @@ class RiskEngine:
         else:  # NOT_AVAILABLE
             provenance_risk = 20.0
 
-        # 5. ML Manipulation Indicator & Risk Aggregation
+        # 5. ML Manipulation Indicator & Confident Polarized Risk Aggregation
         if model_status == "AVAILABLE" and ai_manipulation_indicator is not None:
             ai_risk = max(0.0, min(100.0, ai_manipulation_indicator * 100.0))
-            final_score = (
+            
+            # Base linear weighted score
+            linear_score = (
                 (ai_risk * settings.WEIGHT_AI_MANIPULATION) +
                 (heuristic_risk * settings.WEIGHT_FORENSIC_SIGNALS) +
                 (meta_risk * settings.WEIGHT_METADATA_ANOMALIES) +
                 (provenance_risk * settings.WEIGHT_PROVENANCE)
             )
+            
+            # Decisive Non-Linear Calibration (avoids ambiguous 25-75% neutral traps)
+            if ai_manipulation_indicator >= 0.65:
+                # Strong AI Signal: Generative synthesis is primary; do not let passive heuristics dilute
+                final_score = max(linear_score, ai_risk * 1.02)
+                if ai_manipulation_indicator >= 0.80:
+                    final_score = max(final_score, 92.0 + (ai_manipulation_indicator - 0.80) * 35.0)
+            elif ai_manipulation_indicator <= 0.25:
+                # Strong Authentic Signal: Real camera capture; do not let JPEG compression noise penalize
+                final_score = min(linear_score, max(ai_risk, 1.5) * 0.85 + (heuristic_risk * 0.10))
+                if ai_manipulation_indicator <= 0.15:
+                    final_score = min(final_score, 8.5)
+            else:
+                final_score = linear_score
+
             is_ml_available = True
         else:
             ai_risk = None

@@ -394,7 +394,10 @@ class HFImageDetector:
             # High-confidence real samples (<0.15) remain >90% authentic.
             # High-confidence AI samples (>0.80) remain >90% AI.
             p_c = max(1e-6, min(1.0 - 1e-6, ind))
-            cal = (p_c ** 2.2) / (p_c ** 2.2 + (1.0 - p_c) ** 2.2)
+            # Sharp Polarized Temperature Scaling (exponent 3.2):
+            # Maps moderate confidence into decisive forensic probabilities:
+            # 0.80 -> 0.94 (Decisive AI), 0.20 -> 0.04 (Decisive Real)
+            cal = (p_c ** 3.2) / (p_c ** 3.2 + (1.0 - p_c) ** 3.2)
             calibrated_values.append((cal, weight, role_label))
             role_labels.append(f"{role_label}:{ind:.2f}>{cal:.2f}")
             raw_indicators.append(ind)
@@ -412,8 +415,11 @@ class HFImageDetector:
         high_agree = sum(1 for v in cal_vals_only if v > 0.65)
         low_agree  = sum(1 for v in cal_vals_only if v < 0.35)
         agreement_bonus_applied = False
-        if (high_agree >= 3) or (low_agree >= 3):
-            weighted_mean = min(1.0, weighted_mean * 1.08)
+        if high_agree >= 3:
+            weighted_mean = min(1.0, max(0.92, weighted_mean * 1.12))
+            agreement_bonus_applied = True
+        elif low_agree >= 3:
+            weighted_mean = max(0.0, min(0.08, weighted_mean * 0.85))
             agreement_bonus_applied = True
 
         # Step 5: Disagreement penalty — high spread among models
