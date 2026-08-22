@@ -169,6 +169,7 @@ class SelfLearningEngine:
                 cursor = conn.cursor()
                 cursor.execute("""
                     SELECT e.evidence_id, e.original_filename, e.uploaded_at, e.modality,
+                           e.file_size_bytes, e.sha256_hash, e.case_id, e.mime_type,
                            fr.forensic_risk_score, fr.risk_category, fr.ai_manipulation_indicator,
                            fr.model_status, fr.raw_metrics_json,
                            r.verdict as existing_verdict
@@ -210,12 +211,20 @@ class SelfLearningEngine:
 
                 if is_uncertain:
                     uncertainty_score = round(max(0.0, 1.0 - (dist_from_boundary * 2.0)), 2)
+                    taxonomy = raw_m.get("forensic_taxonomy", row.get("risk_category", "UNCERTAIN"))
                     queue.append({
                         "evidence_id": row["evidence_id"],
                         "filename": row["original_filename"],
+                        "original_filename": row["original_filename"],
+                        "file_size_bytes": row.get("file_size_bytes", 0),
+                        "sha256_hash": row.get("sha256_hash", ""),
+                        "case_id": row.get("case_id", "CASE-2026-001"),
+                        "mime_type": row.get("mime_type", "image/jpeg"),
                         "modality": row["modality"],
                         "uploaded_at": row["uploaded_at"],
+                        "forensic_taxonomy": taxonomy,
                         "ai_indicator": round(float(ai_ind), 3),
+                        "ai_manipulation_indicator": round(float(ai_ind), 3),
                         "risk_score": row["forensic_risk_score"],
                         "risk_category": row["risk_category"],
                         "uncertainty_score": uncertainty_score,
@@ -224,6 +233,39 @@ class SelfLearningEngine:
                     })
 
             # Sort by highest uncertainty first
+            
+            # If no borderline samples found, include recent unreviewed exhibits for training verification
+            if len(queue) == 0:
+                for row in rows[:limit]:
+                    if row.get("existing_verdict"):
+                        continue
+                    ai_ind = row.get("ai_manipulation_indicator") or (row.get("forensic_risk_score", 50.0) / 100.0)
+                    raw_m = {}
+                    try:
+                        raw_m = json.loads(row.get("raw_metrics_json") or "{}")
+                    except Exception:
+                        pass
+                    taxonomy = raw_m.get("forensic_taxonomy", row.get("risk_category", "UNCERTAIN"))
+                    queue.append({
+                        "evidence_id": row["evidence_id"],
+                        "filename": row["original_filename"],
+                        "original_filename": row["original_filename"],
+                        "file_size_bytes": row.get("file_size_bytes", 0),
+                        "sha256_hash": row.get("sha256_hash", ""),
+                        "case_id": row.get("case_id", "CASE-2026-001"),
+                        "mime_type": row.get("mime_type", "image/jpeg"),
+                        "modality": row["modality"],
+                        "uploaded_at": row["uploaded_at"],
+                        "forensic_taxonomy": taxonomy,
+                        "ai_indicator": round(float(ai_ind), 3),
+                        "ai_manipulation_indicator": round(float(ai_ind), 3),
+                        "risk_score": row["forensic_risk_score"],
+                        "risk_category": row["risk_category"],
+                        "uncertainty_score": 0.5,
+                        "ensemble_conflict": False,
+                        "priority_reason": "Recent Ingested Exhibit"
+                    })
+
             queue.sort(key=lambda x: x["uncertainty_score"], reverse=True)
             return queue[:limit]
 

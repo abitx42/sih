@@ -3138,49 +3138,76 @@ function renderTrainingBench(items) {
     container.innerHTML = `
       <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 2.5rem; background: var(--ink); border: 1px dashed var(--hairline); border-radius: 8px;">
         <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎉</div>
-        <div style="font-weight: 600; color: #fff; font-size: 0.95rem;">Active Learning Queue is Clear!</div>
-        <div style="font-size: 0.78rem; margin-top: 4px;">All recent exhibits have been calibrated with high confidence. Upload more evidence to train.</div>
+        <div style="font-weight: 600; color: #fff; font-size: 0.95rem;">All exhibits have been labeled!</div>
+        <div style="font-size: 0.78rem; margin-top: 4px;">Ingest new evidence to continue training the forensic model.</div>
+        <button class="btn btn-primary btn-sm" onclick="switchView('upload')" style="margin-top: 1rem;">➕ Ingest New Exhibit</button>
       </div>
     `;
     return;
   }
 
   container.innerHTML = items.map(it => {
-    const isAI = (it.ai_manipulation_indicator || 0) >= 0.5;
-    const score = ((it.ai_manipulation_indicator || 0) * 100).toFixed(1);
+    const isAI = (it.ai_manipulation_indicator || it.ai_indicator || 0) >= 0.5;
+    const score = (((it.ai_manipulation_indicator !== undefined ? it.ai_manipulation_indicator : it.ai_indicator) || 0) * 100).toFixed(1);
     const evId = it.evidence_id;
+    const sizeKB = it.file_size_bytes ? (it.file_size_bytes / 1024).toFixed(1) + ' KB' : 'Image';
+    const shaShort = it.sha256_hash ? (it.sha256_hash.substring(0, 14) + '...') : 'Recorded';
+    const dateShort = it.uploaded_at ? it.uploaded_at.split('T')[0] : 'Recent';
 
     return `
-      <div class="card-panel" id="train-card-${evId}" style="display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--hairline); transition: all 0.2s;">
+      <div class="card-panel" id="train-card-${evId}" style="display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--hairline); border-top: 3px solid ${isAI ? 'var(--brand)' : 'var(--tag-accent)'}; border-radius: 8px; transition: all 0.2s; background: var(--panel);">
         <div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span class="data-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand);">${escapeHTML(evId)}</span>
+          <!-- Header Bar -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="data-mono" style="font-size: 0.75rem; font-weight: 700; color: var(--brand);">${escapeHTML(evId)}</span>
+              <span class="badge badge-modality" style="font-size: 0.62rem; padding: 1px 5px;">${escapeHTML(it.modality || 'IMAGE')}</span>
+            </div>
             <span class="badge ${isAI ? 'badge-high' : 'badge-low'}" style="font-size: 0.65rem;">
-              Pred: ${score}% ${isAI ? 'AI' : 'REAL'}
+              Prediction: ${score}% ${isAI ? 'AI' : 'REAL'}
             </span>
           </div>
 
-          <div style="background: var(--ink); height: 160px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; border: 1px solid var(--hairline);">
+          <!-- Image Preview Thumbnail (Clickable for Full Lightbox) -->
+          <div style="position: relative; background: var(--ink); height: 160px; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 0.75rem; border: 1px solid var(--hairline); cursor: pointer;" onclick="openEvidenceInLab('${evId}')" title="Click to open in Forensic Lab">
             <img src="/api/evidence/${evId}/file" alt="Exhibit" style="max-height: 100%; max-width: 100%; object-fit: contain;" onerror="this.src='/static/favicon.ico'">
+            <div style="position: absolute; bottom: 6px; right: 6px; background: rgba(12,10,6,0.85); color: var(--brand); font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--hairline); display: flex; align-items: center; gap: 4px;">
+              <span>🔬 Inspect in Lab ↗</span>
+            </div>
           </div>
 
-          <div style="font-weight: 600; font-size: 0.82rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;">
-            ${escapeHTML(it.original_filename || 'Evidence Image')}
-          </div>
-          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-            Taxonomy: ${escapeHTML((it.forensic_taxonomy || 'UNCERTAIN').replace(/_/g, ' '))}
+          <!-- 📄 Small File Overview Metadata Box -->
+          <div style="background: var(--ink); border: 1px solid var(--hairline); border-radius: 6px; padding: 0.55rem 0.75rem; margin-bottom: 0.75rem; font-size: 0.74rem;">
+            <div style="font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px;" title="${escapeHTML(it.filename || it.original_filename || 'Evidence File')}">
+              📄 ${escapeHTML(it.filename || it.original_filename || 'Evidence File')}
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; color: var(--text-secondary); font-size: 0.7rem; margin-top: 4px;">
+              <div>📦 Size: <strong style="color: var(--cream);">${escapeHTML(sizeKB)}</strong></div>
+              <div>📅 Ingest: <strong style="color: var(--cream);">${escapeHTML(dateShort)}</strong></div>
+              <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 4px;">
+                <span>🔒 SHA-256:</span>
+                <span class="data-mono" style="color: var(--tag-accent); font-size: 0.65rem;" title="${escapeHTML(it.sha256_hash || '')}">${escapeHTML(shaShort)}</span>
+              </div>
+              <div style="grid-column: 1 / -1; color: var(--text-secondary);">
+                🏷️ Taxonomy: <span style="color: ${isAI ? 'var(--brand)' : 'var(--phosphor)'}; font-weight: 600;">${escapeHTML((it.forensic_taxonomy || 'UNCERTAIN').replace(/_/g, ' '))}</span>
+              </div>
+            </div>
           </div>
         </div>
 
+        <!-- Ground-Truth Training Buttons -->
         <div>
-          <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.4rem; font-weight: 700;">
-            Ground-Truth Label:
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <span style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">
+              Confirm Ground-Truth:
+            </span>
+            <span style="font-size: 0.65rem; color: var(--brand); font-style: italic;">Teaches Model</span>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;">
-            <button class="btn btn-secondary btn-sm" onclick="labelAndTrainExhibit('${evId}', 'AUTHENTIC_REAL', this)" style="border-color: #22c55e; color: #22c55e; font-size: 0.7rem; padding: 0.35rem 0.4rem;">
+            <button class="btn btn-secondary btn-sm" onclick="labelAndTrainExhibit('${evId}', 'AUTHENTIC_REAL', this)" style="border-color: #22c55e; color: #22c55e; font-size: 0.72rem; padding: 0.4rem 0.5rem; font-weight: 600;" title="Teach model that this is an authentic camera photograph">
               🟢 Real Photo
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="labelAndTrainExhibit('${evId}', 'AI_GENERATED', this)" style="border-color: #ef4444; color: #ef4444; font-size: 0.7rem; padding: 0.35rem 0.4rem;">
+            <button class="btn btn-secondary btn-sm" onclick="labelAndTrainExhibit('${evId}', 'AI_GENERATED', this)" style="border-color: #ef4444; color: #ef4444; font-size: 0.72rem; padding: 0.4rem 0.5rem; font-weight: 600;" title="Teach model that this is an AI-generated image">
               🔴 AI Generated
             </button>
           </div>
