@@ -1096,6 +1096,100 @@
         </div>
       </div>
 
+      
+      <!-- ── TAB: Provenance & Web Cross-Check ── -->
+      <div id="lab-tab-provenance" class="lab-tab-content">
+        
+        <!-- Search & Control Header -->
+        <div class="card-panel" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+            <div>
+              <div class="card-label" style="font-size: 0.72rem; color: var(--text-secondary);">🌐 AUTOMATED INTERNET REVERSE SEARCH &amp; PROVENANCE</div>
+              <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px;">Multi-Engine Web Reverse Match &amp; Sandwich Overlay</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+              <span id="prov-match-status-badge" class="badge badge-modality" style="font-size: 0.75rem;">CHECKING...</span>
+              <span id="prov-consensus-badge" class="badge badge-low" style="font-size: 0.75rem;">AUTHENTIC ARCHIVE</span>
+            </div>
+          </div>
+
+          <!-- Custom Query Bar -->
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" id="prov-custom-search-input" placeholder="Search specific viral caption, headline, or image URL on Google Lens / Fact-Checks..." style="flex: 1; background: var(--ink); border: 1px solid var(--hairline); color: #fff; padding: 0.5rem 0.8rem; border-radius: 6px; font-size: 0.82rem;">
+            <button class="btn btn-primary btn-sm" onclick="triggerCustomWebSearch()" style="padding: 0.5rem 1rem; font-size: 0.78rem;">🔍 Search Web</button>
+          </div>
+        </div>
+
+        <!-- 3-Pane Sandwich Composite & Alignment Panel -->
+        <div class="card-panel" id="prov-sandwich-panel" style="margin-bottom: 1.5rem; border-left: 3px solid var(--brand);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div class="card-label" style="font-size: 0.7rem; color: var(--brand);">🥪 HOMOGRAPHY "SANDWICH" PIXEL ALIGNMENT</div>
+            <span id="prov-source-cred-badge" class="badge badge-modality" style="font-size: 0.68rem;">TIER 1 SOURCE</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Matched Internet Source</div>
+              <div id="prov-best-match-title" style="font-weight: 700; font-size: 0.95rem; color: #fff; margin-top: 2px;">Searching online repositories...</div>
+              <div id="prov-best-match-meta" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;"></div>
+              <div id="prov-best-match-link" style="margin-top: 6px;"></div>
+            </div>
+
+            <!-- Pixel Match Gauge -->
+            <div style="background: var(--ink); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--hairline);">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.72rem; color: var(--text-secondary);">Exact Pixel Match:</span>
+                <strong id="prov-match-confidence" style="color: var(--brand); font-size: 0.9rem;">0.0%</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.4rem;">
+                <span style="font-size: 0.72rem; color: var(--text-secondary);">Structural Near-Match:</span>
+                <strong id="prov-authentic-pct" style="color: #fff; font-size: 0.9rem;">0.0%</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 0.72rem; color: var(--text-secondary);">Matching Region:</span>
+                <span id="prov-match-region" class="data-mono" style="font-size: 0.75rem; color: var(--text-secondary);">Full Frame</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompt & Generation Parameters Card (if AI) -->
+          <div id="prov-ai-params-box" style="display: none; background: rgba(245,166,35,0.05); border: 1px solid rgba(245,166,35,0.25); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.4rem; color: var(--brand); font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
+              🚨 Attributed Generation Metadata Discovered Online
+            </div>
+            <div id="prov-ai-prompt-text" style="font-family: var(--font-data); font-size: 0.78rem; color: #fff; margin-top: 4px; line-height: 1.4;"></div>
+            <div id="prov-ai-params-tags" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 6px;"></div>
+          </div>
+
+          <!-- 3-Pane Visualizer Image Display -->
+          <div id="prov-diff-map-section" style="margin-top: 1rem;">
+            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem;">
+              📸 3-Pane Sandwich Visualizer: [ Exhibit | Discovered Internet Source | Tamper Difference Heatmap ]
+            </div>
+            <div style="background: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; overflow: hidden; text-align: center; padding: 0.5rem;">
+              <img id="prov-composite-sandwich-img" src="" alt="Sandwich Composite" style="max-width: 100%; height: auto; border-radius: 4px; display: none;" onerror="this.style.display='none'">
+              <div id="prov-no-composite-msg" style="color: var(--text-secondary); padding: 1.5rem; font-size: 0.8rem;">
+                No visual sandwich composite available yet.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Discovered Fact-Check & News Articles -->
+        <div class="card-panel" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+            <div class="card-label" style="font-size: 0.7rem; color: var(--text-secondary);">📰 RELEVANT FACT-CHECKS &amp; NEWS ARTICLES</div>
+            <span id="prov-articles-count" class="badge badge-modality" style="font-size: 0.68rem;">0 Articles</span>
+          </div>
+          <div id="prov-articles-list" style="display: flex; flex-direction: column; gap: 0.6rem;">
+            <div style="color: var(--text-secondary); font-size: 0.8rem; text-align: center; padding: 1.5rem;">
+              No online articles or fact-checks identified for this exhibit.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
       <!-- ── TAB: Custody ── -->
       <div id="lab-tab-custody" class="lab-tab-content">
         <div class="card-panel" id="lab-chain-verify-panel">

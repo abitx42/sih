@@ -956,8 +956,13 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
     elif artifact_type == "reference_side_by_side":
         p = FORENSIC_DIR / f"reference_side_by_side_{evidence_id}.png"
         media = "image/png"
-    elif artifact_type == "web_match_diff":
-        p = FORENSIC_DIR / f"web_match_diff_{evidence_id}.png"
+    elif artifact_type in ("web_match_diff", "web_sandwich_diff"):
+        p = FORENSIC_DIR / f"web_sandwich_diff_{evidence_id}.png"
+        if not p.exists():
+            p = FORENSIC_DIR / f"web_match_diff_{evidence_id}.png"
+        media = "image/png"
+    elif artifact_type == "web_sandwich_composite":
+        p = FORENSIC_DIR / f"web_sandwich_composite_{evidence_id}.png"
         media = "image/png"
     elif artifact_type == "video_frame":
         p = FORENSIC_DIR / f"video_frame_{evidence_id}.jpg"
@@ -1370,3 +1375,20 @@ async def re_analyze_evidence(evidence_id: str, background_tasks: BackgroundTask
         "evidence_id": evidence_id,
         "message": "Forensic pipeline successfully restarted in background."
     }
+
+
+@router.get("/{evidence_id}/web-match-diff")
+def get_web_match_diff_direct(evidence_id: str):
+    p = FORENSIC_DIR / f"web_sandwich_diff_{evidence_id}.png"
+    if not p.exists():
+        p = FORENSIC_DIR / f"web_match_diff_{evidence_id}.png"
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Web sandwich difference map not generated.")
+    return FileResponse(path=str(p), media_type="image/png")
+
+@router.get("/{evidence_id}/web-sandwich-composite")
+def get_web_sandwich_composite_direct(evidence_id: str):
+    p = FORENSIC_DIR / f"web_sandwich_composite_{evidence_id}.png"
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="Web sandwich composite visualizer not generated.")
+    return FileResponse(path=str(p), media_type="image/png")

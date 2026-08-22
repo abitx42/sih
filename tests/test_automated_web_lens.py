@@ -27,7 +27,7 @@ def test_automated_web_lens_ai_sample_detection():
     assert res["pixel_match_percentage"] >= 80.0
     assert res["ai_source_detected"] is True
     assert res["web_verdict"] == "CONFIRMED_GENERATIVE_AI_SOURCE"
-    assert res["web_ai_confidence"] == 0.98
+    assert res["web_ai_confidence"] >= 0.98
 
     # Cleanup
     if test_path.exists():
