@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Truth Lens · Feedback & Bug Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --amber:#F5A623;--amber-dim:#C8841A;--cream:#E8DFB8;
+  --cream-dim:#B8AF92;--ink:#0C0A06;--ink-mid:#1A1710;
+  --ink-light:#2A2620;--phosphor:#39D353;--red:#E05252;
+  --mono:'IBM Plex Mono',monospace;--sans:'Space Grotesk',sans-serif;--serif:'DM Serif Display',serif;
+}
+html,body{min-height:100%;background:var(--ink);color:var(--cream);font-family:var(--sans)}
+body{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 16px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+}
+.feedback-wrap{
+  width:100%;max-width:620px;
+  background:var(--ink-mid);border:1px solid #2E2A22;
+  border-top:3px solid var(--amber);
+  border-radius:16px;overflow:hidden;
+  box-shadow:0 0 80px rgba(245,166,35,0.06),0 24px 64px rgba(0,0,0,0.7);
+}
+.header{padding:28px 32px 20px;border-bottom:1px solid #2E2A22;text-align:center}
+.brand{font-family:var(--serif);font-style:italic;font-size:2.2rem;color:var(--amber);line-height:1;margin-bottom:6px}
+.subhead{font-family:var(--mono);font-size:0.65rem;color:var(--cream-dim);letter-spacing:0.15em;text-transform:uppercase}
+.body{padding:28px 32px 32px}
+.cat-group{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.cat-pill{
+  flex:1;min-width:120px;padding:8px 12px;border:1px solid #3A3530;border-radius:8px;
+  background:var(--ink);color:var(--cream-dim);font-family:var(--mono);font-size:0.7rem;
+  text-align:center;cursor:pointer;transition:all 0.2s;user-select:none;
+}
+.cat-pill.active{border-color:var(--amber);background:rgba(245,166,35,0.1);color:var(--amber);font-weight:600}
+.field{margin-bottom:16px}
+.field label{display:block;font-family:var(--mono);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:6px}
+.field input, .field textarea, .field select{
+  width:100%;padding:10px 13px;background:var(--ink);border:1px solid #3A3530;
+  border-radius:8px;color:var(--cream);font-family:var(--sans);font-size:0.88rem;
+  outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+}
+.field input:focus, .field textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,0.1)}
+.field textarea{resize:vertical;min-height:110px}
+.anon-check{display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer}
+.anon-check input{width:16px;height:16px;accent-color:var(--amber);cursor:pointer}
+.anon-check label{font-size:0.8rem;color:var(--cream);cursor:pointer}
+.dropzone{
+  border:2px dashed #3A3530;border-radius:8px;padding:16px;text-align:center;
+  background:var(--ink);cursor:pointer;transition:all 0.2s;margin-bottom:18px;
+}
+.dropzone:hover{border-color:var(--amber);background:rgba(245,166,35,0.02)}
+.btn{
+  width:100%;padding:13px;background:var(--amber);color:var(--ink);border:none;
+  border-radius:8px;font-family:var(--mono);font-size:0.8rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;
+}
+.btn:hover{background:var(--amber-dim);transform:translateY(-1px);box-shadow:0 4px 16px rgba(245,166,35,0.25)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-back{
+  display:inline-block;margin-top:16px;color:var(--cream-dim);font-family:var(--mono);
+  font-size:0.72rem;text-decoration:none;transition:color 0.2s;
+}
+.btn-back:hover{color:var(--amber)}
+.msg-box{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:0.82rem;display:none}
+.msg-ok{background:rgba(57,211,83,0.1);border:1px solid rgba(57,211,83,0.3);color:var(--phosphor)}
+.msg-err{background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:#E08282}
+</style>
+</head>
+<body>
+
+<div class="feedback-wrap">
+  <div class="header">
+    <div class="brand">TL</div>
+    <div class="subhead">Truth Lens &middot; Feedback &amp; Bug Reporting</div>
+  </div>
+  <div class="body">
+    <div class="msg-box msg-ok" id="msg-ok"></div>
+    <div class="msg-box msg-err" id="msg-err"></div>
+
+    <form id="feedback-form" onsubmit="submitFeedback(event)">
+      <div style="font-family:var(--mono);font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--cream-dim);margin-bottom:8px">
+        Select Feedback Category
+      </div>
+      <div class="cat-group">
+        <div class="cat-pill active" onclick="selectCat(this, 'BUG_REPORT')">🪲 Bug Report</div>
+        <div class="cat-pill" onclick="selectCat(this, 'ACCURACY_OBSERVATION')">🎯 Accuracy / False Alarm</div>
+        <div class="cat-pill" onclick="selectCat(this, 'FEATURE_REQUEST')">💡 Feature Request</div>
+        <div class="cat-pill" onclick="selectCat(this, 'GENERAL_FEEDBACK')">💬 General</div>
+      </div>
+      <input type="hidden" id="category" value="BUG_REPORT">
+
+      <div class="anon-check">
+        <input type="checkbox" id="is-anon" onchange="toggleAnon(this.checked)">
+        <label for="is-anon">Submit Anonymously (Hide my name &amp; email)</label>
+      </div>
+
+      <div id="ident-fields">
+        <div class="field">
+          <label>Your Name</label>
+          <input type="text" id="fb-name" placeholder="Insp. Priya Sharma">
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input type="email" id="fb-email" placeholder="investigator@agency.gov">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Related Evidence ID (Optional)</label>
+        <input type="text" id="fb-ev-id" placeholder="e.g. EV-2026-0822-ABC123">
+      </div>
+
+      <div class="field">
+        <label>Description / Observations / Steps to Reproduce *</label>
+        <textarea id="fb-desc" required placeholder="Please describe what happened, any unexpected AI detection result, or your suggestion for improvement..."></textarea>
+      </div>
+
+      <div class="dropzone" onclick="document.getElementById('fb-file').click()">
+        <div style="font-size:1.2rem;margin-bottom:4px;">📎</div>
+        <div style="font-size:0.78rem;color:var(--cream);font-weight:600;" id="file-label">Attach Screenshot or Evidence Sample (Optional)</div>
+        <div style="font-size:0.65rem;color:var(--cream-dim);margin-top:2px;">PNG, JPG, PDF up to 15 MB</div>
+        <input type="file" id="fb-file" style="display:none" onchange="handleFile(event)">
+      </div>
+
+      <button type="submit" class="btn" id="btn-submit">Submit Feedback &rarr;</button>
+    </form>
+
+    <div style="text-align:center;">
+      <a href="/" class="btn-back">&larr; Return to Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedFile = null;
+
+// Pre-fill Evidence ID from URL query param if present
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get("evidence_id")) {
+  document.getElementById("fb-ev-id").value = urlParams.get("evidence_id");
+}
+
+function selectCat(el, cat) {
+  document.querySelectorAll(".cat-pill").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("category").value = cat;
+}
+
+function toggleAnon(isAnon) {
+  const fields = document.getElementById("ident-fields");
+  if (fields) fields.style.display = isAnon ? "none" : "block";
+}
+
+function handleFile(e) {
+  if (e.target.files && e.target.files[0]) {
+    selectedFile = e.target.files[0];
+    document.getElementById("file-label").textContent = "✓ Attached: " + selectedFile.name;
+  }
+}
+
+async function submitFeedback(e) {
+  e.preventDefault();
+  const btn = document.getElementById("btn-submit");
+  const msgOk = document.getElementById("msg-ok");
+  const msgErr = document.getElementById("msg-err");
+
+  msgOk.style.display = "none";
+  msgErr.style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+
+  const isAnon = document.getElementById("is-anon").checked;
+  const formData = new FormData();
+  formData.append("category", document.getElementById("category").value);
+  formData.append("is_anonymous", isAnon ? "true" : "false");
+  formData.append("name", isAnon ? "Anonymous" : (document.getElementById("fb-name").value || "Anonymous Investigator"));
+  formData.append("email", isAnon ? "" : (document.getElementById("fb-email").value || ""));
+  formData.append("evidence_id", document.getElementById("fb-ev-id").value || "");
+  formData.append("description", document.getElementById("fb-desc").value);
+  formData.append("rating", "5");
+
+  if (selectedFile) {
+    formData.append("attachment", selectedFile);
+  }
+
+  try {
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      msgErr.textContent = data.detail || "Submission failed.";
+      msgErr.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Submit Feedback →";
+      return;
+    }
+
+    msgOk.innerHTML = `<strong>Feedback Received (${data.feedback_id})!</strong><br>${data.message}`;
+    msgOk.style.display = "block";
+    document.getElementById("feedback-form").reset();
+    document.getElementById("file-label").textContent = "Attach Screenshot or Evidence Sample (Optional)";
+    selectedFile = null;
+    btn.textContent = "✓ Submitted Successfully";
+  } catch (err) {
+    msgErr.textContent = "Network error: " + err;
+    msgErr.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Submit Feedback →";
+  }
+}
+</script>
+</body>
+</html>

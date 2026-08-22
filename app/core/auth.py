@@ -1,12 +1,15 @@
 """
 app/core/auth.py
-JWT Authentication & Password Hashing for Truth Lens.
+================
+JWT Authentication, Password Hashing, Disposable Email Filter & OTP Verification.
 """
 import uuid
 import os
+import random
+import re
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -15,22 +18,45 @@ try:
     _JOSE_AVAILABLE = True
 except ImportError:
     _JOSE_AVAILABLE = False
-    logger.warning("python-jose not installed. JWT auth disabled. Run: pip install 'python-jose[cryptography]'")
+    logger.warning("python-jose not installed. JWT auth disabled.")
 
 try:
     from passlib.context import CryptContext
-    # Use sha256_crypt as primary: passlib 1.7.x has bcrypt 4.x compatibility issues.
-    # sha256_crypt is equally secure and has zero version friction.
     _pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
     _PASSLIB_AVAILABLE = True
 except ImportError:
     _PASSLIB_AVAILABLE = False
-    logger.warning("passlib not installed. Run: pip install 'passlib[bcrypt]'")
+    logger.warning("passlib not installed.")
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "truth-lens-super-secret-key-change-in-production-2026")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 GUEST_TOKEN_EXPIRE_MINUTES = 120
+
+# ── Blocked Disposable / Temporary Email Domains ─────────────────────────────
+DISPOSABLE_DOMAINS = {
+    "mailinator.com", "10minutemail.com", "guerrillamail.com", "tempmail.com",
+    "throwawaymail.com", "sharklasers.com", "yopmail.com", "dispostable.com",
+    "getairmail.com", "maildrop.cc", "trashmail.com", "mohmal.com",
+    "crazymailing.com", "mytemp.email", "nada.ltd", "burnermail.io",
+    "fakemailgenerator.com", "temp-mail.org", "generator.email", "emailondeck.com",
+    "inboxkitten.com", "mailsac.com", "harakirimail.com", "meltmail.com",
+    "minuteinbox.com", "tmail.ws", "tempmailaddress.com", "throwawayemail.com",
+    "temporary-mail.net", "dropmail.me", "fakemail.net", "getnada.com",
+    "incognitomail.org", "internxt.com/temporary-email", "jetable.org", "kasmail.com",
+    "mytempmail.com", "noclickemail.com", "oneoffmail.com", "owlymail.com",
+    "receivemail.org", "sharklasers.net", "spambox.us", "superrito.com",
+    "teleworm.us", "trashmail.net", "uggsrock.com", "wegwerfmail.de",
+    "zippymail.info", "armyspy.com", "cuvox.de", "dayrep.com", "einrot.com",
+    "fleckens.hu", "gustr.com", "jourrapide.com", "rhyta.com", "superrito.com"
+}
+
+# ── Trusted Popular Email Providers & TLDs ────────────────────────────────────
+POPULAR_TRUSTED_DOMAINS = {
+    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
+    "apple.com", "proton.me", "protonmail.com", "zoho.com", "aol.com",
+    "live.com", "msn.com", "mail.com", "gmx.com", "yandex.com", "fastmail.com"
+}
 
 
 class AuthError(Exception):
@@ -40,10 +66,44 @@ class AuthError(Exception):
         super().__init__(message)
 
 
+def validate_email_domain(email: str) -> Tuple[bool, str]:
+    """
+    Validates email address syntax and blocks disposable / temporary domains.
+    Returns (is_valid, error_reason).
+    """
+    email = email.strip().lower()
+    if not email or "@" not in email:
+        return False, "Invalid email address format."
+
+    parts = email.split("@")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return False, "Invalid email address format."
+
+    domain = parts[1]
+
+    # Check against disposable domain blocklist
+    if domain in DISPOSABLE_DOMAINS or any(domain.endswith("." + d) for d in DISPOSABLE_DOMAINS):
+        return False, f"Temporary/disposable email domain '@{domain}' is blocked. Please use a permanent email (Gmail, Outlook, Yahoo, iCloud, university, or corporate domain)."
+
+    # Reject common disposable keywords in domain
+    if any(k in domain for k in ["tempmail", "disposable", "fakeinbox", "trashmail", "throwaway", "guerrilla"]):
+        return False, "Disposable email addresses are not permitted."
+
+    # Validate basic domain format
+    if "." not in domain or len(domain.split(".")[-1]) < 2:
+        return False, "Invalid domain extension."
+
+    return True, ""
+
+
+def generate_verification_code() -> str:
+    """Generates a secure 6-digit numeric verification code."""
+    return f"{random.randint(100000, 999999)}"
+
+
 def hash_password(plain_password: str) -> str:
     if not _PASSLIB_AVAILABLE:
         raise AuthError("Password hashing unavailable. Install passlib[bcrypt].", 503)
-    # bcrypt has a 72-byte limit; truncate to avoid ValueError on newer bcrypt versions
     truncated = plain_password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
     return _pwd_context.hash(truncated)
 

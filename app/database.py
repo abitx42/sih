@@ -234,6 +234,9 @@ def init_db():
             ("tc_accepted_at", "TEXT"),
             ("data_consent", "INTEGER DEFAULT 0"),
             ("data_consent_at", "TEXT"),
+            ("email_verified", "INTEGER DEFAULT 0"),
+            ("verification_code", "TEXT"),
+            ("verification_code_expires_at", "TEXT"),
         ]:
             if col not in user_cols:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {defn}")
