@@ -3733,3 +3733,241 @@ function closeSpeedGauntletAndSkip() {
   if (modal) modal.style.display = "none";
   switchView('upload');
 }
+
+
+// =========================================================================
+// 11. FORENSIC MICROSCOPE (LOUPE) & PRNU BALLISTICS CONTROLLER
+// =========================================================================
+
+let microZoom = 2;
+let microFilter = 'RGB';
+let microImgEl = null;
+let microCanvas = null;
+let microCtx = null;
+
+function setMicroscopeZoom(z) {
+  microZoom = z;
+  document.querySelectorAll('.btn-micro-zoom').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById(`zoom-btn-${z}`);
+  if (activeBtn) activeBtn.classList.add('active');
+}
+
+function setMicroscopeFilter(f) {
+  microFilter = f;
+}
+
+function handleMicroscopeMove(e) {
+  const container = document.getElementById("microscope-stage-container");
+  const img = document.getElementById("microscope-base-img");
+  const lens = document.getElementById("microscope-lens");
+  const canvas = document.getElementById("microscope-lens-canvas");
+
+  if (!container || !img || !lens || !canvas || !img.naturalWidth) return;
+
+  if (!microCtx) {
+    microCtx = canvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  const rect = img.getBoundingClientRect();
+  const cRect = container.getBoundingClientRect();
+
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
+    lens.style.display = "none";
+    return;
+  }
+
+  lens.style.display = "block";
+  // Position lens centered at cursor inside container
+  const lensX = (e.clientX - cRect.left) - 80;
+  const lensY = (e.clientY - cRect.top) - 80;
+  lens.style.left = `${lensX}px`;
+  lens.style.top = `${lensY}px`;
+
+  // Calculate normalized coordinate on natural image
+  const scaleX = img.naturalWidth / rect.width;
+  const scaleY = img.naturalHeight / rect.height;
+  const natX = Math.floor(mouseX * scaleX);
+  const natY = Math.floor(mouseY * scaleY);
+
+  // Update Live Telemetry HUD
+  const coordEl = document.getElementById("micro-coord");
+  if (coordEl) coordEl.textContent = `X: ${natX} | Y: ${natY}`;
+
+  // Draw magnified image onto lens canvas
+  const srcW = 160 / microZoom;
+  const srcH = 160 / microZoom;
+  const srcX = Math.max(0, Math.min(img.naturalWidth - srcW, natX - srcW / 2));
+  const srcY = Math.max(0, Math.min(img.naturalHeight - srcH, natY - srcH / 2));
+
+  microCtx.clearRect(0, 0, 160, 160);
+  microCtx.imageSmoothingEnabled = (microZoom < 10);
+  try {
+    microCtx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, 160, 160);
+    const imgData = microCtx.getImageData(0, 0, 160, 160);
+    const d = imgData.data;
+
+    // Center pixel color
+    const centerIdx = (80 * 160 + 80) * 4;
+    const cr = d[centerIdx], cg = d[centerIdx + 1], cb = d[centerIdx + 2];
+    const hex = "#" + ((1 << 24) + (cr << 16) + (cg << 8) + cb).toString(16).slice(1).toUpperCase();
+
+    const hexEl = document.getElementById("micro-hex");
+    const swatchEl = document.getElementById("micro-rgb-swatch");
+    const rgbEl = document.getElementById("micro-rgb-text");
+    if (hexEl) hexEl.textContent = hex;
+    if (swatchEl) swatchEl.style.background = hex;
+    if (rgbEl) rgbEl.textContent = `[R: ${cr}, G: ${cg}, B: ${cb}]`;
+
+    // Apply Spectral Filters inside lens
+    if (microFilter === 'RED') {
+      for (let i = 0; i < d.length; i += 4) { d[i + 1] = 0; d[i + 2] = 0; }
+      microCtx.putImageData(imgData, 0, 0);
+    } else if (microFilter === 'GREEN') {
+      for (let i = 0; i < d.length; i += 4) { d[i] = 0; d[i + 2] = 0; }
+      microCtx.putImageData(imgData, 0, 0);
+    } else if (microFilter === 'BLUE') {
+      for (let i = 0; i < d.length; i += 4) { d[i] = 0; d[i + 1] = 0; }
+      microCtx.putImageData(imgData, 0, 0);
+    } else if (microFilter === 'PRNU') {
+      // High pass noise visualization
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const noise = (lum % 16) * 16;
+        d[i] = noise; d[i + 1] = noise > 128 ? 245 : 30; d[i + 2] = 255 - noise;
+      }
+      microCtx.putImageData(imgData, 0, 0);
+    } else if (microFilter === 'ELA') {
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = Math.min(255, d[i] * 1.8);
+        d[i + 1] = Math.min(255, d[i + 1] * 0.4);
+        d[i + 2] = Math.min(255, d[i + 2] * 2.2);
+      }
+      microCtx.putImageData(imgData, 0, 0);
+    } else if (microFilter === 'INVERT') {
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2];
+      }
+      microCtx.putImageData(imgData, 0, 0);
+    }
+  } catch (err) {}
+}
+
+function hideMicroscopeLens() {
+  const lens = document.getElementById("microscope-lens");
+  if (lens) lens.style.display = "none";
+}
+
+async function loadMicroscopeTab(evidenceId) {
+  if (!evidenceId) return;
+  const baseImg = document.getElementById("microscope-base-img");
+  const prnuMap = document.getElementById("prnu-map-preview-img");
+  if (baseImg) baseImg.src = `/api/evidence/${evidenceId}/file?t=${Date.now()}`;
+  if (prnuMap) prnuMap.src = `/api/evidence/${evidenceId}/prnu-map?t=${Date.now()}`;
+
+  try {
+    const res = await fetch(`/api/evidence/${evidenceId}/prnu-analysis`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const pceEl = document.getElementById("prnu-pce-val");
+    const defEl = document.getElementById("prnu-defect-val");
+    const badge = document.getElementById("prnu-verdict-badge");
+    const descEl = document.getElementById("prnu-status-desc");
+
+    if (pceEl) pceEl.textContent = data.pce_score.toFixed(1);
+    if (defEl) defEl.textContent = `${data.silicon_defect_density.toFixed(2)} /kpx`;
+    if (descEl) descEl.textContent = data.prnu_status_text;
+    if (badge) {
+      badge.textContent = data.is_physical_sensor ? "AUTHENTIC SENSOR MATCH" : "SYNTHETIC (NO PRNU)";
+      badge.className = data.is_physical_sensor ? "badge badge-low" : "badge badge-high";
+    }
+  } catch (e) {
+    console.warn("PRNU load notice:", e);
+  }
+}
+
+// =========================================================================
+// 12. PROMPT INVERSION & AUTONOMOUS COURTROOM DEBATE CONTROLLER
+// =========================================================================
+
+async function loadCourtroomDebate(evidenceId) {
+  if (!evidenceId) return;
+  
+  // 1. Load Prompt Inversion
+  try {
+    const pRes = await fetch(`/api/evidence/${evidenceId}/prompt-inversion`);
+    if (pRes.ok) {
+      const pData = await pRes.json();
+      const posPromptEl = document.getElementById("pinv-positive-prompt");
+      const tagsRow = document.getElementById("pinv-tags-row");
+      const threatBadge = document.getElementById("pinv-threat-badge");
+      const threatSum = document.getElementById("pinv-threat-summary");
+
+      if (posPromptEl) posPromptEl.textContent = `"${pData.reconstructed_positive_prompt}"`;
+      if (threatSum && pData.threat_assessment) threatSum.textContent = pData.threat_assessment.forensic_summary;
+      if (threatBadge && pData.threat_assessment) threatBadge.textContent = pData.threat_assessment.threat_category;
+
+      if (tagsRow) {
+        tagsRow.innerHTML = `
+          <span class="badge badge-high" style="font-size: 0.68rem;">Model: ${escapeHTML(pData.model_family)}</span>
+          <span class="badge badge-modality" style="font-size: 0.68rem;">Steps: ${pData.estimated_steps}</span>
+          <span class="badge badge-modality" style="font-size: 0.68rem;">CFG: ${pData.estimated_cfg_scale}</span>
+          <span class="badge badge-modality" style="font-size: 0.68rem;">Sampler: ${escapeHTML(pData.estimated_sampler)}</span>
+          <span class="badge badge-low" style="font-size: 0.68rem;">Aspect: ${escapeHTML(pData.aspect_ratio_tag)}</span>
+        `;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Load 3-Agent Courtroom Debate
+  try {
+    const cRes = await fetch(`/api/evidence/${evidenceId}/courtroom-debate`);
+    if (cRes.ok) {
+      const cData = await cRes.json();
+      const pros = cData.prosecutor || {};
+      const def = cData.defense || {};
+      const mag = cData.magistrate || {};
+
+      // Prosecution
+      const pOff = document.getElementById("court-pros-officer");
+      const pVer = document.getElementById("court-pros-verdict");
+      const pCounts = document.getElementById("court-pros-counts");
+      const pOral = document.getElementById("court-pros-oral");
+      if (pOff) pOff.textContent = pros.officer || "Chief Technical Prosecutor";
+      if (pVer) pVer.textContent = (pros.verdict || "INDICTMENT").replace(/_/g, ' ');
+      if (pCounts) pCounts.innerHTML = (pros.counts || []).map(c => `• ${escapeHTML(c)}<br>`).join("");
+      if (pOral) pOral.textContent = `"${pros.oral_submission || ''}"`;
+
+      // Defense
+      const dOff = document.getElementById("court-def-counsel");
+      const dVer = document.getElementById("court-def-verdict");
+      const dPoints = document.getElementById("court-def-points");
+      const dOral = document.getElementById("court-def-oral");
+      if (dOff) dOff.textContent = def.counsel || "Lead Defense Counsel";
+      if (dVer) dVer.textContent = (def.verdict || "DEFENSE PLEA").replace(/_/g, ' ');
+      if (dPoints) dPoints.innerHTML = (def.points || []).map(p => `• ${escapeHTML(p)}<br>`).join("");
+      if (dOral) dOral.textContent = `"${def.oral_submission || ''}"`;
+
+      // Chief Magistrate
+      const jTitle = document.getElementById("court-judge-title");
+      const jName = document.getElementById("court-judge-name");
+      const jBadge = document.getElementById("court-ruling-badge");
+      const jAdm = document.getElementById("court-admissibility-text");
+      const jBurden = document.getElementById("court-burden-text");
+      const jDecree = document.getElementById("court-decree-text");
+
+      if (jTitle) jTitle.textContent = mag.ruling_title || "JUDICIAL FINDING";
+      if (jName) jName.textContent = mag.judge || "Presiding Forensic Arbitrator";
+      if (jBadge) {
+        jBadge.textContent = mag.ruling_badge || "RULING ISSUED";
+        jBadge.className = `badge ${mag.ruling_badge_class || 'badge-high'}`;
+      }
+      if (jAdm) jAdm.textContent = mag.admissibility_status || "EVALUATED";
+      if (jBurden) jBurden.textContent = mag.burden_of_proof || "FORENSIC STANDARD";
+      if (jDecree) jDecree.textContent = mag.judicial_decree || "";
+    }
+  } catch (e) {}
+}

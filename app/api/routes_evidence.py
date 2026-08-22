@@ -1392,3 +1392,93 @@ def get_web_sandwich_composite_direct(evidence_id: str):
     if not p.exists():
         raise HTTPException(status_code=404, detail="Web sandwich composite visualizer not generated.")
     return FileResponse(path=str(p), media_type="image/png")
+
+
+# =========================================================================
+# ADVANCED FORENSICS: PRNU BALLISTICS, PROMPT INVERSION & COURTROOM DEBATE
+# =========================================================================
+
+@router.get("/{evidence_id}/prnu-analysis")
+def get_prnu_analysis(evidence_id: str):
+    """
+    Extracts PRNU (Photo-Response Non-Uniformity) physical sensor ballistics.
+    Calculates Peak-to-Correlation Energy (PCE) and silicon defect density.
+    """
+    from app.core.prnu_ballistics import PRNUBallisticsEngine, PRNU_ARTIFACT_DIR
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+    file_path = EVIDENCE_DIR / ev["stored_filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Evidence file missing.")
+
+    return PRNUBallisticsEngine.analyze_prnu(file_path, evidence_id)
+
+
+@router.get("/{evidence_id}/prnu-map")
+def get_prnu_map_artifact(evidence_id: str):
+    """Serves the high-frequency PRNU sensor noise artifact image."""
+    from app.core.prnu_ballistics import PRNU_ARTIFACT_DIR, PRNUBallisticsEngine
+    p = PRNU_ARTIFACT_DIR / f"{evidence_id}_prnu_map.png"
+    if not p.exists():
+        # Generate on demand
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+            ev = cursor.fetchone()
+            if ev:
+                fp = EVIDENCE_DIR / ev["stored_filename"]
+                if fp.exists():
+                    PRNUBallisticsEngine.analyze_prnu(fp, evidence_id)
+
+    if not p.exists():
+        raise HTTPException(status_code=404, detail="PRNU noise map artifact not generated.")
+    return FileResponse(path=str(p), media_type="image/png")
+
+
+@router.get("/{evidence_id}/prompt-inversion")
+def get_prompt_inversion(evidence_id: str):
+    """
+    Reverse-engineers probable generation prompt, negative prompt, diffusion
+    hyperparameters, and deception intent threat assessment.
+    """
+    from app.core.prompt_inverter import PromptInversionEngine
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        fr = cursor.fetchone() or {}
+
+    file_path = EVIDENCE_DIR / ev["stored_filename"]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Evidence file missing.")
+
+    return PromptInversionEngine.invert_prompt(file_path, fr, evidence_id)
+
+
+@router.get("/{evidence_id}/courtroom-debate")
+def get_courtroom_debate(evidence_id: str):
+    """
+    Synthesizes autonomous 3-agent courtroom cross-examination:
+    Prosecutor (AI Hunter) vs Defense (Authenticity Advocate) vs Magistrate (Judicial Arbitrator).
+    """
+    from app.core.courtroom_debate import CourtroomDebateEngine
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        ev = cursor.fetchone()
+        if not ev:
+            raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
+        fr = cursor.fetchone() or {}
+
+    return CourtroomDebateEngine.conduct_debate(evidence_id, ev.get("original_filename", "exhibit.jpg"), fr)
