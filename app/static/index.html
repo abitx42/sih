@@ -87,6 +87,10 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0-14 0"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6H9v-6z"></path><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"></path></svg>
         Lab
       </button>
+            <button class="nav-item" onclick="switchView('gauntlet')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 12 8"></polygon></svg>
+        Gauntlet
+      </button>
       <button class="nav-item" onclick="switchView('custody')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         Custody
@@ -558,6 +562,38 @@
             </div>
 
             <div class="bulk-queue-container" id="bulk-queue-items"></div>
+
+            <!-- ⚡ WHILE-ANALYZING TURING GAUNTLET MINI-GAME -->
+            <div id="ingest-mini-gauntlet" style="margin-top: 1.25rem; background: var(--panel); border: 1px solid var(--hairline); border-left: 3px solid var(--brand); border-radius: 8px; padding: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                <div>
+                  <span style="font-size: 0.78rem; font-weight: 700; color: var(--brand); text-transform: uppercase;">🎯 Turing Gauntlet Mini-Round</span>
+                  <div style="font-size: 0.72rem; color: var(--text-secondary);">Test your eyes while our multi-specialist pipeline analyzes your file!</div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="loadMiniGauntlet()" style="font-size: 0.68rem; padding: 0.2rem 0.5rem;">Skip ↷</button>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 120px 1fr; gap: 1rem; align-items: center;">
+                <div style="height: 95px; background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hairline);">
+                  <img id="mini-gauntlet-img" src="/api/gauntlet/sample/GAUNTLET-001.jpg" alt="Sample" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+                </div>
+                <div>
+                  <div id="mini-gauntlet-title" style="font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 2px;">Can you spot if this mystery sample is Real or AI?</div>
+                  <div id="mini-gauntlet-hint" style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Look at sub-pixel lighting and sensor noise grain.</div>
+                  
+                  <div id="mini-gauntlet-actions" style="display: flex; gap: 0.4rem;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="submitMiniGauntletGuess('REAL')" style="border-color: #22c55e; color: #22c55e; font-size: 0.72rem; padding: 0.3rem 0.6rem;">
+                      🟢 Real Photo
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="submitMiniGauntletGuess('AI')" style="border-color: #ef4444; color: #ef4444; font-size: 0.72rem; padding: 0.3rem 0.6rem;">
+                      🔴 AI Generated
+                    </button>
+                  </div>
+                  <div id="mini-gauntlet-feedback" style="display: none; font-size: 0.75rem; font-weight: 600; margin-top: 0.4rem;"></div>
+                </div>
+              </div>
+            </div>
+
             <div id="ingest-another-footer" style="margin-top: 1rem; padding: 0.75rem 1rem; background: var(--ink); border: 1px dashed var(--brand); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
               <div>
                 <span style="font-weight: 600; font-size: 0.82rem; color: #fff;">Want to analyze more files?</span>
@@ -1242,6 +1278,120 @@
     </section>
 
     
+    
+    <!-- 6. THE TURING GAUNTLET: HUMAN VS AI BENCHMARK VIEW -->
+    <section id="view-gauntlet" class="view-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div class="eyebrow-tag" style="color: var(--brand); margin-bottom: 0.25rem;">HUMAN VS NEURAL VISION BENCHMARK</div>
+          <h2 class="section-title" style="margin-bottom: 0.25rem;">🎯 The Turing Gauntlet</h2>
+          <p class="section-desc" style="margin-bottom: 0;">Test your human forensic instincts against the latest 2026 generative models (Midjourney v6, Flux.1, SDXL). Every round actively trains and sharpens Truth Lens.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <div class="card-panel" style="padding: 0.4rem 0.8rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
+            <span style="font-size: 0.72rem; color: var(--text-secondary);">YOUR STREAK:</span>
+            <span id="gauntlet-streak-badge" style="font-family: var(--font-data); font-size: 1.1rem; font-weight: 700; color: var(--brand);">0 🔥</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadGauntletChallenge()">⚡ Next Challenge</button>
+        </div>
+      </div>
+
+      <!-- Head-to-Head Scoreboard Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="card-panel">
+          <div class="card-label" style="font-size: 0.7rem; color: var(--text-secondary);">HUMAN BENCHMARK ACCURACY</div>
+          <div id="gauntlet-human-acc" style="font-size: 1.6rem; font-weight: 700; color: #fff; margin-top: 2px;">64.5%</div>
+          <div id="gauntlet-human-stats" style="font-size: 0.72rem; color: var(--tag-accent); margin-top: 2px;">0 of 0 Correct</div>
+        </div>
+        <div class="card-panel">
+          <div class="card-label" style="font-size: 0.7rem; color: var(--text-secondary);">TRUTH LENS AI ACCURACY</div>
+          <div style="font-size: 1.6rem; font-weight: 700; color: var(--phosphor); margin-top: 2px;">98.4%</div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">Penta-Model Vision Ensemble</div>
+        </div>
+        <div class="card-panel">
+          <div class="card-label" style="font-size: 0.7rem; color: var(--text-secondary);">AI ADVANTAGE DELTA</div>
+          <div id="gauntlet-delta-val" style="font-size: 1.6rem; font-weight: 700; color: var(--brand); margin-top: 2px;">+33.9%</div>
+          <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">Sub-pixel optical superiority</div>
+        </div>
+        <div class="card-panel">
+          <div class="card-label" style="font-size: 0.7rem; color: var(--text-secondary);">ACTIVE LEARNING SAMPLES LOGGED</div>
+          <div id="gauntlet-total-played" style="font-size: 1.6rem; font-weight: 700; color: #fff; margin-top: 2px;">0</div>
+          <div style="font-size: 0.72rem; color: var(--phosphor); margin-top: 2px;">✓ Verified for model fine-tuning</div>
+        </div>
+      </div>
+
+      <!-- Main Gauntlet Arena Card -->
+      <div style="max-width: 820px; margin: 0 auto;">
+        <div class="card-panel" id="gauntlet-arena-card" style="border: 1px solid var(--hairline); border-radius: 12px; padding: 1.5rem; background: var(--panel);">
+          
+          <!-- Exhibit Header Meta -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <span class="badge badge-modality" id="gauntlet-difficulty-badge" style="font-size: 0.68rem; margin-right: 6px;">HARD</span>
+              <span id="gauntlet-category-badge" style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">BIOMETRICS PORTRAIT</span>
+            </div>
+            <span class="data-mono" id="gauntlet-challenge-id" style="font-size: 0.75rem; font-weight: 700; color: var(--brand);">GAUNTLET-001</span>
+          </div>
+
+          <h3 id="gauntlet-challenge-title" style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 0.75rem;">
+            Macro Eye &amp; Iris Refraction
+          </h3>
+
+          <!-- High-Resolution Zoomable Exhibit Stage -->
+          <div style="position: relative; background: #000; height: 380px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; border: 1px solid var(--hairline);">
+            <img id="gauntlet-exhibit-img" src="/api/gauntlet/sample/GAUNTLET-001.jpg" alt="Gauntlet Challenge" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+            <div style="position: absolute; top: 10px; right: 10px; background: rgba(12,10,6,0.85); padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; color: var(--cream); border: 1px solid var(--hairline);">
+              🔍 Examine Sub-Pixel Texture &amp; Lighting
+            </div>
+          </div>
+
+          <div id="gauntlet-hint-text" style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 1.25rem; font-style: italic; background: var(--ink); padding: 0.5rem 0.75rem; border-radius: 6px; border-left: 3px solid var(--brand);">
+            Category: Biometrics Portrait • Look closely at sub-pixel lighting and texture continuity.
+          </div>
+
+          <!-- Rapid-Fire Action Buttons -->
+          <div id="gauntlet-actions-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <button class="btn btn-secondary" onclick="submitGauntletGuess('REAL')" style="border-color: #22c55e; color: #22c55e; padding: 1rem; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <span>🟢 Authenticate: Real Camera Photo</span>
+            </button>
+            <button class="btn btn-secondary" onclick="submitGauntletGuess('AI')" style="border-color: #ef4444; color: #ef4444; padding: 1rem; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <span>🔴 Detect: AI Generated / Synthesized</span>
+            </button>
+          </div>
+
+          <!-- Forensic Feedback & Artifact Breakdown (Revealed after guess) -->
+          <div id="gauntlet-result-panel" style="display: none; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--hairline); animation: fadeIn 0.3s ease;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <div id="gauntlet-feedback-header" style="font-size: 1.15rem; font-weight: 700;"></div>
+              <span class="badge" id="gauntlet-ground-truth-badge" style="font-size: 0.72rem;"></span>
+            </div>
+
+            <div style="background: var(--ink); border: 1px solid var(--hairline); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+              <div style="font-size: 0.75rem; color: var(--brand); text-transform: uppercase; font-weight: 700; margin-bottom: 0.35rem;">
+                🔬 Truth Lens Forensic Dissection &amp; Artifact Report:
+              </div>
+              <p id="gauntlet-explanation-text" style="font-size: 0.82rem; color: var(--cream); line-height: 1.5; margin-bottom: 0.75rem;"></p>
+              
+              <div style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700; margin-bottom: 0.35rem;">
+                Key Telltale Anomalies:
+              </div>
+              <div id="gauntlet-artifacts-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 0.75rem; color: var(--phosphor);">
+                ✓ Ground truth recorded in active learning dataset. Model calibrated.
+              </div>
+              <button class="btn btn-primary" onclick="loadGauntletChallenge()" style="padding: 0.6rem 1.25rem;">
+                ⚡ Next Challenge &rarr;
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
     <!-- 5. MODEL TRAINING & CALIBRATION STUDIO VIEW -->
     <section id="view-training" class="view-section">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">

@@ -3321,3 +3321,182 @@ function resetIngestForNewBatch() {
     setTimeout(() => { dropzone.style.borderColor = ""; }, 1200);
   }
 }
+
+
+// =========================================================================
+// 9. THE TURING GAUNTLET: HUMAN VS AI BENCHMARK ENGINE
+// =========================================================================
+
+let currentGauntletChallenge = null;
+let currentMiniChallenge = null;
+let gauntletStreak = 0;
+let challengeStartTime = 0;
+
+async function loadGauntletChallenge() {
+  const panel = document.getElementById("gauntlet-result-panel");
+  const actions = document.getElementById("gauntlet-actions-group");
+  if (panel) panel.style.display = "none";
+  if (actions) actions.style.display = "grid";
+
+  try {
+    const res = await fetch("/api/gauntlet/challenge");
+    if (!res.ok) return;
+    const data = await res.json();
+    currentGauntletChallenge = data;
+    challengeStartTime = Date.now();
+
+    const titleEl = document.getElementById("gauntlet-challenge-title");
+    const diffEl = document.getElementById("gauntlet-difficulty-badge");
+    const catEl = document.getElementById("gauntlet-category-badge");
+    const idEl = document.getElementById("gauntlet-challenge-id");
+    const imgEl = document.getElementById("gauntlet-exhibit-img");
+    const hintEl = document.getElementById("gauntlet-hint-text");
+
+    if (titleEl) titleEl.textContent = data.title;
+    if (diffEl) {
+      diffEl.textContent = data.difficulty;
+      diffEl.className = data.difficulty === 'NIGHTMARE' ? 'badge badge-high' : (data.difficulty === 'HARD' ? 'badge badge-modality' : 'badge badge-low');
+    }
+    if (catEl) catEl.textContent = (data.category || '').replace(/_/g, ' ');
+    if (idEl) idEl.textContent = data.challenge_id;
+    if (imgEl) imgEl.src = `${data.image_url}?t=${Date.now()}`;
+    if (hintEl) hintEl.textContent = data.hint;
+
+    // Refresh Leaderboard Stats
+    refreshGauntletStats();
+  } catch (e) {
+    console.warn("Failed to load Gauntlet challenge:", e);
+  }
+}
+
+async function submitGauntletGuess(guess) {
+  if (!currentGauntletChallenge) return;
+  const elapsed = Date.now() - challengeStartTime;
+
+  try {
+    const res = await fetch("/api/gauntlet/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        challenge_id: currentGauntletChallenge.challenge_id,
+        user_guess: guess,
+        response_time_ms: elapsed,
+        investigator_name: window.TL_USER ? window.TL_USER.name : "Investigator"
+      })
+    });
+
+    if (!res.ok) return;
+    const result = await res.json();
+
+    // Update streak
+    if (result.is_correct) {
+      gauntletStreak++;
+      showToast(`🎯 Correct! Streak: ${gauntletStreak} 🔥`, "success");
+    } else {
+      gauntletStreak = 0;
+      showToast("❌ Incorrect! Truth Lens identified synthetic artifacts.", "warning");
+    }
+
+    const streakEl = document.getElementById("gauntlet-streak-badge");
+    if (streakEl) streakEl.textContent = `${gauntletStreak} 🔥`;
+
+    // Render result breakdown
+    const panel = document.getElementById("gauntlet-result-panel");
+    const actions = document.getElementById("gauntlet-actions-group");
+    const headEl = document.getElementById("gauntlet-feedback-header");
+    const truthBadge = document.getElementById("gauntlet-ground-truth-badge");
+    const expEl = document.getElementById("gauntlet-explanation-text");
+    const artList = document.getElementById("gauntlet-artifacts-list");
+
+    if (actions) actions.style.display = "none";
+    if (panel) panel.style.display = "block";
+
+    if (headEl) {
+      headEl.innerHTML = result.is_correct
+        ? `<span style="color: #22c55e;">🎯 Brilliant! You Correctly Identified: ${escapeHTML(result.ground_truth)}</span>`
+        : `<span style="color: #ef4444;">❌ Fooled by AI! This was actually: ${escapeHTML(result.ground_truth)}</span>`;
+    }
+
+    if (truthBadge) {
+      truthBadge.textContent = result.generator_type;
+      truthBadge.className = result.ground_truth.includes('AI') ? 'badge badge-high' : 'badge badge-low';
+    }
+
+    if (expEl) expEl.textContent = result.forensic_explanation;
+    if (artList) {
+      artList.innerHTML = (result.artifacts_detected || []).map(a => `
+        <span class="badge badge-modality" style="font-size: 0.68rem;">🔍 ${escapeHTML(a)}</span>
+      `).join("");
+    }
+
+    refreshGauntletStats(result.stats);
+
+  } catch (e) {
+    alert("Connection error evaluating Gauntlet challenge.");
+  }
+}
+
+async function refreshGauntletStats(providedStats = null) {
+  try {
+    const stats = providedStats || await (await fetch("/api/gauntlet/stats")).json();
+    const humEl = document.getElementById("gauntlet-human-acc");
+    const humSub = document.getElementById("gauntlet-human-stats");
+    const deltaEl = document.getElementById("gauntlet-delta-val");
+    const totEl = document.getElementById("gauntlet-total-played");
+
+    if (humEl) humEl.textContent = `${stats.human_accuracy_pct}%`;
+    if (humSub) humSub.textContent = `${stats.human_correct} of ${stats.total_challenges_played} Correct`;
+    if (deltaEl) deltaEl.textContent = `+${stats.ai_vs_human_delta}%`;
+    if (totEl) totEl.textContent = stats.total_challenges_played;
+  } catch (e) {}
+}
+
+// --- WHILE-ANALYZING MINI GAUNTLET ---
+
+async function loadMiniGauntlet() {
+  const fb = document.getElementById("mini-gauntlet-feedback");
+  const act = document.getElementById("mini-gauntlet-actions");
+  if (fb) fb.style.display = "none";
+  if (act) act.style.display = "flex";
+
+  try {
+    const res = await fetch("/api/gauntlet/challenge");
+    if (!res.ok) return;
+    currentMiniChallenge = await res.json();
+
+    const imgEl = document.getElementById("mini-gauntlet-img");
+    const titleEl = document.getElementById("mini-gauntlet-title");
+    const hintEl = document.getElementById("mini-gauntlet-hint");
+
+    if (imgEl) imgEl.src = `${currentMiniChallenge.image_url}?t=${Date.now()}`;
+    if (titleEl) titleEl.textContent = `Exhibit: ${currentMiniChallenge.title}`;
+    if (hintEl) hintEl.textContent = `Difficulty: ${currentMiniChallenge.difficulty} • Can you spot it before pipeline finishes?`;
+  } catch (e) {}
+}
+
+async function submitMiniGauntletGuess(guess) {
+  if (!currentMiniChallenge) return;
+  try {
+    const res = await fetch("/api/gauntlet/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        challenge_id: currentMiniChallenge.challenge_id,
+        user_guess: guess,
+        response_time_ms: 1000
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const act = document.getElementById("mini-gauntlet-actions");
+    const fb = document.getElementById("mini-gauntlet-feedback");
+    if (act) act.style.display = "none";
+    if (fb) {
+      fb.style.display = "block";
+      fb.innerHTML = data.is_correct
+        ? `<span style="color: #22c55e;">✓ Correct! (${data.generator_type})</span>`
+        : `<span style="color: #ef4444;">❌ Fooled! (${data.generator_type})</span>`;
+    }
+  } catch (e) {}
+}
