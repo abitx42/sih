@@ -46,6 +46,13 @@ def startup_event():
     if recovered > 0:
         logger.info(f"Startup recovery: Reconciled {recovered} orphaned analysis job(s) left in ANALYZING state.")
 
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.rate_limiter import RateLimiterMiddleware
+
+# Security Middleware Pipeline
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimiterMiddleware, enabled=True)
+
 # CORS Configuration (allows localhost and Cloudflare Quick Tunnel origins)
 app.add_middleware(
     CORSMiddleware,

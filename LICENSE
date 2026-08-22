@@ -1,0 +1,31 @@
+TRUTH LENS (EVIDENCE-X) PROPRIETARY & CONFIDENTIAL LICENSE
+Copyright (c) 2024-2026 Truth Lens Forensic Technologies. All Rights Reserved.
+
+CONFIDENTIAL AND PROPRIETARY PROPERTY NOTICE:
+This software, source code, neural network configurations, forensic algorithms,
+weights, datasets, database schemas, and documentation are the sole proprietary
+and confidential property of Truth Lens and its authors.
+
+1. PROHIBITION OF PUBLIC DISTRIBUTION & OPEN SOURCING:
+   No part of this software may be reproduced, distributed, transmitted, transcribed,
+   stored in a retrieval system, made public, or open-sourced in any form or by any means,
+   electronic, mechanical, photocopying, recording, or otherwise, without the prior
+   express written consent of the copyright holder.
+
+2. RESTRICTIONS ON USE & REVERSE ENGINEERING:
+   You may NOT:
+   (a) Decompile, disassemble, reverse engineer, or attempt to derive the source code
+       or underlying algorithms of this software.
+   (b) Modify, translate, adapt, or create derivative works based on this software.
+   (c) Rent, lease, lend, sub-license, sell, assign, or transfer this software.
+   (d) Circumvent, disable, or modify any security, authentication, or tamper-detection
+       mechanisms included in the software.
+   (e) Extract or scrape training data, active learning queues, or model adapters.
+
+3. FORENSIC CHAIN OF CUSTODY & LEGAL PROTECTION:
+   This software is protected under the Indian Copyright Act 1957, the Information
+   Technology Act 2000 (and amendments 2008), the Indian Penal Code, and international
+   intellectual property treaties (WIPO / Berne Convention).
+   Unauthorized access, copying, or tampering constitutes a criminal offense.
+
+FOR AUTHORIZED LAW ENFORCEMENT & INVESTIGATIVE AGENCY USE ONLY.
