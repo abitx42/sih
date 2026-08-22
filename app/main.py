@@ -22,6 +22,7 @@ from app.api.routes_web_search import router as web_search_router
 from app.api.routes_learning import router as learning_router
 from app.api.routes_training import router as training_router
 from app.api.routes_feedback import router as feedback_router
+from app.api.routes_cloud_models import router as cloud_models_router
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +71,7 @@ app.include_router(web_search_router)
 app.include_router(learning_router)
 app.include_router(training_router)
 app.include_router(feedback_router)
+app.include_router(cloud_models_router)
 
 # Mount Static Files (Web UI)
 STATIC_DIR = Path(__file__).resolve().parent / "static"

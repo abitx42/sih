@@ -3001,3 +3001,107 @@ async function rollbackModelVersion(versionId) {
     showToast(`Network error: ${e}`, "error");
   }
 }
+
+
+// ── Multi-Cloud Zero-Cost Gateway & Cooldown Handler ─────────────────────────
+
+async function loadCloudProvidersStatus() {
+  const grid = document.getElementById("cloud-providers-grid");
+  if (!grid) return;
+
+  try {
+    const res = await fetch("/api/cloud-models/status");
+    if (!res.ok) return;
+    const data = await res.json();
+    const providers = data.providers || [];
+
+    grid.innerHTML = providers.map(p => {
+      let badgeStyle = "background: rgba(57,211,83,0.1); color: var(--phosphor); border-color: rgba(57,211,83,0.3);";
+      let statusText = "🟢 Ready";
+
+      if (p.status === "COOLDOWN") {
+        badgeStyle = "background: rgba(245,166,35,0.1); color: #f59e0b; border-color: rgba(245,166,35,0.3);";
+        statusText = `⏳ Cooldown (${p.cooldown_remaining_sec}s)`;
+      } else if (p.status === "UNCONFIGURED" && !p.is_zero_key) {
+        badgeStyle = "background: rgba(255,255,255,0.03); color: var(--text-secondary); border-color: var(--hairline);";
+        statusText = "⚪ Key Optional";
+      }
+
+      return `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 6px; padding: 0.6rem 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--cream);">${escapeHTML(p.name)}</span>
+            <span style="font-family: var(--mono); font-size: 0.62rem; padding: 1px 6px; border-radius: 4px; border: 1px solid; ${badgeStyle}">
+              ${statusText}
+            </span>
+          </div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary); font-family: var(--mono);">
+            Model: ${escapeHTML(p.default_model || 'Default')}
+          </div>
+          <div style="font-size: 0.62rem; color: var(--text-secondary); margin-top: 2px;">
+            ${p.last_latency_ms ? `Latency: ${p.last_latency_ms}ms • ` : ''}Success: ${p.success_count}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  } catch (e) {
+    console.warn("Failed to load cloud providers:", e);
+  }
+}
+
+async function triggerCloudCrossCheck() {
+  if (!currentEvidenceId) {
+    showToast("Please open an exhibit in the Lab first.", "error");
+    return;
+  }
+
+  const btn = document.getElementById("btn-cloud-crosscheck");
+  const resCard = document.getElementById("cloud-crosscheck-results");
+  const badge = document.getElementById("cloud-consensus-badge");
+  const breakdown = document.getElementById("cloud-models-breakdown");
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Querying Cloud Models...";
+  }
+
+  try {
+    const res = await fetch(`/api/cloud-models/cross-check/${currentEvidenceId}`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(`Cross-check error: ${err.detail || 'Failed'}`, "error");
+      return;
+    }
+
+    const data = await res.json();
+    const cc = data.cross_check || {};
+
+    if (resCard) resCard.style.display = "block";
+    if (badge) {
+      badge.textContent = `${cc.consensus_verdict} (${Math.round(cc.consensus_confidence * 100)}% Conf • ${cc.agreement_percentage}% Agreement)`;
+      badge.className = `badge ${cc.consensus_verdict === 'AI_GENERATED' ? 'badge-risk-high' : 'badge-risk-low'}`;
+    }
+
+    if (breakdown && cc.cloud_results) {
+      breakdown.innerHTML = cc.cloud_results.map(r => `
+        <div style="margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.05);">
+          <strong>${escapeHTML(r.provider)}</strong> (${escapeHTML(r.model)}): 
+          <span style="color: ${r.verdict === 'AI_GENERATED' ? 'var(--danger)' : 'var(--phosphor)'}; font-weight: 600;">${r.verdict}</span> 
+          <span style="color: var(--text-secondary);">(${Math.round(r.confidence * 100)}% conf in ${r.latency_ms}ms)</span>
+          <p style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 1px;">${escapeHTML(r.reasoning || '')}</p>
+        </div>
+      `).join("");
+    }
+
+    showToast("Multi-cloud model cross-check complete!", "success");
+    loadCloudProvidersStatus();
+  } catch (e) {
+    showToast(`Network error: ${e}`, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "⚡ Run Cloud Multi-Model Cross-Check";
+    }
+  }
+}
