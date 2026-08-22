@@ -2530,53 +2530,6 @@ function triggerCustomWebSearch() {
   }
 }
 
-  } else {
-    if (authPctEl) authPctEl.textContent = "100%";
-    if (altPctEl) altPctEl.textContent = "0%";
-    if (barAuth) barAuth.style.width = "100%";
-    if (barAlt) barAlt.style.width = "0%";
-  }
-
-  // Multi-Scale Hashes
-  const hashes = (data.raw_search && data.raw_search.multi_scale_hashes) || {};
-  if (hashGlobal) hashGlobal.textContent = hashes.global_phash || data.phash || "—";
-  if (hashTL) hashTL.textContent = hashes.top_left_phash || "—";
-  if (hashTR) hashTR.textContent = hashes.top_right_phash || "—";
-  if (hashBL) hashBL.textContent = hashes.bottom_left_phash || "—";
-  if (hashBR) hashBR.textContent = hashes.bottom_right_phash || "—";
-  if (hashCenter) hashCenter.textContent = hashes.center_phash || "—";
-
-  // Articles List
-  const articles = provArticles.articles || [];
-  if (articlesCount) articlesCount.textContent = `${articles.length} Source${articles.length === 1 ? '' : 's'}`;
-  if (articlesList) {
-    if (articles.length > 0) {
-      articlesList.innerHTML = articles.map(a => `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--hairline); border-radius: 6px; padding: 0.75rem;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.35rem; gap: 0.5rem;">
-            <div style="font-size: 0.8rem; font-weight: 700; color: var(--cream); line-height: 1.3;">
-              <a href="${escapeHTML(a.url || '#')}" target="_blank" rel="noopener noreferrer" style="color: var(--cream); text-decoration: none;">
-                ${escapeHTML(a.title || 'Untitled Article')} ↗
-              </a>
-            </div>
-            <span class="badge ${a.fact_check_verdict === 'REPORTED_MANIPULATED' ? 'badge-risk-high' : 'badge-risk-low'}" style="font-size: 0.62rem; flex-shrink: 0;">
-              ${escapeHTML(a.fact_check_verdict || 'VERIFIED')}
-            </span>
-          </div>
-          <div style="font-size: 0.7rem; color: var(--brand); margin-bottom: 0.35rem;">
-            🏛️ ${escapeHTML(a.source || 'Journalistic Source')} • 📅 ${escapeHTML(a.date || 'Recent')}
-          </div>
-          <p style="font-size: 0.74rem; color: var(--text-secondary); line-height: 1.35;">
-            ${escapeHTML(a.snippet || '')}
-          </p>
-        </div>
-      `).join("");
-    } else {
-      articlesList.innerHTML = '<div style="color: var(--text-secondary); font-size: 0.78rem; text-align: center; padding: 1rem;">No online news articles or fact-checks found.</div>';
-    }
-  }
-}
-
 async function triggerWebProvenanceScan() {
   if (!currentEvidenceId) {
     showToast("Please select or ingest an evidence exhibit first.", "warning");
