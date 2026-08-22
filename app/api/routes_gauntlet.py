@@ -2,9 +2,10 @@
 app/api/routes_gauntlet.py
 ==========================
 The Turing Gauntlet API Endpoints:
-  - GET /api/gauntlet/challenge : Fetch randomized forensic challenge item
-  - POST /api/gauntlet/submit   : Submit human guess, evaluate vs Truth Lens, feed active learning
-  - GET /api/gauntlet/stats     : Human vs Truth Lens cumulative accuracy leaderboard
+  - GET /api/gauntlet/challenge   : Fetch randomized forensic challenge item
+  - GET /api/gauntlet/speed-batch : Fetch sequence of N challenges for rapid-fire 3-second gameplay
+  - POST /api/gauntlet/submit     : Submit human guess, evaluate vs Truth Lens, feed active learning
+  - GET /api/gauntlet/stats       : Human vs Truth Lens cumulative accuracy leaderboard
   - GET /api/gauntlet/sample/{filename} : Serve challenge exhibit image
 """
 import logging
@@ -30,6 +31,15 @@ class GauntletSubmissionRequest(BaseModel):
 def get_gauntlet_challenge():
     """Returns a randomized blind forensic exhibit challenge for the investigator."""
     return TuringGauntletEngine.get_challenge()
+
+
+@router.get("/speed-batch")
+def get_gauntlet_speed_batch(count: int = Query(10, ge=3, le=20)):
+    """Returns a rapid-fire batch of N unique challenges for the ingestion mini-game."""
+    return {
+        "count": count,
+        "challenges": TuringGauntletEngine.get_speed_batch(count=count)
+    }
 
 
 @router.post("/submit")
