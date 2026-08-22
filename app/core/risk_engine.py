@@ -33,11 +33,18 @@ class RiskEngine:
         provenance_status: str,
         findings: List[Dict[str, Any]],
         final_risk_score: float,
-        ensemble_agreement: Optional[Dict[str, Any]] = None
+        ensemble_agreement: Optional[Dict[str, Any]] = None,
+        web_lens_result: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Determines the 5-tier forensic authenticity taxonomy based on correlated physical signals.
         """
+        if web_lens_result:
+            if web_lens_result.get("ai_source_detected") or web_lens_result.get("web_verdict") == "CONFIRMED_GENERATIVE_AI_SOURCE":
+                return "LIKELY_AI_GENERATED"
+            if web_lens_result.get("web_verdict") == "CONFIRMED_AUTHENTIC_PRESS" and forensic_anomaly_score <= 35.0:
+                return "LIKELY_AUTHENTIC"
+
         if integrity_status in ("MISMATCH", "CORRUPTED"):
             return "LIKELY_TRADITIONAL_MANIPULATION"
 
@@ -91,7 +98,8 @@ class RiskEngine:
         metadata_anomaly_score: float,  # 0.0 to 100.0
         provenance_status: str,
         findings: List[Dict[str, Any]],
-        ensemble_agreement: Optional[Dict[str, Any]] = None
+        ensemble_agreement: Optional[Dict[str, Any]] = None,
+        web_lens_result: Optional[Dict[str, Any]] = None
     ) -> Tuple[float, str, float, Dict[str, Any]]:
         """
         Returns:
@@ -145,6 +153,16 @@ class RiskEngine:
         # If file tampering detected on disk, override score to maximum
         if integrity_risk > 0:
             final_score = max(final_score, integrity_risk)
+
+        
+        # 5b. Web Lens Provenance & Sandwich Match Calibration
+        if web_lens_result:
+            if web_lens_result.get("ai_source_detected") or web_lens_result.get("web_verdict") == "CONFIRMED_GENERATIVE_AI_SOURCE":
+                ai_manipulation_indicator = max(ai_manipulation_indicator or 0.0, 0.98)
+                is_ml_available = True
+                final_score = max(final_score, 94.5)
+            elif web_lens_result.get("web_verdict") == "CONFIRMED_AUTHENTIC_PRESS" and heuristic_risk <= 35.0:
+                final_score = min(final_score, 8.5)
 
         # Critical & Localized finding checks
         critical_count = sum(1 for f in findings if f.get("severity") == "CRITICAL")
