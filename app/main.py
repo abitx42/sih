@@ -81,6 +81,8 @@ app.include_router(training_router)
 app.include_router(feedback_router)
 app.include_router(cloud_models_router)
 app.include_router(gauntlet_router)
+from app.api.routes_public import router as public_router
+app.include_router(public_router)
 
 # Mount Static Files (Web UI)
 STATIC_DIR = Path(__file__).resolve().parent / "static"

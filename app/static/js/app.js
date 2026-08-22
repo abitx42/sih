@@ -4096,3 +4096,17 @@ async function updateAudioForensicsUI(evidenceData, forensicResult) {
     console.warn("Audio acoustic fetch notice:", e);
   }
 }
+
+
+function sharePublicDebunkLink() {
+  if (!currentEvidenceId) {
+    showToast("Please select an evidence exhibit first.", "warning");
+    return;
+  }
+  const url = `${window.location.origin}/verify/${currentEvidenceId}`;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url);
+  }
+  showToast("✓ Public Fact-Check Debunk link copied to clipboard!", "success");
+  window.open(url, "_blank");
+}
