@@ -525,9 +525,14 @@ async function handleEvidenceUpload(e) {
   titleElem.innerText = `Ingesting Batch into ${caseId}`;
 
   try {
+    const token = localStorage.getItem("tl_token");
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const res = await fetch("/api/evidence/upload-bulk", {
       method: "POST",
-      body: formData
+      body: formData,
+      headers
     });
 
     if (!res.ok && res.status !== 202) {

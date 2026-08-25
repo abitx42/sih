@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -538,13 +538,16 @@ def execute_forensic_pipeline(evidence_id: str):
 
 MAX_BULK_FILES = 10
 
+from app.core.user_quota import identity_from_authorization, check_user_quota
+
 async def _ingest_single_file_payload(
     file: UploadFile,
     case_id: str,
     uploaded_by: str,
     notes: Optional[str],
     background_tasks: BackgroundTasks,
-    analysis_mode: str = "FULL_ANALYSIS"
+    analysis_mode: str = "FULL_ANALYSIS",
+    authorization: Optional[str] = None
 ) -> Dict[str, Any]:
     raw_name = file.filename or "evidence.bin"
     clean_filename = sanitize_filename(raw_name)
@@ -585,6 +588,24 @@ async def _ingest_single_file_payload(
             "error": "Empty (0 byte) file payload cannot be ingested as forensic evidence."
         }
 
+    # Quota enforcement - check BEFORE DB insert
+    identity = identity_from_authorization(authorization, uploaded_by)
+    allowed, reason, _ = check_user_quota(
+        actor_key=identity["actor_key"],
+        role=identity["role"],
+        is_guest=identity["is_guest"],
+        incoming_bytes=file_size,
+        extra_files=1
+    )
+    if not allowed:
+        if target_path.exists():
+            os.remove(target_path)
+        return {
+            "status": "REJECTED",
+            "original_filename": clean_filename,
+            "error": reason
+        }
+
     mime_type, modality = detect_mime_and_modality(target_path, clean_filename)
     hashes = calculate_file_hashes(target_path)
     uploaded_at = datetime.utcnow().isoformat() + "Z"
@@ -613,13 +634,13 @@ async def _ingest_single_file_payload(
             evidence_id, case_id, original_filename, stored_filename, modality,
             mime_type, file_size_bytes, sha256_hash, sha512_hash, md5_hash,
             uploaded_by, uploaded_at, status, pipeline_status, analysis_started_at, notes,
-            analysis_mode, pipeline_stages_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            analysis_mode, pipeline_stages_json, quota_actor
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             evidence_id, case_id, clean_filename, stored_filename, modality,
             mime_type, file_size, hashes["sha256"], hashes["sha512"], hashes["md5"],
             uploaded_by, uploaded_at, "ANALYZING", "ANALYZING", uploaded_at, notes or "",
-            analysis_mode, json.dumps(initial_stages)
+            analysis_mode, json.dumps(initial_stages), identity["actor_key"]
         ))
 
     ChainOfCustodyLogger.record_event(
@@ -653,9 +674,10 @@ async def upload_evidence(
     case_id: str = Form("CASE-2026-001"),
     uploaded_by: str = Form("Digital Forensics Investigator"),
     notes: Optional[str] = Form(""),
-    analysis_mode: str = Form("FULL_ANALYSIS")
+    analysis_mode: str = Form("FULL_ANALYSIS"),
+    authorization: Optional[str] = Header(None)
 ):
-    res = await _ingest_single_file_payload(file, case_id, uploaded_by, notes, background_tasks, analysis_mode)
+    res = await _ingest_single_file_payload(file, case_id, uploaded_by, notes, background_tasks, analysis_mode, authorization)
     if res["status"] == "REJECTED":
         raise HTTPException(status_code=400, detail=res["error"])
     return {
@@ -678,7 +700,8 @@ async def upload_bulk_evidence(
     case_id: str = Form("CASE-2026-001"),
     uploaded_by: str = Form("Digital Forensics Investigator"),
     notes: Optional[str] = Form(""),
-    analysis_mode: str = Form("FULL_ANALYSIS")
+    analysis_mode: str = Form("FULL_ANALYSIS"),
+    authorization: Optional[str] = Header(None)
 ):
     if not files:
         raise HTTPException(status_code=400, detail="No files provided for upload.")
@@ -690,7 +713,7 @@ async def upload_bulk_evidence(
     rejected = 0
 
     for f in files:
-        item_res = await _ingest_single_file_payload(f, case_id, uploaded_by, notes, background_tasks, analysis_mode)
+        item_res = await _ingest_single_file_payload(f, case_id, uploaded_by, notes, background_tasks, analysis_mode, authorization)
         if item_res["status"] == "ACCEPTED":
             accepted += 1
             items.append(BulkUploadItemResponse(

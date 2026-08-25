@@ -231,11 +231,14 @@ def guest_access():
     }
 
 
+from app.core.user_quota import build_quota_status
+
 @router.get("/me")
 def get_me(authorization: Optional[str] = Header(None)):
     payload = _get_user_from_token(authorization)
     is_guest = payload.get("is_guest") or str(payload.get("sub", "")).startswith("GUEST-") or payload.get("role") == "GUEST"
     if is_guest:
+        actor_key = payload.get("sub") or "guest"
         return {
             "user_id": payload.get("sub", "GUEST-USER"),
             "name": payload.get("name", "Guest Investigator"),
@@ -243,7 +246,8 @@ def get_me(authorization: Optional[str] = Header(None)):
             "role": "GUEST",
             "tc_accepted": True,
             "is_guest": True,
-            "guest_upload_limit": 3
+            "guest_upload_limit": 3,
+            "quota": build_quota_status(actor_key, role="GUEST", is_guest=True)
         }
     with get_db() as conn:
         user = conn.execute(
@@ -251,15 +255,18 @@ def get_me(authorization: Optional[str] = Header(None)):
             (payload["sub"],)
         ).fetchone()
     if not user:
+        actor_key = payload.get("email") or payload.get("sub", "unknown")
         return {
             "user_id": payload.get("sub", "USR-OFFLINE"),
             "name": payload.get("name", "Investigator"),
             "email": payload.get("email"),
             "role": payload.get("role", "INVESTIGATOR"),
             "tc_accepted": True,
-            "is_guest": False
+            "is_guest": False,
+            "quota": build_quota_status(actor_key, role=payload.get("role", "INVESTIGATOR"), is_guest=False)
         }
-    return {**user, "is_guest": False}
+    actor_key = user.get("email") or user["user_id"]
+    return {**user, "is_guest": False, "quota": build_quota_status(actor_key, role=user.get("role", "INVESTIGATOR"), is_guest=False)}
 
 
 @router.post("/accept-terms")
@@ -279,6 +286,16 @@ def accept_terms(body: AcceptTermsRequest, authorization: Optional[str] = Header
 @router.post("/logout")
 def logout(authorization: Optional[str] = Header(None)):
     return {"success": True, "message": "Logged out. Please discard your token."}
+
+
+@router.get("/quota")
+def get_quota(authorization: Optional[str] = Header(None)):
+    """Returns current user's quota status and usage."""
+    payload = _get_user_from_token(authorization)
+    is_guest = payload.get("is_guest") or str(payload.get("sub", "")).startswith("GUEST-") or payload.get("role") == "GUEST"
+    role = payload.get("role", "INVESTIGATOR")
+    actor_key = payload.get("email") or payload.get("sub") or "guest"
+    return build_quota_status(actor_key, role=role, is_guest=is_guest)
 
 
 class GoogleAuthRequest(BaseModel):
