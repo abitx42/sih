@@ -72,6 +72,37 @@ document.addEventListener("DOMContentLoaded", () => {
   setupMagnifier();
 });
 
+// ═══════════════════════════════════════════════════════════════
+// USER QUOTA BADGE RENDERER (Task #18)
+// ═══════════════════════════════════════════════════════════════
+function renderUserQuotaBadge(quota) {
+  const badge = document.getElementById("user-quota-badge");
+  const textEl = document.getElementById("quota-badge-text");
+  if (!badge || !textEl || !quota) return;
+
+  // Show badge
+  badge.style.display = "flex";
+
+  const usedFiles = quota.usage?.file_count || 0;
+  const maxFiles = quota.limits?.max_file_count || 0;
+  const usedMb = quota.usage?.total_mb || 0;
+  const maxMb = quota.limits?.max_total_storage_mb || 0;
+
+  textEl.textContent = `${usedFiles}/${maxFiles} files (${usedMb}/${maxMb} MB)`;
+
+  // Determine styling based on quota exhaustion
+  const isExhausted = quota.exhausted || quota.percent_files >= 100 || quota.percent_storage >= 100;
+  const isWarning = quota.percent_files >= 80 || quota.percent_storage >= 80;
+
+  if (isExhausted) {
+    badge.className = "text-xs px-2.5 py-1 rounded-full border border-rose-500/50 bg-rose-950/40 text-rose-300 font-mono flex items-center gap-1.5 shadow-sm animate-pulse";
+  } else if (isWarning) {
+    badge.className = "text-xs px-2.5 py-1 rounded-full border border-amber-500/50 bg-amber-950/40 text-amber-300 font-mono flex items-center gap-1.5 shadow-sm";
+  } else {
+    badge.className = "text-xs px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 text-slate-300 font-mono flex items-center gap-1.5 shadow-sm";
+  }
+}
+
 // View Navigation Router
 function switchView(viewName) {
   document.querySelectorAll(".view-section").forEach(sec => sec.classList.remove("active"));

@@ -48,6 +48,13 @@
             // Show guest banner if guest
             const banner = document.getElementById('guest-banner');
             if (banner && user.is_guest) banner.style.display = 'flex';
+            // Fetch and render user quota badge (Task #18)
+            if (typeof renderUserQuotaBadge === 'function') {
+              fetch('/api/auth/quota', { headers: { Authorization: 'Bearer ' + token } })
+                .then(qr => qr.ok ? qr.json() : null)
+                .then(quota => { if (quota) renderUserQuotaBadge(quota); })
+                .catch(() => {});
+            }
           })
           .catch(() => {});
       } else {
@@ -115,7 +122,11 @@
         <span>Forensic Core Ready</span>
       </div>
 
-      <!-- User Pill + Sign Out -->
+      <!-- User Pill + Quota Badge + Sign Out -->
+      <div id="user-quota-badge" class="hidden text-xs px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/80 text-slate-300 font-mono flex items-center gap-1.5 shadow-sm" title="Exhibit Storage & Upload Quota" style="display:none;">
+        <i class="fa-solid fa-hard-drive text-cyan-400 text-[10px]"></i>
+        <span id="quota-badge-text">Quota: --</span>
+      </div>
       <button id="user-pill" class="status-pill" title="Signed in"
         style="cursor:pointer;border:1px solid var(--hairline);background:var(--panel);gap:6px;"
         onclick="window.location.href='/login.html'">👤 …</button>
