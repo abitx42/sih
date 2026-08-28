@@ -29,6 +29,10 @@ class ReverseImageSearch:
         if not cls.is_configured():
             return cls._unavailable_result("Google Cloud Vision API credentials not configured")
         
+        from app.core.rate_limiter import ExternalAPIRateLimiter
+        if not ExternalAPIRateLimiter.can_call_google_vision():
+            return cls._unavailable_result("Google Cloud Vision hourly rate limit reached — preserved for investigator quotas")
+        
         try:
             api_key = os.getenv("GOOGLE_CLOUD_VISION_KEY")
             url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"

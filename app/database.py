@@ -385,6 +385,13 @@ def init_db():
             ))
             logger.info("Initialized default case CASE-2026-001")
 
+        # 10. Run Automated Schema Migrations
+        try:
+            from app.core.migrations import MigrationRunner
+            MigrationRunner.run_migrations(conn)
+        except Exception as mig_err:
+            logger.debug(f"Migration runner notice: {mig_err}")
+
 
 def reconcile_orphaned_jobs() -> int:
     """

@@ -289,6 +289,25 @@ def execute_forensic_pipeline(evidence_id: str):
         ensemble_agreement = EnsembleAgreementEngine.evaluate_consensus(specialists)
         raw_metrics["ensemble_agreement"] = ensemble_agreement
 
+        # 7b. Multi-Signal Cross-Verification Consensus (Local + External + Physical)
+        try:
+            from app.core.consensus_engine import ConsensusEngine
+            from app.core.sightengine_gateway import SightEngineGateway
+
+            sightengine_res = SightEngineGateway.analyze(file_path, evidence_id)
+            if sightengine_res.get("available"):
+                raw_metrics["sightengine"] = sightengine_res
+
+            consensus_dict = ConsensusEngine.compute_consensus({
+                "hf_ensemble": ai_indicator,
+                "sightengine": sightengine_res.get("ai_indicator") if sightengine_res.get("available") else None,
+                "prnu_ai_indicator": raw_metrics.get("prnu_ballistics", {}).get("ai_indicator") if isinstance(raw_metrics.get("prnu_ballistics"), dict) else None,
+                "ela_anomaly": forensic_anomaly_score,
+                "c2pa_verified": provenance_status == "VERIFIED"
+            }, evidence_id=evidence_id)
+            raw_metrics["multi_signal_consensus"] = consensus_dict
+        except Exception as consensus_err:
+            logger.debug(f"Consensus engine notice: {consensus_err}")
 
         # 8. Calculate Deterministic Forensic Risk Score & 5-Tier Taxonomy
         risk_score, risk_cat, confidence, comp_scores = RiskEngine.calculate_risk(

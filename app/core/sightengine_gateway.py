@@ -29,6 +29,10 @@ class SightEngineGateway:
         """Sends image to SightEngine for AI-generation detection."""
         if not cls.is_configured():
             return cls._unavailable_result("SightEngine API credentials not configured")
+
+        from app.core.rate_limiter import ExternalAPIRateLimiter
+        if not ExternalAPIRateLimiter.can_call_sightengine():
+            return cls._unavailable_result("SightEngine hourly rate limit reached — preserved for investigator quotas")
         
         try:
             api_user = os.getenv("SIGHTENGINE_API_USER")

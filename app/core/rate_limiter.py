@@ -113,3 +113,31 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
                 )
 
         return await call_next(request)
+
+
+class ExternalAPIRateLimiter:
+    """
+    Token-bucket style rate limiter to protect free-tier external APIs:
+    - SightEngine (max 60 calls/hour to stay well within 2,000/month)
+    - Google Cloud Vision (max 30 calls/hour to stay well within 1,000/month)
+    - Groq LLM (max 25 calls/minute to stay well within 30 RPM limit)
+    """
+    _sightengine_limiter = SlidingWindowRateLimiter()
+    _google_vision_limiter = SlidingWindowRateLimiter()
+    _groq_limiter = SlidingWindowRateLimiter()
+
+    @classmethod
+    def can_call_sightengine(cls) -> bool:
+        allowed, _, _ = cls._sightengine_limiter.is_allowed("sightengine_global", limit=60, window_seconds=3600.0)
+        return allowed
+
+    @classmethod
+    def can_call_google_vision(cls) -> bool:
+        allowed, _, _ = cls._google_vision_limiter.is_allowed("google_vision_global", limit=30, window_seconds=3600.0)
+        return allowed
+
+    @classmethod
+    def can_call_groq(cls) -> bool:
+        allowed, _, _ = cls._groq_limiter.is_allowed("groq_global", limit=25, window_seconds=60.0)
+        return allowed
+

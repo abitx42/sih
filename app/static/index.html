@@ -2247,7 +2247,7 @@
   <!-- ========================================================================= -->
   <!-- ⚡ THE TURING SPEED GAUNTLET (WHILE-ANALYZING FULLSCREEN ARCADE MODAL)   -->
   <!-- ========================================================================= -->
-  <div id="speed-gauntlet-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.25s ease;">
+  <div id="speed-gauntlet-modal" role="dialog" aria-modal="true" aria-label="Turing Speed Gauntlet" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.25s ease;">
     <div style="width: 100%; max-width: 680px; background: var(--ink-mid, #1A1710); border: 1px solid var(--brand); border-top: 4px solid var(--brand); border-radius: 16px; box-shadow: 0 0 80px rgba(245, 166, 35, 0.2), 0 24px 64px rgba(0,0,0,0.8); overflow: hidden; display: flex; flex-direction: column;">
       
       <!-- Top Tracker Bar -->
@@ -2349,7 +2349,7 @@
   <!-- ========================================================================= -->
   <!-- 📜 SECTION 65B (BSA 2023) LEGAL COURTROOM CERTIFICATE MODAL               -->
   <!-- ========================================================================= -->
-  <div id="legal-cert-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto; animation: fadeIn 0.25s ease;">
+  <div id="legal-cert-modal" role="dialog" aria-modal="true" aria-labelledby="legal-cert-modal-title" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; overflow-y: auto; animation: fadeIn 0.25s ease;">
     <div style="width: 100%; max-width: 760px; background: var(--ink-mid, #1A1710); border: 1px solid var(--brand); border-top: 5px solid var(--brand); border-radius: 16px; box-shadow: 0 0 100px rgba(245, 166, 35, 0.15), 0 24px 64px rgba(0,0,0,0.85); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh;">
       
       <!-- Top Modal Header -->
@@ -2456,11 +2456,11 @@
   <!-- ========================================================================= -->
   <!-- 📁 NEW CASE CREATION MODAL (Bug Fix 1)                                    -->
   <!-- ========================================================================= -->
-  <div id="new-case-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.2s ease;">
+  <div id="new-case-modal" role="dialog" aria-modal="true" aria-labelledby="new-case-modal-title" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.2s ease;">
     <div style="width: 100%; max-width: 520px; background: var(--panel, #1A1710); border: 1px solid var(--brand); border-top: 4px solid var(--brand); border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">📁 Create New Investigation Case</h3>
-        <button type="button" onclick="closeNewCaseModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">✕</button>
+        <h3 id="new-case-modal-title" style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">📁 Create New Investigation Case</h3>
+        <button type="button" onclick="closeNewCaseModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;" aria-label="Close modal">✕</button>
       </div>
       
       <div style="display: flex; flex-direction: column; gap: 1rem;">
@@ -2490,14 +2490,14 @@
   <!-- ========================================================================= -->
   <!-- ⌨️ KEYBOARD SHORTCUTS & COMMAND PALETTE (Bug Fix 2)                       -->
   <!-- ========================================================================= -->
-  <div id="shortcuts-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.2s ease;">
+  <div id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.95); z-index: 9999; backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.2s ease;">
     <div style="width: 100%; max-width: 580px; background: var(--panel, #1A1710); border: 1px solid var(--hairline); border-top: 4px solid var(--brand); border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.8);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 1.2rem;">⌨️</span>
-          <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">Forensic Keyboard Shortcuts</h3>
+          <h3 id="shortcuts-modal-title" style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">Forensic Keyboard Shortcuts</h3>
         </div>
-        <button type="button" onclick="closeShortcutsModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">✕</button>
+        <button type="button" onclick="closeShortcutsModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;" aria-label="Close modal">✕</button>
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.8rem; margin-bottom: 1.25rem;">
@@ -2534,7 +2534,7 @@
   </div>
 
   <!-- Command Palette Modal -->
-  <div id="cmd-palette-modal" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.85); z-index: 99999; backdrop-filter: blur(6px); align-items: flex-start; justify-content: center; padding-top: 15vh; animation: fadeIn 0.15s ease;">
+  <div id="cmd-palette-modal" role="dialog" aria-modal="true" aria-label="Command Palette" style="display: none; position: fixed; inset: 0; background: rgba(12, 10, 6, 0.85); z-index: 99999; backdrop-filter: blur(6px); align-items: flex-start; justify-content: center; padding-top: 15vh; animation: fadeIn 0.15s ease;">
     <div style="width: 100%; max-width: 600px; background: var(--panel, #1A1710); border: 1px solid var(--brand); border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.9);">
       <div style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 0.75rem;">
         <span style="color: var(--brand); font-size: 1.1rem;">⚡</span>
