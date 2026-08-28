@@ -1,5 +1,11 @@
 from typing import Dict, Any, List, Tuple, Optional
+import math
 from app.config import settings
+
+RISK_THRESHOLD_LOW = 25.0      # Below this = LOW RISK
+RISK_THRESHOLD_REVIEW = 40.0   # 25-65 = REVIEW REQUIRED  
+RISK_THRESHOLD_HIGH = 65.0     # Above this = HIGH RISK
+RISK_THRESHOLD_CRITICAL = 85.0 # Above this = CRITICAL
 
 class RiskEngine:
     """
@@ -143,19 +149,14 @@ class RiskEngine:
                 (provenance_risk * settings.WEIGHT_PROVENANCE)
             )
             
-            # Decisive Non-Linear Calibration (avoids ambiguous 25-75% neutral traps)
-            if ai_manipulation_indicator >= 0.65:
-                # Strong AI Signal: Generative synthesis is primary; do not let passive heuristics dilute
-                final_score = max(linear_score, ai_risk * 1.02)
-                if ai_manipulation_indicator >= 0.80:
-                    final_score = max(final_score, 92.0 + (ai_manipulation_indicator - 0.80) * 35.0)
-            elif ai_manipulation_indicator <= 0.25:
-                # Strong Authentic Signal: Real camera capture; do not let JPEG compression noise penalize
-                final_score = min(linear_score, max(ai_risk, 1.5) * 0.85 + (heuristic_risk * 0.10))
-                if ai_manipulation_indicator <= 0.15:
-                    final_score = min(final_score, 8.5)
+            # Isotonic Clamping and Dead Zone (avoids extreme endpoints)
+            if 35.0 <= linear_score <= 65.0:
+                final_score = linear_score  # Dead zone, no amplification
             else:
-                final_score = linear_score
+                # Gently sigmoid-map the score to avoid extreme clustering
+                x = (linear_score - 50.0) / 15.0
+                sigmoid = 1.0 / (1.0 + math.exp(-x))
+                final_score = sigmoid * 100.0
 
             is_ml_available = True
         else:
@@ -197,19 +198,19 @@ class RiskEngine:
         # Categorization logic
         if has_conflict:
             risk_category = "REVIEW REQUIRED"
-            final_score = max(40.0, min(60.0, final_score))
+            final_score = max(35.0, min(65.0, final_score))
             base_confidence = 0.68
         elif not is_ml_available:
-            if final_score >= 70.0 or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
+            if final_score >= RISK_THRESHOLD_HIGH or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
                 risk_category = "HIGH RISK"
             else:
                 risk_category = "REVIEW REQUIRED"
                 final_score = max(35.0, final_score)
             base_confidence = 0.72
         else:
-            if final_score <= 30.0:
+            if final_score < RISK_THRESHOLD_LOW:
                 risk_category = "LOW RISK"
-            elif final_score <= 70.0:
+            elif final_score < RISK_THRESHOLD_HIGH:
                 risk_category = "REVIEW REQUIRED"
             else:
                 risk_category = "HIGH RISK"

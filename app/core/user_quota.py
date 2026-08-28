@@ -47,8 +47,8 @@ QUOTA_TIERS: Dict[str, Dict[str, int]] = {
     },
     "UNAUTHENTICATED": {
         "max_file_size_mb": 150,
-        "max_total_storage_mb": 5000,
-        "max_file_count": 500,
+        "max_total_storage_mb": 50000,
+        "max_file_count": 50000,
     },
 }
 

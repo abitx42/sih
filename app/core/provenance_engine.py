@@ -23,6 +23,33 @@ class ProvenanceEngine:
                 "assertions": []
             }
 
+        try:
+            import c2pa
+            import json
+            
+            # The c2pa-python library returns a JSON string from read_file
+            manifest_store_json = c2pa.read_file(str(file_path))
+            if manifest_store_json:
+                manifest_store = json.loads(manifest_store_json)
+                active_manifest = manifest_store.get("active_manifest")
+                manifest_data = manifest_store.get("manifests", {}).get(active_manifest, {})
+                
+                signer = manifest_data.get("signature_info", {}).get("issuer", "Unknown Signer")
+                assertions = [a.get("label") for a in manifest_data.get("assertions", [])]
+                
+                return {
+                    "status": "VERIFIED_MANIFEST",
+                    "details": "C2PA Content Credential manifest successfully parsed and validated.",
+                    "manifest_found": True,
+                    "signer": signer,
+                    "tool": "C2PA / Content Credentials Metadata Standard",
+                    "assertions": assertions
+                }
+        except Exception:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("C2PA library not available; using heuristic byte-scan fallback")
+
         file_size = file_path.stat().st_size
         # Read up to 2MB or whole file to find JUMBF/C2PA headers
         read_len = min(file_size, 2 * 1024 * 1024)

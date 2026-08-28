@@ -945,5 +945,5 @@ label {
   .kpi-stat { border-right: none; }
   .hero-title { font-size: 2rem; }
   .hero-actions { gap: 8px; }
-  .nav-item span { display: none; }
+  .nav-item .nav-label { display: none; }
 }

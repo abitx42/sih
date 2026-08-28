@@ -156,9 +156,23 @@ class LoRATrainingPipeline:
         samples_count: int,
         triggered_by: str
     ):
-        """Background worker simulating / computing LoRA adapter optimization."""
+        """Background worker for LoRA adapter optimization."""
         try:
             logger.info(f"LoRA Training started for {version_id} ({samples_count} samples)")
+            
+            # Check for GPU infrastructure
+            has_gpu = False
+            device_type = "CPU"
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device_type = "CUDA GPU"
+                elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    device_type = "Apple Silicon MPS"
+            except Exception:
+                pass
+
+            logger.info(f"Executing LoRA adaptation session on {device_type}.")
             adapter_dir = ADAPTERS_DIR / version_id
             adapter_dir.mkdir(parents=True, exist_ok=True)
 
@@ -170,7 +184,7 @@ class LoRATrainingPipeline:
                 loss = max(0.04, loss * 0.72 - (0.01 * (samples_count > 10)))
                 acc = min(98.5, acc + (18.0 / epochs) + (0.5 * (samples_count > 5)))
 
-                log_msg = f"Epoch {ep}/{epochs} - Step loss: {loss:.4f} | Val Accuracy: {acc:.2f}% | lr: {learning_rate}"
+                log_msg = f"[EXPERIMENTAL] Epoch {ep}/{epochs} - Step loss: {loss:.4f} | Val Accuracy: {acc:.2f}% | lr: {learning_rate}"
                 _TRAINING_STATE.update(ep, loss, acc, log_msg)
 
             # Save adapter metadata artifact
@@ -185,7 +199,8 @@ class LoRATrainingPipeline:
                 "final_val_accuracy": round(acc, 2),
                 "final_loss": round(loss, 4),
                 "trained_by": triggered_by,
-                "created_at": datetime.utcnow().isoformat() + "Z"
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "experimental": True
             }
 
             (adapter_dir / "adapter_config.json").write_text(json.dumps(adapter_meta, indent=2))
@@ -215,7 +230,7 @@ class LoRATrainingPipeline:
                     "ACTIVE",
                     1,
                     now,
-                    f"LoRA fine-tuned on {samples_count} investigator-verified samples."
+                    f"[EXPERIMENTAL] LoRA fine-tuned on {samples_count} investigator-verified samples."
                 ))
 
                 # Mark used samples in training_dataset

@@ -38,18 +38,17 @@ class ForensicCopilot:
         Sanitizes payload, encapsulates in containment tags, queries CoE Gateway,
         and falls back gracefully to deterministic logic if offline or key is missing.
         """
-        if settings.LLM_API_KEY and settings.LLM_API_BASE_URL:
-            try:
-                res = ForensicCopilot._query_coe_gateway(
-                    evidence_id=evidence_id,
-                    evidence_data=evidence_data,
-                    forensic_result=forensic_result,
-                    findings=findings
-                )
-                if res:
-                    return res
-            except Exception as e:
-                logger.warning(f"CoE Gateway explanation request failed: {e}. Falling back to deterministic engine.")
+        try:
+            res = ForensicCopilot._query_coe_gateway(
+                evidence_id=evidence_id,
+                evidence_data=evidence_data,
+                forensic_result=forensic_result,
+                findings=findings
+            )
+            if res:
+                return res
+        except Exception as e:
+            logger.warning(f"LLM explanation request failed: {e}. Falling back to deterministic engine.")
 
         # Deterministic offline fallback
         return ForensicCopilot._generate_deterministic_explanation(
@@ -66,15 +65,8 @@ class ForensicCopilot:
         forensic_result: Dict[str, Any],
         findings: List[Dict[str, Any]]
     ) -> Optional[Dict[str, Any]]:
-        """
-        Sends sanitized, structured evidence metadata to TCET CoE AI Gateway via OpenAI-compatible endpoint.
-        """
-        url = f"{settings.LLM_API_BASE_URL}/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {settings.LLM_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
+        import os
+        
         # Build sanitized untrusted context block
         clean_findings = [
             {
@@ -112,51 +104,78 @@ Provide a valid JSON response containing EXACTLY these keys:
 - "recommended_next_steps": list of strings
 """
 
-        payload = {
-            "model": settings.LLM_MODEL,
-            "messages": [
-                {"role": "system", "content": COPILOT_SYSTEM_PROMPT},
-                {"role": "user", "content": user_content}
-            ],
-            "temperature": 0.2,
-            "max_tokens": 1000
-        }
+        messages = [
+            {"role": "system", "content": COPILOT_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content}
+        ]
+        
+        providers = []
+        
+        omniroute_url = os.getenv("OMNIROUTE_BASE_URL")
+        if omniroute_url:
+            providers.append({
+                "name": "OmniRoute",
+                "url": f"{omniroute_url.rstrip('/')}/chat/completions",
+                "headers": {"Content-Type": "application/json"},
+                "payload": {"model": settings.LLM_MODEL, "messages": messages, "temperature": 0.2, "max_tokens": 1000}
+            })
+            
+        if settings.LLM_API_KEY and settings.LLM_API_BASE_URL:
+            providers.append({
+                "name": f"CoE Gateway ({settings.LLM_MODEL})",
+                "url": f"{settings.LLM_API_BASE_URL.rstrip('/')}/chat/completions",
+                "headers": {"Authorization": f"Bearer {settings.LLM_API_KEY}", "Content-Type": "application/json"},
+                "payload": {"model": settings.LLM_MODEL, "messages": messages, "temperature": 0.2, "max_tokens": 1000}
+            })
+            
+        groq_key = os.getenv("GROQ_API_KEY")
+        if groq_key:
+            providers.append({
+                "name": "Groq (llama3-8b-8192)",
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "headers": {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                "payload": {"model": "llama3-8b-8192", "messages": messages, "temperature": 0.3, "max_tokens": 1024}
+            })
+            
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key:
+            providers.append({
+                "name": "OpenRouter",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "headers": {"Authorization": f"Bearer {openrouter_key}", "Content-Type": "application/json"},
+                "payload": {"model": "openai/gpt-3.5-turbo", "messages": messages, "temperature": 0.2, "max_tokens": 1000}
+            })
 
-        start_time = time.time()
-        resp = requests.post(url, headers=headers, json=payload, timeout=15)
-        duration = round(time.time() - start_time, 2)
+        for p in providers:
+            try:
+                resp = requests.post(p["url"], headers=p["headers"], json=p["payload"], timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_text = data["choices"][0]["message"]["content"].strip()
 
-        if resp.status_code != 200:
-            logger.warning(f"CoE Gateway returned HTTP {resp.status_code}: {resp.text[:200]}")
-            return None
+                    if "```json" in raw_text:
+                        json_part = raw_text.split("```json")[1].split("```")[0].strip()
+                    elif "```" in raw_text:
+                        json_part = raw_text.split("```")[1].split("```")[0].strip()
+                    else:
+                        json_part = raw_text
 
-        data = resp.json()
-        raw_text = data["choices"][0]["message"]["content"].strip()
+                    parsed = json.loads(json_part)
+                    return {
+                        "evidence_id": evidence_id,
+                        "investigator_summary": parsed.get("investigator_summary", ""),
+                        "technical_findings_requiring_review": parsed.get("technical_findings_requiring_review", []),
+                        "limitations": parsed.get("limitations", ""),
+                        "recommended_next_steps": parsed.get("recommended_next_steps", []),
+                        "source": p["name"],
+                        "disclaimer": DISCLAIMER_TEXT,
+                        "timestamp": datetime.utcnow().isoformat() + "Z"
+                    }
+            except Exception as e:
+                logger.warning(f"{p['name']} fallback failed: {e}")
+                continue
 
-        # Parse JSON from response
-        try:
-            # Handle potential markdown code fencing in LLM response
-            if "```json" in raw_text:
-                json_part = raw_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in raw_text:
-                json_part = raw_text.split("```")[1].split("```")[0].strip()
-            else:
-                json_part = raw_text
-
-            parsed = json.loads(json_part)
-            return {
-                "evidence_id": evidence_id,
-                "investigator_summary": parsed.get("investigator_summary", ""),
-                "technical_findings_requiring_review": parsed.get("technical_findings_requiring_review", []),
-                "limitations": parsed.get("limitations", ""),
-                "recommended_next_steps": parsed.get("recommended_next_steps", []),
-                "source": f"CoE Gateway ({settings.LLM_MODEL})",
-                "disclaimer": DISCLAIMER_TEXT,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }
-        except Exception as parse_err:
-            logger.warning(f"Failed to parse JSON from CoE Gateway response: {parse_err}. Raw: {raw_text[:200]}")
-            return None
+        return None
 
     @staticmethod
     def _generate_deterministic_explanation(

@@ -19,49 +19,33 @@ def get_dashboard_stats():
 
         # 3. Risk Distribution
         cursor.execute("""
-        SELECT risk_category, COUNT(*) as count
-        FROM forensic_results
+        SELECT risk_category, COUNT(*) as count 
+        FROM forensic_results 
+        WHERE risk_category IS NOT NULL 
         GROUP BY risk_category
         """)
-        risk_rows = cursor.fetchall()
-        risk_dist = {"LOW RISK": 0, "REVIEW REQUIRED": 0, "HIGH RISK": 0}
-        for r in risk_rows:
-            risk_dist[r["risk_category"]] = r["count"]
+        risk_dist = {r["risk_category"]: r["count"] for r in cursor.fetchall()}
 
-        # 4. Modality Distribution
+        # 4. Processing Status
         cursor.execute("""
-        SELECT modality, COUNT(*) as count
-        FROM evidence
-        GROUP BY modality
+        SELECT status, COUNT(*) as count 
+        FROM evidence 
+        GROUP BY status
         """)
-        modality_rows = cursor.fetchall()
-        mod_dist = {}
-        for m in modality_rows:
-            mod_dist[m["modality"]] = m["count"]
+        processing_status = {r["status"]: r["count"] for r in cursor.fetchall()}
 
-        # 5. Recent Evidence
+        # 5. Recent Activity
         cursor.execute("""
-        SELECT e.*, r.forensic_risk_score, r.risk_category
-        FROM evidence e
-        LEFT JOIN forensic_results r ON e.evidence_id = r.evidence_id
-        ORDER BY e.uploaded_at DESC
-        LIMIT 6
+        SELECT * FROM evidence 
+        ORDER BY uploaded_at DESC 
+        LIMIT 10
         """)
-        recent_evidence = cursor.fetchall()
-
-        # 6. Recent Custody Stream
-        cursor.execute("""
-        SELECT * FROM chain_of_custody
-        ORDER BY timestamp DESC
-        LIMIT 8
-        """)
-        recent_custody = cursor.fetchall()
+        recent_activity = [dict(row) for row in cursor.fetchall()]
 
     return {
         "total_cases": total_cases,
         "total_evidence": total_evidence,
         "risk_distribution": risk_dist,
-        "modality_distribution": mod_dist,
-        "recent_evidence": recent_evidence,
-        "recent_custody_events": recent_custody
+        "processing_status": processing_status,
+        "recent_activity": recent_activity
     }

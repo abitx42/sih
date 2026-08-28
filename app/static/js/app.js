@@ -15,6 +15,29 @@ function escapeHTML(str) {
     .replace(/'/g, "&#39;");
 }
 
+// ── 0. Universal Safe Fetch Wrapper ──
+// Replaces raw fetch() calls to ensure API errors are ALWAYS shown to the user
+async function safeFetch(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      let errMsg = `Request failed (${res.status})`;
+      try {
+        const errData = await res.json();
+        errMsg = errData.detail || errData.error || errMsg;
+      } catch (e) {
+        try { errMsg = (await res.text()).substring(0, 200); } catch (e2) {}
+      }
+      if (res.status !== 404) showToast(errMsg, 'error');
+      return null;
+    }
+    return res;
+  } catch (networkErr) {
+    showToast('Connection error. Please check your network.', 'error');
+    return null;
+  }
+}
+
 // ── 1. Toast Notification System ──
 function showToast(message, type = 'success', duration = 2500) {
   const container = document.getElementById('toast-container');
@@ -165,8 +188,8 @@ function animateCountUp(elementId, targetValue, duration = 800) {
 // 1. Dashboard Operations
 async function loadDashboardData() {
   try {
-    const res = await fetch("/api/dashboard/stats");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/dashboard/stats");
+    if (!res) return;
     const data = await res.json();
 
     animateCountUp("stat-cases", data.total_cases || 0);
@@ -427,8 +450,8 @@ function updateAnalysisMode(mode) {
 
 async function updateLivePipelineStages(evidenceId) {
   try {
-    const res = await fetch(`/api/evidence/${evidenceId}/pipeline-progress`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evidenceId}/pipeline-progress`);
+    if (!res) return;
     const prog = await res.json();
     const grid = document.getElementById("pipeline-stages-grid");
     if (!grid) return;
@@ -646,8 +669,8 @@ async function openEvidenceInLab(evidenceId) {
   switchLabTab("overview");
 
   try {
-    const res = await fetch(`/api/evidence/${evidenceId}`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evidenceId}`);
+    if (!res) return;
     const data = await res.json();
     currentEvidenceData = data;
 
@@ -1093,8 +1116,8 @@ async function loadInvestigatorReview(evidenceId) {
   if (!statusBadge) return;
 
   try {
-    const res = await fetch(`/api/reviews/${evidenceId}`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/reviews/${evidenceId}`);
+    if (!res) return;
     const review = await res.json();
 
     if (review) {
@@ -1294,8 +1317,8 @@ async function reverifyIntegrity() {
   if (!currentEvidenceId) return;
 
   try {
-    const res = await fetch(`/api/evidence/${currentEvidenceId}/verify-integrity`, { method: "POST" });
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${currentEvidenceId}/verify-integrity`, { method: "POST" });
+    if (!res) return;
     const data = await res.json();
 
     const dot = document.getElementById("lab-integrity-dot");
@@ -1368,8 +1391,8 @@ async function handleCopilotChat(e) {
 // 7. Full Custody Ledger & Cases
 async function loadCustodyLedger() {
   try {
-    const res = await fetch("/api/custody");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/custody");
+    if (!res) return;
     const events = await res.json();
 
     const tbody = document.getElementById("full-custody-table");
@@ -1406,8 +1429,8 @@ let currentCaseEvidence = [];
 
 async function loadCasesList() {
   try {
-    const res = await fetch("/api/cases");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/cases");
+    if (!res) return;
     const cases = await res.json();
 
     const tbody = document.getElementById("cases-table");
@@ -1440,8 +1463,8 @@ async function loadCasesList() {
 
 async function loadCasesDropdown() {
   try {
-    const res = await fetch("/api/cases");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/cases");
+    if (!res) return;
     const cases = await res.json();
     const select = document.getElementById("upload-case-id");
     if (!select) return;
@@ -2465,8 +2488,8 @@ async function loadWebProvenanceTab(evidenceId, customQuery = null) {
     const url = customQuery
       ? `/api/evidence/${evidenceId}/web-search?custom_query=${encodeURIComponent(customQuery)}`
       : `/api/evidence/${evidenceId}/web-search`;
-    const res = await fetch(url);
-    if (!res.ok) return;
+    const res = await safeFetch(url);
+    if (!res) return;
     const data = await res.json();
     renderWebProvenanceTab(data, evidenceId);
   } catch (e) {
@@ -2719,8 +2742,8 @@ function switchComparisonLayer(layer) {
 
 async function loadSelfLearningStats() {
   try {
-    const res = await fetch("/api/learning/stats");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/learning/stats");
+    if (!res) return;
     const stats = await res.json();
 
     const elTotal = document.getElementById("learn-total-samples");
@@ -2860,8 +2883,8 @@ async function loadModelVersions() {
   if (!tbody) return;
 
   try {
-    const res = await fetch("/api/training/versions");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/training/versions");
+    if (!res) return;
     const data = await res.json();
     const versions = data.versions || [];
 
@@ -2952,8 +2975,8 @@ async function triggerLoRATraining() {
 
 async function pollTrainingStatus() {
   try {
-    const res = await fetch("/api/training/status");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/training/status");
+    if (!res) return;
     const data = await res.json();
 
     const pPct = document.getElementById("lora-train-pct");
@@ -3014,8 +3037,8 @@ async function loadCloudProvidersStatus() {
   if (!grid) return;
 
   try {
-    const res = await fetch("/api/cloud-models/status");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/cloud-models/status");
+    if (!res) return;
     const data = await res.json();
     const providers = data.providers || [];
 
@@ -3393,8 +3416,8 @@ async function loadGauntletChallenge() {
   if (actions) actions.style.display = "grid";
 
   try {
-    const res = await fetch("/api/gauntlet/challenge");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/gauntlet/challenge");
+    if (!res) return;
     const data = await res.json();
     currentGauntletChallenge = data;
     challengeStartTime = Date.now();
@@ -3516,8 +3539,8 @@ async function loadMiniGauntlet() {
   if (act) act.style.display = "flex";
 
   try {
-    const res = await fetch("/api/gauntlet/challenge");
-    if (!res.ok) return;
+    const res = await safeFetch("/api/gauntlet/challenge");
+    if (!res) return;
     currentMiniChallenge = await res.json();
 
     const imgEl = document.getElementById("mini-gauntlet-img");
@@ -3924,8 +3947,8 @@ async function loadMicroscopeTab(evidenceId) {
   if (prnuMap) prnuMap.src = `/api/evidence/${evidenceId}/prnu-map?t=${Date.now()}`;
 
   try {
-    const res = await fetch(`/api/evidence/${evidenceId}/prnu-analysis`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evidenceId}/prnu-analysis`);
+    if (!res) return;
     const data = await res.json();
 
     const pceEl = document.getElementById("prnu-pce-val");
@@ -4113,8 +4136,8 @@ async function updateAudioForensicsUI(evidenceData, forensicResult) {
   const evId = evidenceData.evidence_id;
 
   try {
-    const res = await fetch(`/api/evidence/${evId}/audio-acoustic-analysis`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evId}/audio-acoustic-analysis`);
+    if (!res) return;
     const data = await res.json();
 
     const badge = document.getElementById("audio-deepfake-verdict-badge");
@@ -4188,8 +4211,8 @@ async function updateVideoForensicsUI(evidenceData, forensicResult) {
   const evId = evidenceData.evidence_id;
 
   try {
-    const res = await fetch(`/api/evidence/${evId}/video-timeline`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evId}/video-timeline`);
+    if (!res) return;
     videoTimelineData = await res.json();
 
     const track = document.getElementById("video-timeline-track");
@@ -4324,8 +4347,8 @@ async function updateC2PAProvenanceUI(evidenceId) {
   if (!evidenceId) return;
 
   try {
-    const res = await fetch(`/api/evidence/${evidenceId}/c2pa-manifest`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/evidence/${evidenceId}/c2pa-manifest`);
+    if (!res) return;
     const data = await res.json();
 
     const badge = document.getElementById("c2pa-manifest-badge");
@@ -4372,8 +4395,8 @@ async function loadCaseSensorClusters(caseId) {
   if (!container) return;
 
   try {
-    const res = await fetch(`/api/cases/${caseId}/sensor-clusters`);
-    if (!res.ok) return;
+    const res = await safeFetch(`/api/cases/${caseId}/sensor-clusters`);
+    if (!res) return;
     const data = await res.json();
     const clusters = data.clusters || [];
 
