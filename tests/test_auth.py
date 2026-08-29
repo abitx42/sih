@@ -92,3 +92,30 @@ def test_logout():
     res = client.post("/api/auth/logout")
     assert res.status_code == 200
     assert res.json()["success"] is True
+
+
+def test_jwt_tampered_signature_rejected():
+    """Verify that a forged or altered JWT signature is immediately rejected."""
+    # Obtain a valid token first
+    res = client.post("/api/auth/guest")
+    assert res.status_code == 200
+    valid_token = res.json()["token"]
+
+    parts = valid_token.split(".")
+    assert len(parts) == 3
+    # Tamper with signature
+    tampered_token = f"{parts[0]}.{parts[1]}.tampered_signature_payload"
+
+    res_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {tampered_token}"})
+    assert res_me.status_code == 401
+
+
+def test_jwt_none_algorithm_attack_rejected():
+    """Verify algorithm confusion attack with 'none' algorithm is rejected."""
+    # Unsigned token header + payload: {"alg": "none"}
+    header_b64 = "eyJhbGciOiAibm9uZSIgfQ"
+    payload_b64 = "eyJzdWIiOiAiVVNSLVRFU1QiLCAiZW1haWwiOiAiaGFja2VyQHRlc3QubG9jYWwiLCAicm9sZSI6ICJBRU1JTiIsICJleHAiOiA5OTk5OTk5OTk5fQ"
+    forged_token = f"{header_b64}.{payload_b64}."
+
+    res_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {forged_token}"})
+    assert res_me.status_code == 401

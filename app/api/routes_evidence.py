@@ -982,8 +982,9 @@ def download_evidence_file(evidence_id: str):
             raise HTTPException(status_code=404, detail="Evidence file not found.")
 
     file_path = EVIDENCE_DIR / row["stored_filename"]
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File missing from storage.")
+    from app.core.security_guard import validate_safe_path
+    if not validate_safe_path(file_path, EVIDENCE_DIR):
+        raise HTTPException(status_code=400, detail="Path traversal security violation.")
 
     return FileResponse(
         path=str(file_path),
@@ -993,6 +994,7 @@ def download_evidence_file(evidence_id: str):
 
 @router.get("/{evidence_id}/forensic-artifact/{artifact_type}")
 def get_forensic_artifact(evidence_id: str, artifact_type: str):
+    from app.core.security_guard import validate_safe_path
     if artifact_type == "ela":
         p = FORENSIC_DIR / f"ela_{evidence_id}.jpg"
         media = "image/jpeg"
@@ -1035,6 +1037,9 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
         media = "image/jpeg"
     else:
         raise HTTPException(status_code=400, detail="Invalid artifact type.")
+
+    if not validate_safe_path(p, FORENSIC_DIR):
+        raise HTTPException(status_code=400, detail="Path traversal security violation.")
 
     if not p.exists():
         raise HTTPException(status_code=404, detail="Forensic artifact not available for this evidence.")

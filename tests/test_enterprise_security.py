@@ -110,3 +110,14 @@ def test_proprietary_license_file_exists():
     assert "PROPRIETARY & CONFIDENTIAL" in content
     assert "Copyright (c) 2024-2026 Truth Lens" in content
     assert "PROHIBITION OF PUBLIC DISTRIBUTION" in content
+
+
+def test_forensic_artifact_invalid_type_and_nonexistent_evidence():
+    """Verify 400 on illegal artifact types and 404 on nonexistent evidence artifacts."""
+    # Invalid artifact type
+    res_bad = client.get("/api/evidence/EV-TEST-123/forensic-artifact/malicious_exec")
+    assert res_bad.status_code == 400
+
+    # Nonexistent evidence valid type
+    res_404 = client.get("/api/evidence/EV-NONEXISTENT-9999/forensic-artifact/ela")
+    assert res_404.status_code == 404
