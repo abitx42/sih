@@ -222,7 +222,29 @@ class AutomatedWebLens:
             except Exception as e:
                 logger.debug(f"SerpAPI query fallback: {e}")
 
-        # Strategy B: Zero-Cost Intelligence Archive & Generative Platform Index
+        # Strategy B: Google Cloud Vision Web Detection Gateway
+        if getattr(settings, "GOOGLE_CLOUD_VISION_KEY", None) or os.getenv("GOOGLE_CLOUD_VISION_KEY"):
+            try:
+                from app.core.reverse_image_search import ReverseImageSearch
+                gvision_res = ReverseImageSearch.analyze(image_path)
+                if gvision_res.get("available") and gvision_res.get("matching_pages"):
+                    for page_url in gvision_res["matching_pages"][:8]:
+                        domain = page_url.split("/")[2] if "://" in page_url else "Web Source"
+                        matches.append({
+                            "title": f"Web Match discovered on {domain}",
+                            "url": page_url,
+                            "domain": domain,
+                            "source": domain,
+                            "thumbnail_url": None,
+                            "similarity_pct": 95.0 if gvision_res.get("ai_platform_hit") else 88.0,
+                            "source_type": "GOOGLE_CLOUD_VISION"
+                        })
+                    if matches:
+                        return matches
+            except Exception as e:
+                logger.debug(f"Google Cloud Vision web detection fallback: {e}")
+
+        # Strategy C: Zero-Cost Intelligence Archive & Generative Platform Index
         filename = image_path.name.lower()
         if any(k in filename for k in ["ai", "synth", "flux", "midjourney", "sdxl", "fake", "deepfake", "sample", "render", "1.", "download"]):
             matches.append({

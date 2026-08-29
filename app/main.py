@@ -32,23 +32,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("evidence_x")
 
-# Initialize SQLite database schema
-init_db()
+from contextlib import asynccontextmanager
+from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.rate_limiter import RateLimiterMiddleware
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI modern lifespan handler: initializes DB and reconciles orphaned jobs."""
+    init_db()
+    recovered = reconcile_orphaned_jobs()
+    if recovered > 0:
+        logger.info(f"Startup recovery: Reconciled {recovered} orphaned analysis job(s) left in ANALYZING state.")
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Digital Evidence Forensics Platform — SIH PS-27",
-    version=settings.VERSION
+    version=settings.VERSION,
+    lifespan=lifespan
 )
-
-@app.on_event("startup")
-def startup_event():
-    recovered = reconcile_orphaned_jobs()
-    if recovered > 0:
-        logger.info(f"Startup recovery: Reconciled {recovered} orphaned analysis job(s) left in ANALYZING state.")
-
-from app.core.security_headers import SecurityHeadersMiddleware
-from app.core.rate_limiter import RateLimiterMiddleware
 
 # Security Middleware Pipeline
 app.add_middleware(SecurityHeadersMiddleware)

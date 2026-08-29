@@ -741,9 +741,10 @@ label {
 }
 
 /* Lab Tabs */
-.lab-tab-bar {
+.lab-tab-bar,
+.lab-tabs-bar {
   display: flex;
-  gap: 0;
+  gap: 4px;
   margin-bottom: 1.5rem;
   background: var(--panel);
   border: 1px solid var(--hairline);

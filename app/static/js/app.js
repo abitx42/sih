@@ -93,11 +93,26 @@ document.addEventListener("DOMContentLoaded", () => {
   setupKeyboardShortcuts();
   setupSplitSlider();
   setupMagnifier();
+  refreshUserQuota();
 });
 
 // ═══════════════════════════════════════════════════════════════
 // USER QUOTA BADGE RENDERER (Task #18)
 // ═══════════════════════════════════════════════════════════════
+async function refreshUserQuota() {
+  try {
+    const token = localStorage.getItem("tl_token");
+    const headers = token ? { Authorization: "Bearer " + token } : {};
+    const res = await fetch("/api/auth/quota", { headers });
+    if (res.ok) {
+      const quota = await res.json();
+      renderUserQuotaBadge(quota);
+    }
+  } catch (err) {
+    console.debug("Quota refresh error:", err);
+  }
+}
+
 function renderUserQuotaBadge(quota) {
   const badge = document.getElementById("user-quota-badge");
   const textEl = document.getElementById("quota-badge-text");
@@ -654,6 +669,7 @@ async function handleEvidenceUpload(e) {
     // Reload dropdown and cases list in background
     loadDashboardData();
     loadCasesDropdown();
+    refreshUserQuota();
 
   } catch (err) {
     alert(`Bulk upload error: ${escapeHTML(String(err))}`);

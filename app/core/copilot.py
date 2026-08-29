@@ -111,15 +111,35 @@ Provide a valid JSON response containing EXACTLY these keys:
         
         providers = []
         
-        omniroute_url = os.getenv("OMNIROUTE_BASE_URL")
+        # 1. Custom aadicombo API Gateway
+        aadicombo_url = os.getenv("AADICOMBO_BASE_URL") or getattr(settings, "AADICOMBO_BASE_URL", "")
+        aadicombo_key = os.getenv("AADICOMBO_API_KEY") or getattr(settings, "AADICOMBO_API_KEY", "")
+        if aadicombo_url:
+            hdrs = {"Content-Type": "application/json"}
+            if aadicombo_key:
+                hdrs["Authorization"] = f"Bearer {aadicombo_key}"
+            providers.append({
+                "name": "aadicombo Gateway",
+                "url": f"{aadicombo_url.rstrip('/')}/chat/completions",
+                "headers": hdrs,
+                "payload": {"model": os.getenv("AADICOMBO_MODEL", settings.LLM_MODEL), "messages": messages, "temperature": 0.2, "max_tokens": 1000}
+            })
+
+        # 2. OmniRoute Universal Multi-Model Gateway
+        omniroute_url = os.getenv("OMNIROUTE_BASE_URL") or getattr(settings, "OMNIROUTE_BASE_URL", "")
+        omniroute_key = os.getenv("OMNIROUTE_API_KEY") or getattr(settings, "OMNIROUTE_API_KEY", "")
         if omniroute_url:
+            hdrs = {"Content-Type": "application/json"}
+            if omniroute_key:
+                hdrs["Authorization"] = f"Bearer {omniroute_key}"
             providers.append({
                 "name": "OmniRoute",
                 "url": f"{omniroute_url.rstrip('/')}/chat/completions",
-                "headers": {"Content-Type": "application/json"},
-                "payload": {"model": settings.LLM_MODEL, "messages": messages, "temperature": 0.2, "max_tokens": 1000}
+                "headers": hdrs,
+                "payload": {"model": os.getenv("OMNIROUTE_MODEL", settings.LLM_MODEL), "messages": messages, "temperature": 0.2, "max_tokens": 1000}
             })
             
+        # 3. TCET CoE Gateway (Qwen 3.6)
         if settings.LLM_API_KEY and settings.LLM_API_BASE_URL:
             providers.append({
                 "name": f"CoE Gateway ({settings.LLM_MODEL})",

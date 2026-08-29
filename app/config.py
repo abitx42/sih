@@ -95,13 +95,18 @@ class Settings:
     # Global AI model score threshold above which GENERATIVE-IMAGE INDICATOR is asserted.
     GENERATIVE_INDICATOR_THRESHOLD: float = float(os.getenv("GENERATIVE_INDICATOR_THRESHOLD", "0.60"))
 
-    # ── Web Context / Provenance Search (Optional, Opt-in) ─────────────────
-    # Set SERP_API_KEY in .env to enable Google reverse-image web lookup.
-    # When absent, the WebContextAnalyzer runs perceptual-hash-only (fully local, no network).
-    # Note: pixel data is NEVER transmitted externally. Only the image URL (if web-sourced)
-    # or the perceptual hash fingerprint is used for lookup.
+    # ── Web Context / Provenance Search & Gateways ──────────────────────────
     SERP_API_KEY: str = os.getenv("SERP_API_KEY", "").strip()
     WEB_CONTEXT_ENABLED: bool = os.getenv("WEB_CONTEXT_ENABLED", "True").lower() == "true"
+    
+    # Custom AI & OmniRoute Gateways
+    AADICOMBO_BASE_URL: str = os.getenv("AADICOMBO_BASE_URL", "").strip().rstrip("/")
+    AADICOMBO_API_KEY: str = os.getenv("AADICOMBO_API_KEY", "").strip()
+    OMNIROUTE_BASE_URL: str = os.getenv("OMNIROUTE_BASE_URL", "").strip().rstrip("/")
+    OMNIROUTE_API_KEY: str = os.getenv("OMNIROUTE_API_KEY", "").strip()
+    SIGHTENGINE_API_USER: str = os.getenv("SIGHTENGINE_API_USER", "").strip()
+    SIGHTENGINE_API_SECRET: str = os.getenv("SIGHTENGINE_API_SECRET", "").strip()
+    GOOGLE_CLOUD_VISION_KEY: str = os.getenv("GOOGLE_CLOUD_VISION_KEY", "").strip()
 
 settings = Settings()
 
