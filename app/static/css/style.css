@@ -750,27 +750,41 @@ label {
   border: 1px solid var(--hairline);
   border-radius: 8px;
   padding: 4px;
-  flex-wrap: wrap;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lab-tab-bar::-webkit-scrollbar,
+.lab-tabs-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.lab-tab-bar::-webkit-scrollbar-thumb,
+.lab-tabs-bar::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: 3px;
 }
 
 .lab-tab-btn {
-  flex: 1;
-  min-width: 80px;
+  flex: 0 0 auto;
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  padding: 8px 12px;
+  padding: 8px 14px;
   cursor: pointer;
   font-family: var(--font-data);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 5px;
+  border-radius: 6px;
   transition: all var(--trans-fast);
   white-space: nowrap;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .lab-tab-btn:hover { color: var(--cream); background: var(--panel-raised); }

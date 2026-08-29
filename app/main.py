@@ -118,9 +118,10 @@ def serve_login():
 @app.get("/health")
 @app.get("/api/health")
 def health_check():
-    return {
-        "status": "HEALTHY",
-        "service": settings.PROJECT_NAME,
-        "version": settings.VERSION,
-        "ps_number": settings.PS_NUMBER
-    }
+    from app.core.system_diagnostics import SystemDiagnostics
+    return SystemDiagnostics.get_system_health()
+
+@app.get("/api/system/info")
+def system_info():
+    from app.core.system_diagnostics import SystemDiagnostics
+    return SystemDiagnostics.get_system_health()

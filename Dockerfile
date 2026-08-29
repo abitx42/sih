@@ -1,51 +1,39 @@
-# Truth Lens — Digital Evidence Forensics Platform (SIH PS-27)
-# Production Container Image for Oracle Cloud Always Free VM
-
+# Truth Lens — Production Container Image
 FROM python:3.9-slim
 
-# Prevent interactive prompts during apt install
-ENV DEBIAN_FRONTEND=noninteractive \
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000 \
-    STORAGE_DIR=/app/storage
+    PYTHONPATH=/app \
+    PORT=8000
 
-# Install essential system packages for OpenCV, libmagic, FFmpeg audio decoding, and health checks
+WORKDIR /app
+
+# Install system runtime dependencies for OpenCV and Media Forensics
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    libmagic1 \
     libgl1 \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
+    ffmpeg \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /app
-
-# Install Python dependencies
+# Install python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code and helper scripts
-COPY app/ ./app/
-COPY scripts/ ./scripts/
+# Create application user and storage directories
+RUN useradd -m -u 1000 truthlens && \
+    mkdir -p /app/storage/evidence /app/storage/forensic /app/storage/reports /app/storage/thumbnails /app/storage/models && \
+    chown -R truthlens:truthlens /app
 
-# Create persistent storage mount directory tree
-RUN mkdir -p /app/storage/evidence \
-             /app/storage/forensic \
-             /app/storage/reports \
-             /app/storage/models
+# Copy application source code
+COPY . .
+RUN chown -R truthlens:truthlens /app
 
-# Container Healthcheck (Lightweight endpoint; does not load ML model or reveal secrets)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD curl -f http://127.0.0.1:${PORT:-8000}/health || exit 1
+USER truthlens
 
-# Expose internal application port
 EXPOSE 8000
 
-# Run FastAPI with single worker (required by SQLite & in-process BackgroundTasks)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
