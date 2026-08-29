@@ -37,7 +37,8 @@ class MigrationRunner:
         migrations: List[Tuple[str, str, Callable[[sqlite3.Cursor], None]]] = [
             ("001_core_tables", "Initial cases, evidence, forensic_results schema", cls._m001_core_tables),
             ("002_active_learning_quotas", "Active learning, user quota actors, and model versions", cls._m002_active_learning),
-            ("003_external_api_ledgers", "External API rate limiting and consensus metadata", cls._m003_external_ledgers)
+            ("003_external_api_ledgers", "External API rate limiting and consensus metadata", cls._m003_external_ledgers),
+            ("004_database_indexes", "B-tree indexes on foreign keys and frequently-queried columns", cls._m004_database_indexes)
         ]
 
         for m_id, desc, func in migrations:
@@ -49,12 +50,9 @@ class MigrationRunner:
                         "INSERT INTO _schema_migrations (migration_id, applied_at, description) VALUES (?, ?, ?)",
                         (m_id, datetime.utcnow().isoformat() + "Z", desc)
                     )
+                    logger.info(f"Migration {m_id} applied successfully.")
                 except Exception as e:
-                    logger.warning(f"Migration notice for {m_id}: {e}")
-                    cursor.execute(
-                        "INSERT OR IGNORE INTO _schema_migrations (migration_id, applied_at, description) VALUES (?, ?, ?)",
-                        (m_id, datetime.utcnow().isoformat() + "Z", desc)
-                    )
+                    logger.warning(f"Migration {m_id} skipped (already applied or non-critical): {e}")
 
     @staticmethod
     def _m001_core_tables(cursor: sqlite3.Cursor):
@@ -80,3 +78,20 @@ class MigrationRunner:
             created_at TEXT NOT NULL
         )
         """)
+
+    @staticmethod
+    def _m004_database_indexes(cursor: sqlite3.Cursor):
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_evidence_case_id ON evidence(case_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_evidence_status ON evidence(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_evidence_uploaded_at ON evidence(uploaded_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_evidence_quota_actor ON evidence(quota_actor)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_evidence_id ON findings(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chain_of_custody_evidence_id ON chain_of_custody(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_chain_of_custody_timestamp ON chain_of_custody(timestamp)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_investigator_reviews_evidence_id ON investigator_reviews(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_reference_comparisons_evidence_id ON reference_comparisons(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_training_dataset_evidence_id ON training_dataset(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_training_dataset_used_in_training ON training_dataset(used_in_training)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_web_search_results_evidence_id ON web_search_results(evidence_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_feedback_evidence_id ON feedback(evidence_id)")

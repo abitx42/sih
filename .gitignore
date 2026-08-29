@@ -37,8 +37,8 @@ venv/
 htmlcov/
 
 # Local Storage (Keep directory structure but ignore actual generated files/database/large models)
-storage/*.db
-storage/*.sqlite3
+storage/*.db*
+storage/*.sqlite3*
 storage/evidence/*
 !storage/evidence/.gitkeep
 storage/thumbnails/*

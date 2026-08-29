@@ -37,7 +37,25 @@ class PatchLocalizer:
         forensic anomalies, generates a spatial heatmap, and extracts anomalous bounding boxes.
         """
         width, height = img.size
-        gray = np.array(img.convert("L"), dtype=np.float32)
+        # Fast processing scale guard for high-resolution images (> 1024px)
+        if max(width, height) > 1024:
+            scale = 1024.0 / max(width, height)
+            target_w = max(64, int(width * scale))
+            target_h = max(64, int(height * scale))
+            img_proc = img.resize((target_w, target_h), Image.Resampling.BILINEAR)
+            gray = np.array(img_proc.convert("L"), dtype=np.float32)
+            if ela_img is not None:
+                ela_proc = ela_img.resize((target_w, target_h), Image.Resampling.BILINEAR)
+                ela_gray = np.array(ela_proc.convert("L"), dtype=np.float32)
+            else:
+                ela_gray = np.zeros_like(gray)
+            width, height = target_w, target_h
+        else:
+            gray = np.array(img.convert("L"), dtype=np.float32)
+            if ela_img is not None:
+                ela_gray = np.array(ela_img.convert("L"), dtype=np.float32)
+            else:
+                ela_gray = np.zeros_like(gray)
 
         # 1. Compute High-Pass Noise Residual (Sensor Noise Pattern)
         # Low-pass gaussian subtracted from original yields high-frequency residual
@@ -48,12 +66,6 @@ class PatchLocalizer:
         sobel_h = ndimage.sobel(gray, axis=0)
         sobel_v = ndimage.sobel(gray, axis=1)
         gradient_mag = np.hypot(sobel_h, sobel_v)
-
-        # 3. ELA Residual Array
-        if ela_img is not None:
-            ela_gray = np.array(ela_img.convert("L"), dtype=np.float32)
-        else:
-            ela_gray = np.zeros_like(gray)
 
         # Adaptive patch size based on image dimensions
         min_dim = min(width, height)

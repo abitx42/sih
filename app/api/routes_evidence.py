@@ -319,7 +319,8 @@ def execute_forensic_pipeline(evidence_id: str):
             provenance_status=provenance_status,
             findings=findings,
             ensemble_agreement=ensemble_agreement,
-            web_lens_result=web_lens_res
+            web_lens_result=web_lens_res,
+            modality=modality
         )
         raw_metrics["risk_components"] = comp_scores
         forensic_taxonomy = comp_scores.get("forensic_taxonomy", "ANALYSIS_INCONCLUSIVE")
@@ -853,23 +854,33 @@ def get_evidence_frames(evidence_id: str):
             return {"evidence_id": evidence_id, "frames_count": 0, "frames": []}
 
 @router.get("", response_model=EvidenceListResponse)
-def list_evidence(case_id: Optional[str] = None, modality: Optional[str] = None):
-    query = "SELECT * FROM evidence WHERE 1=1"
+def list_evidence(
+    case_id: Optional[str] = None,
+    modality: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    base_where = " WHERE 1=1"
     params = []
     if case_id:
-        query += " AND case_id = ?"
+        base_where += " AND case_id = ?"
         params.append(case_id)
     if modality:
-        query += " AND modality = ?"
+        base_where += " AND modality = ?"
         params.append(modality.upper())
 
-    query += " ORDER BY uploaded_at DESC"
+    count_query = "SELECT COUNT(*) as cnt FROM evidence" + base_where
+    query = "SELECT * FROM evidence" + base_where + " ORDER BY uploaded_at DESC LIMIT ? OFFSET ?"
+    query_params = list(params) + [max(1, min(500, limit)), max(0, offset)]
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute(query, params)
+        cursor.execute(count_query, params)
+        total_row = cursor.fetchone()
+        total = total_row["cnt"] if isinstance(total_row, dict) else (total_row[0] if total_row else 0)
+        cursor.execute(query, query_params)
         items = cursor.fetchall()
-        return {"items": items, "total": len(items)}
+        return {"items": items, "total": total}
 
 @router.get("/{evidence_id}", response_model=EvidenceDetailResponse)
 def get_evidence_detail(evidence_id: str):
@@ -883,10 +894,12 @@ def get_evidence_detail(evidence_id: str):
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
         # 2. Case
-        cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
-        case_info = cursor.fetchone()
+        case_info = None
+        if evidence.get("case_id"):
+            cursor.execute("SELECT * FROM cases WHERE case_id = ?", (evidence["case_id"],))
+            case_info = cursor.fetchone()
 
-        # 3. Forensic Results
+        # 3. Forensic Result
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         forensic_result = cursor.fetchone()
         if forensic_result:
@@ -957,6 +970,8 @@ def verify_evidence_integrity(
         "details": status_msg
     }
 
+@router.get("/{evidence_id}/preview")
+@router.get("/{evidence_id}/download")
 @router.get("/{evidence_id}/file")
 def download_evidence_file(evidence_id: str):
     with get_db() as conn:
@@ -990,9 +1005,13 @@ def get_forensic_artifact(evidence_id: str, artifact_type: str):
     elif artifact_type == "waveform":
         p = FORENSIC_DIR / f"waveform_{evidence_id}.png"
         media = "image/png"
-    elif artifact_type in ("manipulation_heatmap", "heatmap"):
+    elif artifact_type in ("manipulation_heatmap", "heatmap", "reliability_map"):
         p = FORENSIC_DIR / f"manipulation_heatmap_{evidence_id}.png"
-        media = "image/png"
+        if not p.exists():
+            p = FORENSIC_DIR / f"ela_{evidence_id}.jpg"
+            media = "image/jpeg"
+        else:
+            media = "image/png"
     elif artifact_type == "reference_diff":
         p = FORENSIC_DIR / f"reference_diff_{evidence_id}.png"
         media = "image/png"

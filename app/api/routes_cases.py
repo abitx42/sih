@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import List
+import json
 from fastapi import APIRouter, HTTPException
 from app.database import get_db
 from app.models.schemas import (
@@ -10,7 +11,7 @@ from app.models.schemas import (
 router = APIRouter(prefix="/api/cases", tags=["Cases"])
 
 @router.get("", response_model=List[CaseResponse])
-def list_cases():
+def list_cases(limit: int = 100, offset: int = 0):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -19,7 +20,8 @@ def list_cases():
         LEFT JOIN evidence e ON c.case_id = e.case_id
         GROUP BY c.case_id
         ORDER BY c.created_at DESC
-        """)
+        LIMIT ? OFFSET ?
+        """, (max(1, min(500, limit)), max(0, offset)))
         return cursor.fetchall()
 
 @router.post("", response_model=CaseResponse)
@@ -187,26 +189,26 @@ def get_case_sensor_clusters(case_id: str):
     from app.core.prnu_correlator import PRNUCorrelator
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM evidence WHERE case_id = ? ORDER BY uploaded_at ASC", (case_id,))
+        cursor.execute("""
+        SELECT e.evidence_id, e.original_filename, fr.forensic_risk_score
+        FROM evidence e
+        LEFT JOIN forensic_results fr ON e.evidence_id = fr.evidence_id
+        WHERE e.case_id = ?
+        ORDER BY e.uploaded_at ASC
+        """, (case_id,))
         exhibits = cursor.fetchall()
 
     if not exhibits:
         return {"case_id": case_id, "clusters": [], "total_exhibits": 0}
 
     # Group exhibits
-    hardware_clusters = []
     synthetic_cluster = {"cluster_name": "Synthetic / Zero-Silicon Cluster", "generator": "Diffusion Models", "exhibits": []}
     camera_clusters = {}
 
     for ev in exhibits:
         ev_id = ev["evidence_id"]
-        fn = ev.get("original_filename", "exhibit.jpg")
-        with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (ev_id,))
-            fr = cursor.fetchone() or {}
-
-        risk_score = float(fr.get("forensic_risk_score", 50.0))
+        fn = ev.get("original_filename") or "exhibit.jpg"
+        risk_score = float(ev.get("forensic_risk_score") or 50.0)
         if risk_score >= 65.0:
             synthetic_cluster["exhibits"].append({
                 "evidence_id": ev_id,

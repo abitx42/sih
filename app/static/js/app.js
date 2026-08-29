@@ -671,6 +671,8 @@ async function openEvidenceInLab(evidenceId) {
   try {
     const res = await safeFetch(`/api/evidence/${evidenceId}`);
     if (!res) return;
+    // Guard against race condition if user navigated to another exhibit while loading
+    if (currentEvidenceId !== evidenceId) return;
     const data = await res.json();
     currentEvidenceData = data;
 
@@ -1758,7 +1760,7 @@ function applyCaseFilters() {
       }
 
       const thumbUrl = item.modality === "IMAGE" 
-        ? `/api/evidence/${safeId}/preview` 
+        ? `/api/evidence/${safeId}/file` 
         : `/static/img/placeholder.svg`;
 
       return `
@@ -1897,9 +1899,9 @@ async function loadLocalizationPanel(ev, res) {
   const maskImg = document.getElementById("loc-img-mask");
   const relImg = document.getElementById("loc-img-reliability");
 
-  if (origImg) origImg.src = `/api/evidence/${ev.evidence_id}/download`;
+  if (origImg) origImg.src = `/api/evidence/${ev.evidence_id}/file`;
   if (maskImg) maskImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/manipulation_heatmap`;
-  if (relImg) relImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/reliability_map`;
+  if (relImg) relImg.src = `/api/evidence/${ev.evidence_id}/forensic-artifact/ela`;
 
   // Populate Bounded Suspicious Regions Table
   const tbody = document.getElementById("loc-regions-tbody");
@@ -2391,14 +2393,14 @@ function updateSplitSliderImages() {
   if (!currentEvidenceId) return;
   const origImg = document.getElementById('split-img-orig');
   const forensicImg = document.getElementById('split-img-forensic');
-  if (origImg) origImg.src = `/api/evidence/${currentEvidenceId}/preview`;
+  if (origImg) origImg.src = `/api/evidence/${currentEvidenceId}/file`;
   if (forensicImg) forensicImg.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/ela`;
 }
 
 function updateLoupeImage() {
   if (!currentEvidenceId) return;
   const target = document.getElementById('loupe-target-img');
-  if (target) target.src = `/api/evidence/${currentEvidenceId}/preview`;
+  if (target) target.src = `/api/evidence/${currentEvidenceId}/file`;
 }
 
 function setupSplitSlider() {
@@ -2733,7 +2735,7 @@ function switchComparisonLayer(layer) {
     imgEl.src = `/api/evidence/${currentEvidenceId}/forensic-artifact/reference_side_by_side?t=${Date.now()}`;
   } else if (layer === "evidence") {
     if (btnEv) btnEv.classList.add("active");
-    imgEl.src = `/api/evidence/${currentEvidenceId}/preview?t=${Date.now()}`;
+    imgEl.src = `/api/evidence/${currentEvidenceId}/file?t=${Date.now()}`;
   }
 }
 

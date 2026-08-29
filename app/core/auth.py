@@ -2,31 +2,46 @@
 app/core/auth.py
 ================
 JWT Authentication, Password Hashing, Disposable Email Filter & OTP Verification.
+Supports modern PyJWT and direct bcrypt, with graceful fallback to jose/passlib.
 """
 import uuid
 import os
 import random
 import re
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, Tuple
 
 logger = logging.getLogger(__name__)
 
+# ── JWT Backend Support (PyJWT preferred, jose fallback) ─────────────────────
 try:
-    from jose import JWTError, jwt
-    _JOSE_AVAILABLE = True
+    import jwt as pyjwt
+    _JWT_AVAILABLE = True
+    _JWT_BACKEND = "pyjwt"
 except ImportError:
-    _JOSE_AVAILABLE = False
-    logger.warning("python-jose not installed. JWT auth disabled.")
+    try:
+        from jose import jwt as pyjwt
+        _JWT_AVAILABLE = True
+        _JWT_BACKEND = "jose"
+    except ImportError:
+        _JWT_AVAILABLE = False
+        _JWT_BACKEND = None
+        logger.warning("No JWT library found (PyJWT or python-jose). JWT auth disabled.")
+
+# ── Password Hashing Support (bcrypt direct preferred, passlib fallback) ─────
+try:
+    import bcrypt
+    _BCRYPT_AVAILABLE = True
+except ImportError:
+    _BCRYPT_AVAILABLE = False
 
 try:
     from passlib.context import CryptContext
-    _pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+    _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     _PASSLIB_AVAILABLE = True
 except ImportError:
     _PASSLIB_AVAILABLE = False
-    logger.warning("passlib not installed.")
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "truth-lens-super-secret-key-change-in-production-2026")
 ALGORITHM = "HS256"
@@ -102,20 +117,28 @@ def generate_verification_code() -> str:
 
 
 def hash_password(plain_password: str) -> str:
-    if not _PASSLIB_AVAILABLE:
-        raise AuthError("Password hashing unavailable. Install passlib[bcrypt].", 503)
-    truncated = plain_password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
-    return _pwd_context.hash(truncated)
+    if _BCRYPT_AVAILABLE:
+        truncated = plain_password.encode("utf-8")[:72]
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(truncated, salt).decode("utf-8")
+    elif _PASSLIB_AVAILABLE:
+        return _pwd_context.hash(plain_password[:72])
+    raise AuthError("Password hashing unavailable. Install bcrypt or passlib.", 503)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if not _PASSLIB_AVAILABLE:
-        return False
-    try:
-        truncated = plain_password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
-        return _pwd_context.verify(truncated, hashed_password)
-    except Exception:
-        return False
+    if _BCRYPT_AVAILABLE:
+        try:
+            truncated = plain_password.encode("utf-8")[:72]
+            return bcrypt.checkpw(truncated, hashed_password.encode("utf-8"))
+        except Exception:
+            pass
+    if _PASSLIB_AVAILABLE:
+        try:
+            return _pwd_context.verify(plain_password[:72], hashed_password)
+        except Exception:
+            pass
+    return False
 
 
 def create_access_token(
@@ -126,12 +149,12 @@ def create_access_token(
     is_guest: bool = False,
     expire_minutes: Optional[int] = None,
 ) -> str:
-    if not _JOSE_AVAILABLE:
-        raise AuthError("JWT library unavailable. Install python-jose[cryptography].", 503)
+    if not _JWT_AVAILABLE:
+        raise AuthError("JWT library unavailable. Install PyJWT or python-jose.", 503)
     expires_delta = timedelta(minutes=expire_minutes or (
         GUEST_TOKEN_EXPIRE_MINUTES if is_guest else ACCESS_TOKEN_EXPIRE_MINUTES
     ))
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     payload = {
         "sub": user_id,
         "email": email,
@@ -139,19 +162,19 @@ def create_access_token(
         "role": role,
         "is_guest": is_guest,
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(timezone.utc),
         "jti": str(uuid.uuid4()),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return pyjwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> Dict[str, Any]:
-    if not _JOSE_AVAILABLE:
+    if not _JWT_AVAILABLE:
         raise AuthError("JWT library unavailable.", 503)
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = pyjwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError as e:
+    except Exception as e:
         raise AuthError(f"Invalid or expired token: {e}", 401)
 
 
@@ -167,4 +190,22 @@ def create_guest_token() -> str:
 
 
 def is_auth_available() -> bool:
-    return _JOSE_AVAILABLE and _PASSLIB_AVAILABLE
+    return _JWT_AVAILABLE and (_BCRYPT_AVAILABLE or _PASSLIB_AVAILABLE)
+
+
+def get_current_user_optional(authorization: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Extracts user claims from Authorization header if present and valid; returns None otherwise."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return decode_token(authorization[7:])
+    except AuthError:
+        return None
+
+
+def get_current_user(authorization: Optional[str] = None) -> Dict[str, Any]:
+    """Enforces valid JWT Bearer token on protected endpoints."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise AuthError("Authorization header missing or invalid", 401)
+    return decode_token(authorization[7:])
+

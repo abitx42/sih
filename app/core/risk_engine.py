@@ -105,7 +105,8 @@ class RiskEngine:
         provenance_status: str,
         findings: List[Dict[str, Any]],
         ensemble_agreement: Optional[Dict[str, Any]] = None,
-        web_lens_result: Optional[Dict[str, Any]] = None
+        web_lens_result: Optional[Dict[str, Any]] = None,
+        modality: str = "IMAGE"
     ) -> Tuple[float, str, float, Dict[str, Any]]:
         """
         Returns:
@@ -137,26 +138,31 @@ class RiskEngine:
         else:  # NOT_AVAILABLE
             provenance_risk = 20.0
 
-        # 5. ML Manipulation Indicator & Confident Polarized Risk Aggregation
+        # 5. ML Manipulation Indicator & Modality-Aware Weighted Score
+        modality_upper = (modality or "IMAGE").upper()
+        if modality_upper == "AUDIO":
+            w_ml, w_heur, w_meta, w_prov = 0.60, 0.25, 0.15, 0.0
+        elif modality_upper == "VIDEO":
+            w_ml, w_heur, w_meta, w_prov = 0.45, 0.35, 0.12, 0.08
+        else:
+            w_ml = settings.WEIGHT_AI_MANIPULATION
+            w_heur = settings.WEIGHT_FORENSIC_SIGNALS
+            w_meta = settings.WEIGHT_METADATA_ANOMALIES
+            w_prov = settings.WEIGHT_PROVENANCE
+
         if model_status == "AVAILABLE" and ai_manipulation_indicator is not None:
             ai_risk = max(0.0, min(100.0, ai_manipulation_indicator * 100.0))
             
-            # Base linear weighted score
+            # Base linear weighted score with modality-specific weights
             linear_score = (
-                (ai_risk * settings.WEIGHT_AI_MANIPULATION) +
-                (heuristic_risk * settings.WEIGHT_FORENSIC_SIGNALS) +
-                (meta_risk * settings.WEIGHT_METADATA_ANOMALIES) +
-                (provenance_risk * settings.WEIGHT_PROVENANCE)
+                (ai_risk * w_ml) +
+                (heuristic_risk * w_heur) +
+                (meta_risk * w_meta) +
+                (provenance_risk * w_prov)
             )
             
-            # Isotonic Clamping and Dead Zone (avoids extreme endpoints)
-            if 35.0 <= linear_score <= 65.0:
-                final_score = linear_score  # Dead zone, no amplification
-            else:
-                # Gently sigmoid-map the score to avoid extreme clustering
-                x = (linear_score - 50.0) / 15.0
-                sigmoid = 1.0 / (1.0 + math.exp(-x))
-                final_score = sigmoid * 100.0
+            # Smooth monotonic score — no dead zones or discontinuities
+            final_score = max(2.0, min(98.0, linear_score))
 
             is_ml_available = True
         else:

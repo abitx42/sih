@@ -136,13 +136,16 @@ async def submit_feedback(request: Request):
 
 
 @router.get("")
-def list_feedback():
-    """List all submitted feedback for platform audit."""
+def list_feedback(limit: int = 100, offset: int = 0):
+    """List submitted feedback for platform audit with pagination."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'")
         if not cursor.fetchone():
             return {"total": 0, "items": []}
-        cursor.execute("SELECT * FROM feedback ORDER BY created_at DESC, submitted_at DESC")
+        cursor.execute("SELECT COUNT(*) as cnt FROM feedback")
+        total_row = cursor.fetchone()
+        total = total_row["cnt"] if isinstance(total_row, dict) else (total_row[0] if total_row else 0)
+        cursor.execute("SELECT * FROM feedback ORDER BY created_at DESC, submitted_at DESC LIMIT ? OFFSET ?", (max(1, min(500, limit)), max(0, offset)))
         rows = cursor.fetchall()
-        return {"total": len(rows), "items": [dict(r) for r in rows]}
+        return {"total": total, "items": [dict(r) for r in rows]}

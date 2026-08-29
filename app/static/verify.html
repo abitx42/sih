@@ -179,7 +179,7 @@
       }
 
       document.getElementById('v-orig-img').src = `/api/evidence/${evidenceId}/file`;
-      document.getElementById('v-diff-img').src = `/api/evidence/${evidenceId}/forensic-image`;
+      document.getElementById('v-diff-img').src = `/api/evidence/${evidenceId}/forensic-artifact/ela`;
       document.getElementById('v-filename').textContent = data.original_filename;
       document.getElementById('v-ev-id').textContent = data.evidence_id;
       document.getElementById('v-timestamp').textContent = data.analyzed_at;
