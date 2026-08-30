@@ -246,7 +246,7 @@ class AutomatedWebLens:
 
         # Strategy C: Zero-Cost Intelligence Archive & Generative Platform Index
         filename = image_path.name.lower()
-        if any(k in filename for k in ["ai", "synth", "flux", "midjourney", "sdxl", "fake", "deepfake", "sample", "render", "1.", "download"]):
+        if any(k in filename for k in ["midjourney", "flux", "civitai", "sdxl", "dall-e", "ai_generated", "deepfake_synth"]):
             matches.append({
                 "title": "Civitai / Midjourney AI Generation Exhibit - Text to Image Synthesis",
                 "url": "https://civitai.com/images/showcase-diffusion-exhibit",

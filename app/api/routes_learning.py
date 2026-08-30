@@ -50,7 +50,7 @@ def confirm_ground_truth_label(body: ConfirmLabelRequest):
 
     res = SelfLearningEngine.record_review_feedback(
         evidence_id=body.evidence_id,
-        verdict="AGREE" if label == "AI_GENERATED" else "DISAGREE",
+        verdict="CONFIRMED_GROUND_TRUTH",
         reviewer_name=body.reviewer_name,
         explicit_label=label
     )
@@ -85,7 +85,7 @@ def submit_quick_learning_review(evidence_id: str, body: QuickReviewRequest):
     label = "AI_GENERATED" if "AI" in raw_label.upper() or "FAKE" in raw_label.upper() else "AUTHENTIC_REAL"
     res = SelfLearningEngine.record_review_feedback(
         evidence_id=evidence_id,
-        verdict="AGREE" if label == "AI_GENERATED" else "DISAGREE",
+        verdict="CONFIRMED_GROUND_TRUTH",
         reviewer_name=body.submitted_by or "Lead Examiner",
         explicit_label=label
     )

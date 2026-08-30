@@ -1,4 +1,5 @@
 import os
+import re
 import math
 import logging
 import concurrent.futures
@@ -98,12 +99,15 @@ class SingleModelRunner:
     def _classify_label_defensively(self, raw_label: str) -> str:
         """
         Normalizes classification labels defensively across model architectures.
-        Matches common synthetic vs real synonyms (including 'artificial' and 'human').
+        Matches common synthetic vs real synonyms using strict word boundaries to avoid false positives.
         """
         clean = str(raw_label).strip().lower()
-        if any(term in clean for term in ["artificial", "fake", "manipulated", "synthetic", "generated", "deepfake", "ai_generated", "ai"]):
+        clean_words = set(re.findall(r'\b[a-z0-9_]+\b', clean))
+        manipulated_exact = {"artificial", "fake", "manipulated", "synthetic", "generated", "deepfake", "ai_generated", "ai", "synth"}
+        if any(w in manipulated_exact for w in clean_words) or any(phrase in clean for phrase in ["ai_generated", "deepfake", "synthetic", "ai-generated"]):
             return "MANIPULATED"
-        if any(term in clean for term in ["human", "real", "authentic", "pristine", "original", "natural"]):
+        unmanipulated_exact = {"human", "real", "authentic", "pristine", "original", "natural", "unmanipulated"}
+        if any(w in unmanipulated_exact for w in clean_words) or any(phrase in clean for phrase in ["real_image", "authentic_image", "pristine_image"]):
             return "UNMANIPULATED"
         return "UNKNOWN"
 
@@ -136,19 +140,26 @@ class SingleModelRunner:
                 logits = outputs.logits
                 probs = torch.softmax(logits, dim=-1).squeeze(0)
 
-            manipulated_prob = None
-            unmanipulated_prob = None
-            has_recognized_mapping = False
+            manipulated_prob = 0.0
+            unmanipulated_prob = 0.0
+            has_manip_class = False
+            has_unmanip_class = False
 
             for class_idx, prob_val in enumerate(probs.tolist()):
                 raw_lbl = self._id2label.get(class_idx, str(class_idx))
                 normalized_lbl = self._classify_label_defensively(raw_lbl)
                 if normalized_lbl == "MANIPULATED":
-                    manipulated_prob = prob_val
-                    has_recognized_mapping = True
+                    manipulated_prob += prob_val
+                    has_manip_class = True
                 elif normalized_lbl == "UNMANIPULATED":
-                    unmanipulated_prob = prob_val
-                    has_recognized_mapping = True
+                    unmanipulated_prob += prob_val
+                    has_unmanip_class = True
+
+            has_recognized_mapping = has_manip_class or has_unmanip_class
+            if not has_manip_class:
+                manipulated_prob = None
+            if not has_unmanip_class:
+                unmanipulated_prob = None
 
             top_idx = int(torch.argmax(probs).item())
             top_prob = float(probs[top_idx].item())
@@ -426,7 +437,7 @@ class HFImageDetector:
         spread = (max(raw_indicators) - min(raw_indicators)) if n > 1 else 0.0
         conflict_detected = spread > 0.5
         if conflict_detected:
-            weighted_mean = weighted_mean * 0.92
+            weighted_mean = weighted_mean + (0.50 - weighted_mean) * 0.15
 
         ensemble_ind = round(min(1.0, max(0.0, weighted_mean)), 4)
 

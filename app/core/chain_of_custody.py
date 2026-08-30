@@ -60,7 +60,7 @@ class ChainOfCustodyLogger:
                 SELECT event_id, evidence_id, action, timestamp, recorded_sha256
                 FROM chain_of_custody
                 WHERE evidence_id = ?
-                ORDER BY id DESC LIMIT 1
+                ORDER BY rowid DESC LIMIT 1
             """, (evidence_id,))
             last_row = cursor.fetchone()
             if last_row:

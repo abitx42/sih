@@ -183,6 +183,7 @@ class RiskEngine:
         if web_lens_result:
             if web_lens_result.get("ai_source_detected") or web_lens_result.get("web_verdict") == "CONFIRMED_GENERATIVE_AI_SOURCE":
                 ai_manipulation_indicator = max(ai_manipulation_indicator or 0.0, 0.98)
+                ai_risk = ai_manipulation_indicator * 100.0
                 is_ml_available = True
                 final_score = max(final_score, 94.5)
             elif web_lens_result.get("web_verdict") == "CONFIRMED_AUTHENTIC_PRESS" and heuristic_risk <= 35.0:
@@ -240,7 +241,8 @@ class RiskEngine:
             provenance_status=provenance_status,
             findings=findings,
             final_risk_score=final_score,
-            ensemble_agreement=ensemble_agreement
+            ensemble_agreement=ensemble_agreement,
+            web_lens_result=web_lens_result
         )
 
         # 7. Manipulation Sub-type Classification

@@ -452,7 +452,10 @@ class MultiCloudVisionGateway:
         agreement_pct = round((votes[best_verdict] / max(0.01, total_weight)) * 100.0, 1)
 
         # Scale to 0-100 forensic risk
-        score = round(consensus_conf * 100.0, 1) if best_verdict == "AI_GENERATED" else round((1.0 - consensus_conf) * 100.0, 1)
+        if best_verdict in ("AI_GENERATED", "ALTERED_SPLICED", "MANIPULATED"):
+            score = round(consensus_conf * 100.0, 1)
+        else:
+            score = round((1.0 - consensus_conf) * 100.0, 1)
 
         return {
             "verdict": best_verdict,

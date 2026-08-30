@@ -64,7 +64,8 @@ class LegalCertificateGenerator:
         # Telemetry
         risk_score = float(forensic_res.get("forensic_risk_score", 50.0))
         risk_cat = forensic_res.get("risk_category", "REVIEW REQUIRED")
-        ai_ind = float(forensic_res.get("ai_manipulation_indicator") or (risk_score / 100.0))
+        raw_ai_ind = forensic_res.get("ai_manipulation_indicator")
+        ai_ind = float(raw_ai_ind) if raw_ai_ind is not None else float(risk_score / 100.0)
         is_ai = (ai_ind >= 0.50 or risk_score >= 60.0)
 
         # PRNU & Courtroom Debate

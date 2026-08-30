@@ -38,7 +38,8 @@ class CourtroomDebateEngine:
             # Extract key signals
             risk_score = float(forensic_data.get("forensic_risk_score", 50.0))
             risk_cat = forensic_data.get("risk_category", "REVIEW REQUIRED")
-            ai_ind = float(forensic_data.get("ai_manipulation_indicator") or (risk_score / 100.0))
+            raw_ai_ind = forensic_data.get("ai_manipulation_indicator")
+            ai_ind = float(raw_ai_ind) if raw_ai_ind is not None else float(risk_score / 100.0)
             is_ai = (ai_ind >= 0.50 or risk_score >= 60.0)
 
             # Heuristics & PRNU & Web signals
@@ -50,10 +51,11 @@ class CourtroomDebateEngine:
                 except Exception:
                     raw_metrics = {}
 
-            dire_score = raw_metrics.get("dire", {}).get("dire_score", 50.0)
-            fft_score = raw_metrics.get("fft_score", 0.0)
-            pce_score = raw_metrics.get("pce_score", 12.0)
-            prnu_status = raw_metrics.get("prnu_verdict", "ZERO_SILICON_SIGNATURE_SYNTHETIC_AI" if is_ai else "PHYSICAL_OPTICAL_SENSOR_CONFIRMED")
+            dire_dict = raw_metrics.get("dire") if isinstance(raw_metrics, dict) else {}
+            dire_score = float(dire_dict.get("dire_score", 50.0)) if isinstance(dire_dict, dict) else 50.0
+            fft_score = float(raw_metrics.get("fft_score", 0.0)) if isinstance(raw_metrics, dict) else 0.0
+            pce_score = float(raw_metrics.get("pce_score", 12.0)) if isinstance(raw_metrics, dict) else 12.0
+            prnu_status = raw_metrics.get("prnu_verdict", "ZERO_SILICON_SIGNATURE_SYNTHETIC_AI" if is_ai else "PHYSICAL_OPTICAL_SENSOR_CONFIRMED") if isinstance(raw_metrics, dict) else ("ZERO_SILICON_SIGNATURE_SYNTHETIC_AI" if is_ai else "PHYSICAL_OPTICAL_SENSOR_CONFIRMED")
             sha256 = forensic_data.get("sha256_hash", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
             now = datetime.utcnow().strftime("%d %B %Y, %H:%M UTC")

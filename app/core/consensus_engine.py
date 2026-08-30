@@ -44,7 +44,8 @@ class ConsensusEngine:
                 elif key == 'c2pa_verified':
                     available_signals[key] = 0.05 if val else 0.5  # Verified provenance = strong authentic signal
                 elif key == 'reverse_search_ai_platform':
-                    available_signals[key] = 0.9 if val else 0.2
+                    if val:
+                        available_signals[key] = 0.95
                 else:
                     available_signals[key] = float(val)
         

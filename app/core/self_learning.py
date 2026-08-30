@@ -77,18 +77,18 @@ class SelfLearningEngine:
                 # NEEDS_FURTHER_EXAMINATION: Not yet confirmed ground truth
                 return None
 
-        # Copy and anonymize image file for training store
+        # Copy and anonymize image file for training store (only for IMAGE modality)
         src_path = EVIDENCE_DIR / ev["stored_filename"]
         sample_id = f"TRN-{uuid.uuid4().hex[:10].upper()}"
         ext = Path(ev["stored_filename"]).suffix or ".jpg"
         sub_folder = TRAINING_AI_DIR if confirmed_label == "AI_GENERATED" else TRAINING_REAL_DIR
         dest_path = sub_folder / f"{sample_id}{ext}"
 
-        if src_path.exists():
+        if src_path.exists() and ev.get("modality", "IMAGE") == "IMAGE":
             try:
                 shutil.copy2(src_path, dest_path)
             except Exception as e:
-                logger.warning(f"Could not copy training file {src_path}: {e}")
+                logger.warning(f"Failed to copy evidence to training dataset store: {e}")
                 dest_path = src_path
 
         now = datetime.utcnow().isoformat() + "Z"
