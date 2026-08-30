@@ -94,7 +94,49 @@ document.addEventListener("DOMContentLoaded", () => {
   setupSplitSlider();
   setupMagnifier();
   refreshUserQuota();
+  initSystemTelemetry();
 });
+
+// ═══════════════════════════════════════════════════════════════
+// REAL-TIME SYSTEM TELEMETRY & HARDWARE ACCELERATION
+// ═══════════════════════════════════════════════════════════════
+async function initSystemTelemetry() {
+  async function fetchTelemetry() {
+    try {
+      const res = await fetch("/api/system/info");
+      if (!res.ok) return;
+      const data = await res.json();
+      const textEl = document.getElementById("header-status-text");
+      const pillEl = document.getElementById("header-system-status");
+      const dotEl = document.getElementById("header-status-dot");
+      if (!textEl || !pillEl) return;
+
+      const device = data.environment?.compute_device || "CPU";
+      const db = data.database || {};
+      const storage = data.storage || {};
+      const uptimeMin = Math.round((data.uptime_seconds || 0) / 60);
+
+      if (device.includes("MPS") || device.includes("Apple")) {
+        textEl.textContent = "⚡ Metal Core Ready";
+      } else if (device.includes("CUDA")) {
+        textEl.textContent = "⚡ CUDA Core Ready";
+      } else {
+        textEl.textContent = "Forensic Core Ready";
+      }
+
+      if (dotEl) {
+        dotEl.style.backgroundColor = data.status === "HEALTHY" ? "var(--accent-green, #10b981)" : "var(--accent-amber, #f59e0b)";
+      }
+
+      pillEl.title = `Hardware: ${device} | DB: ${db.status} (${db.latency_ms || 0}ms WAL) | Free Disk: ${storage.free_disk_gb || 0} GB | Uptime: ${uptimeMin}m`;
+    } catch (e) {
+      console.debug("Telemetry fetch failed:", e);
+    }
+  }
+
+  fetchTelemetry();
+  setInterval(fetchTelemetry, 30000);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // USER QUOTA BADGE RENDERER (Task #18)
