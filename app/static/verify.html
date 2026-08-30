@@ -146,8 +146,8 @@
 
 <script>
   const params = new URLSearchParams(window.location.search);
-  const pathParts = window.location.pathname.split('/');
-  const evidenceId = pathParts[pathParts.length - 1] || params.get('id') || 'EV-2026-DEFAULT';
+  const pathParts = window.location.pathname.split('/').filter(p => p && !p.endsWith('.html'));
+  const evidenceId = params.get('id') || pathParts[pathParts.length - 1] || 'EV-2026-DEFAULT';
 
   async function loadPublicVerification() {
     try {

@@ -5,7 +5,7 @@ Authentication API routes: register, login, verify-email, resend-code, me, accep
 """
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel

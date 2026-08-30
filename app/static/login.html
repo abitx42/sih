@@ -218,10 +218,11 @@ window._googleClientId = 'truth-lens-forensics.apps.googleusercontent.com';
 
 (async function init() {
   const tok = localStorage.getItem('tl_token');
-  const isGuest = localStorage.getItem('tl_guest') === '1';
+  const urlParams = new URLSearchParams(window.location.search);
+  const allowSwitch = urlParams.get('switch') === '1';
 
-  // If already authenticated, redirect to main platform directly
-  if (isGuest || tok) {
+  // If already authenticated with active account token, redirect to main platform directly
+  if (tok && !allowSwitch) {
     window.location.href = '/';
     return;
   }
@@ -370,7 +371,25 @@ function switchTab(t) {
 
 function handleOtpInput(idx, e) {
   if (e.target.value.length === 1 && idx < 6) {
-    document.getElementById(`otp-${idx + 1}`).focus();
+    document.getElementById(`otp-${idx + 1}`)?.focus();
+  }
+}
+
+function handleOtpKeyDown(idx, e) {
+  if (e.key === 'Backspace' && !e.target.value && idx > 1) {
+    document.getElementById(`otp-${idx - 1}`)?.focus();
+  }
+}
+
+function handleOtpPaste(e) {
+  e.preventDefault();
+  const paste = (e.clipboardData || window.clipboardData).getData('text').trim();
+  if (/^\d{6}$/.test(paste)) {
+    for (let i = 1; i <= 6; i++) {
+      const inp = document.getElementById(`otp-${i}`);
+      if (inp) inp.value = paste[i - 1];
+    }
+    document.getElementById('otp-6')?.focus();
   }
 }
 

@@ -102,13 +102,17 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         <span class="nav-label">Custody</span>
       </button>
+      <button class="nav-item" onclick="switchView('training')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 3 6 3 6 3s6 0 6-3v-5"/></svg>
+        <span class="nav-label">Studio</span>
+      </button>
     </nav>
 
     <div style="display: flex; align-items: center; gap: 0.6rem;">
             <!-- Global Quick Ingest Button -->
       <button class="btn btn-primary btn-sm" onclick="switchView('upload')" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600;" title="Ingest Digital Evidence">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-        <span>+ Ingest</span>
+        <span>Ingest</span>
       </button>
 
       <button class="status-pill" onclick="openCommandPalette()" style="cursor: pointer; border: 1px solid var(--hairline); background: var(--panel);" title="Quick Forensic Search (Cmd+K / Ctrl+K)">
@@ -117,18 +121,19 @@
         <span class="data-mono" style="font-size: 10px; background: var(--ink); padding: 1px 5px; border-radius: 3px; color: var(--tag-accent); border: 1px solid var(--hairline);">⌘K</span>
       </button>
 
-      <button class="header-icon-btn" onclick="showKeyboardShortcutsModal()" title="Keyboard Shortcuts (?)">
+      <button class="header-icon-btn" onclick="showKeyboardShortcutsModal()" title="Keyboard Shortcuts (?)" style="background: none; border: 1px solid var(--hairline); border-radius: 6px; padding: 4px 8px; cursor: pointer; color: var(--cream);">
         ⌨️
       </button>
 
-      <div class="status-pill header-status" id="header-system-status" title="Connecting to forensic core...">
+      <!-- System Status Dot -->
+      <div class="status-pill" id="system-status-indicator" title="System Diagnostic Status">
         <div class="status-dot-pulse" id="header-status-dot"></div>
         <span id="header-status-text">Forensic Core Ready</span>
       </div>
 
       <!-- User Pill + Quota Badge + Sign Out -->
-      <div id="user-quota-badge" class="hidden flex items-center shadow-sm" title="Exhibit Storage & Upload Quota" style="display:none; font-size: 0.75rem; line-height: 1rem; padding-left: 0.625rem; padding-right: 0.625rem; padding-top: 0.25rem; padding-bottom: 0.25rem; border-radius: 9999px; border: 1px solid rgb(51, 65, 85); background-color: rgba(30, 41, 59, 0.8); color: rgb(203, 213, 225); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; gap: 0.375rem;">
-        <i class="fa-solid fa-hard-drive" style="color: rgb(34, 211, 238); font-size: 10px;"></i>
+      <div id="user-quota-badge" class="quota-badge" title="Exhibit Storage & Upload Quota" style="display:none;">
+        <span>💾</span>
         <span id="quota-badge-text">Quota: --</span>
       </div>
       <button id="user-pill" class="status-pill" title="Signed in"
@@ -1380,9 +1385,9 @@
             
             <!-- Layer View Toggles -->
             <div style="display: flex; gap: 0.4rem;">
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-diff" onclick="switchDiffLayer('diff')" style="font-size: 0.72rem; padding: 3px 8px;">Difference Map</button>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-ev" onclick="switchDiffLayer('evidence')" style="font-size: 0.72rem; padding: 3px 8px;">Suspect Exhibit</button>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-triple" onclick="switchDiffLayer('triple')" style="font-size: 0.72rem; padding: 3px 8px;">Triple Pane</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-diff" onclick="switchComparisonLayer('diff')" style="font-size: 0.72rem; padding: 3px 8px;">Difference Map</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-ev" onclick="switchComparisonLayer('evidence')" style="font-size: 0.72rem; padding: 3px 8px;">Suspect Exhibit</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-layer-triple" onclick="switchComparisonLayer('triple')" style="font-size: 0.72rem; padding: 3px 8px;">Triple Pane</button>
             </div>
           </div>
 
@@ -2005,61 +2010,7 @@
                 <tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Loading cases...</td></tr>
               </tbody>
             </table>
-          </div>
         </div>
-        <!-- LoRA Fine-Tuning Controller & Model Versioning (Phase 5) -->
-        <div style="margin-top: 1.5rem; border-top: 1px solid var(--hairline); padding-top: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-              <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--cream); display: flex; align-items: center; gap: 0.4rem;">
-                🚀 LoRA Fine-Tuning &amp; Model Lineage Controller
-              </h4>
-              <p style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">
-                Parameter-Efficient Low-Rank Adaptation for local vision ensemble. Hot-reloads lightweight adapter matrices (~5 MB).
-              </p>
-            </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <button class="btn btn-primary btn-sm" id="btn-trigger-lora" onclick="triggerLoRATraining()" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;">
-                ⚡ Trigger LoRA Adaptation
-              </button>
-            </div>
-          </div>
-
-          <!-- Live Training Progress Bar (Shown during training) -->
-          <div id="lora-training-progress-box" style="display: none; background: rgba(0,0,0,0.5); border: 1px solid var(--brand); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-              <span style="font-size: 0.78rem; font-weight: 700; color: var(--brand);" id="lora-train-status-text">LoRA Optimization in Progress...</span>
-              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--cream);" id="lora-train-pct">0%</span>
-            </div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 0.6rem;">
-              <div id="lora-train-bar" style="height: 100%; width: 0%; background: var(--brand); transition: width 0.3s;"></div>
-            </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-secondary); max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 0.4rem 0.6rem; border-radius: 4px;" id="lora-train-logs">
-              Initializing LoRA gradient step...
-            </div>
-          </div>
-
-          <!-- Model Versions Lineage Table -->
-          <div style="overflow-x: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Model Version ID</th>
-                  <th>Base Architecture</th>
-                  <th>Training Samples</th>
-                  <th>Val Accuracy</th>
-                  <th>Loss</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="model-versions-table-body">
-                <tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Loading model checkpoints...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
       </div>
 
       <!-- 5B. CASE INVESTIGATION WORKSPACE PANEL -->

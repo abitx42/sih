@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from app.config import STORAGE_DIR
 from app.database import get_db
 from app.security.validator import sanitize_filename
+from app.core.security_guard import validate_safe_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/feedback", tags=["Feedback & Bug Reports"])

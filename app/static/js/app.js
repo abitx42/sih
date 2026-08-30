@@ -192,14 +192,16 @@ function switchView(viewName) {
   if (targetSec) targetSec.classList.add("active");
 
   const navBtns = document.querySelectorAll(".nav-item");
-  const mapping = { dashboard: 0, cases: 1, upload: 2, lab: 3, custody: 4 };
-  if (navBtns[mapping[viewName]]) {
+  const mapping = { dashboard: 0, cases: 1, upload: 2, lab: 3, gauntlet: 4, custody: 5, training: 6 };
+  if (mapping[viewName] !== undefined && navBtns[mapping[viewName]]) {
     navBtns[mapping[viewName]].classList.add("active");
   }
 
   if (viewName === "dashboard") loadDashboardData();
   if (viewName === "custody") loadCustodyLedger();
   if (viewName === "cases") loadCasesList();
+  if (viewName === "gauntlet" && typeof loadGauntletChallenge === "function") loadGauntletChallenge();
+  if (viewName === "training" && typeof loadTrainingStudioData === "function") loadTrainingStudioData();
 }
 
 // Lab Sub-Tab Navigation Router
@@ -212,6 +214,12 @@ function switchLabTab(tabName) {
 
   const targetBtn = document.getElementById(`tab-btn-${tabName}`);
   if (targetBtn) targetBtn.classList.add("active");
+
+  if (typeof currentEvidenceId !== "undefined" && currentEvidenceId) {
+    if (tabName === "microscope" && typeof loadMicroscopeTab === "function") loadMicroscopeTab(currentEvidenceId);
+    if (tabName === "courtroom" && typeof loadCourtroomDebate === "function") loadCourtroomDebate(currentEvidenceId);
+    if (tabName === "provenance" && typeof loadWebProvenanceTab === "function") loadWebProvenanceTab(currentEvidenceId);
+  }
 }
 
 function initNavigation() {
@@ -2405,11 +2413,62 @@ function showKeyboardShortcutsModal() {
         </div>
       </div>
       <div class="cmd-palette-footer" style="justify-content: flex-end;">
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('shortcuts-modal').remove()">Close</button>
+        <button class="btn btn-secondary btn-sm" onclick="closeShortcutsModal()">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+}
+
+function closeShortcutsModal() {
+  const modal = document.getElementById('shortcuts-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    if (modal.parentNode && modal.classList.contains('cmd-palette-overlay')) {
+      modal.remove();
+    }
+  }
+}
+
+function openNewCaseModal() {
+  const modal = document.getElementById('new-case-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.getElementById('new-case-title')?.focus();
+  }
+}
+
+function closeNewCaseModal() {
+  const modal = document.getElementById('new-case-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitNewCase() {
+  const title = document.getElementById('new-case-title')?.value?.trim();
+  const lead = document.getElementById('new-case-lead')?.value?.trim() || 'Lead Forensic Examiner';
+  const desc = document.getElementById('new-case-desc')?.value?.trim() || '';
+  if (!title) {
+    if (typeof showToast === 'function') showToast('Please enter an investigation title.', 'warning');
+    else alert('Please enter an investigation title.');
+    return;
+  }
+  try {
+    const res = await fetch('/api/cases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, lead_investigator: lead, description: desc })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to create case');
+    closeNewCaseModal();
+    if (typeof showToast === 'function') showToast(`Case '${data.case_id}' created successfully!`, 'success');
+    loadCasesList();
+    if (typeof loadCasesDropdown === 'function') loadCasesDropdown();
+    if (typeof openCaseWorkspace === 'function') openCaseWorkspace(data.case_id);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+    else alert(`Error creating case: ${e.message}`);
+  }
 }
 
 // ── C. Interactive Split-Slider & Loupe Inspection ──
