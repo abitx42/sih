@@ -1,4 +1,5 @@
 import os
+import math
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -212,15 +213,21 @@ class VideoAnalyzer(BaseAnalyzer):
 
         try:
             with open(file_path, "rb") as f:
-                header = f.read(min(info["size_bytes"], 1024 * 1024))
+                header = f.read(512 * 1024)
+                if size_bytes > 512 * 1024:
+                    f.seek(max(0, size_bytes - 512 * 1024))
+                    trailer = f.read(512 * 1024)
+                else:
+                    trailer = b""
+                container_bytes = header + trailer
             
-            if b"ftyp" in header:
+            if b"ftyp" in container_bytes:
                 info["has_ftyp"] = True
-            if b"moov" in header or b"mdat" in header:
+            if b"moov" in container_bytes or b"mdat" in container_bytes:
                 info["has_moov"] = True
             
             for sw in [b"Adobe Premiere", b"CapCut", b"DaVinci Resolve", b"InShot", b"ffmpeg", b"HandBrake", b"DeepFaceLab"]:
-                if sw.lower() in header.lower():
+                if sw.lower() in container_bytes.lower():
                     sw_name = sw.decode(errors='ignore')
                     info["encoder"] = sw_name
                     if sw_name == "DeepFaceLab":
@@ -273,56 +280,56 @@ class VideoAnalyzer(BaseAnalyzer):
             if not cap.isOpened():
                 return [], metadata
 
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            fps = float(cap.get(cv2.CAP_PROP_FPS))
-            if not fps or fps <= 0 or fps > 240:
-                fps = 25.0
+            try:
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                fps = float(cap.get(cv2.CAP_PROP_FPS))
+                if not fps or math.isnan(fps) or fps <= 0 or fps > 240:
+                    fps = 25.0
 
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            if width > 0 and height > 0:
-                metadata["video_resolution"] = f"{width}x{height}"
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                if width > 0 and height > 0:
+                    metadata["video_resolution"] = f"{width}x{height}"
 
-            metadata["total_frames_in_stream"] = total_frames
-            metadata["fps"] = round(fps, 2)
-            metadata["duration_seconds"] = round(total_frames / fps, 2) if total_frames > 0 else 0.0
+                metadata["total_frames_in_stream"] = total_frames
+                metadata["fps"] = round(fps, 2)
+                metadata["duration_seconds"] = round(total_frames / fps, 2) if total_frames > 0 else 0.0
 
-            if total_frames <= 0:
-                # Attempt sequential read if frame count is unindexed
-                seq_frames = []
-                count = 0
-                while count < self.max_sampled_frames:
+                if total_frames <= 0:
+                    # Attempt sequential read if frame count is unindexed
+                    seq_frames = []
+                    count = 0
+                    while count < self.max_sampled_frames:
+                        ret, frame = cap.read()
+                        if not ret or frame is None:
+                            break
+                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        seq_frames.append(Image.fromarray(rgb_frame))
+                        metadata["sampled_frame_indices"].append(count)
+                        metadata["frame_timestamps"].append(round(count / fps, 3))
+                        count += 1
+                    return seq_frames, metadata
+
+                # Calculate uniform sampling indices
+                sample_count = min(self.max_sampled_frames, total_frames)
+                if sample_count <= 0:
+                    return [], metadata
+
+                indices = np.linspace(0, total_frames - 1, num=sample_count, dtype=int)
+                indices = sorted(list(set(indices.tolist())))
+
+                for idx in indices:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
                     ret, frame = cap.read()
-                    if not ret or frame is None:
-                        break
-                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    seq_frames.append(Image.fromarray(rgb_frame))
-                    metadata["sampled_frame_indices"].append(count)
-                    metadata["frame_timestamps"].append(round(count / fps, 3))
-                    count += 1
+                    if ret and frame is not None:
+                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frames.append(Image.fromarray(rgb_frame))
+                        metadata["sampled_frame_indices"].append(int(idx))
+                        metadata["frame_timestamps"].append(round(float(idx) / fps, 3))
+
+                return frames, metadata
+            finally:
                 cap.release()
-                return seq_frames, metadata
-
-            # Calculate uniform sampling indices
-            sample_count = min(self.max_sampled_frames, total_frames)
-            if sample_count <= 0:
-                cap.release()
-                return [], metadata
-
-            indices = np.linspace(0, total_frames - 1, num=sample_count, dtype=int)
-            indices = sorted(list(set(indices.tolist())))
-
-            for idx in indices:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
-                ret, frame = cap.read()
-                if ret and frame is not None:
-                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frames.append(Image.fromarray(rgb_frame))
-                    metadata["sampled_frame_indices"].append(int(idx))
-                    metadata["frame_timestamps"].append(round(float(idx) / fps, 3))
-
-            cap.release()
-            return frames, metadata
         except Exception as e:
             logger.error(f"Error decoding video frames from {file_path}: {e}")
             return [], metadata

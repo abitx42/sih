@@ -74,7 +74,7 @@ class DIREAnalyzer:
             kurtosis_signal = max(0.0, min(100.0, (dct_kurtosis - 5.0) * 15.0))
             
             # Reconstruction error flat-line signal (diffusion images have low loss drop between Q30 and Q90)
-            q_drop = reconstruction_errors[0] - reconstruction_errors[-1]
+            q_drop = max(0.0, reconstruction_errors[0] - reconstruction_errors[-1])
             flatline_signal = max(0.0, min(100.0, (1.2 - q_drop) * 50.0)) if q_drop < 1.2 else 0.0
 
             final_score = round(
@@ -106,37 +106,41 @@ class DIREAnalyzer:
     def _dct_roundtrip_error(self, img: Image.Image, quality: int) -> float:
         try:
             arr_orig = np.array(img, dtype=np.float32)
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=quality)
-            buf.seek(0)
-            img_decoded = Image.open(buf).convert("RGB")
-            arr_decoded = np.array(img_decoded, dtype=np.float32)
-            return float(np.mean(np.abs(arr_orig - arr_decoded))) / 255.0 * 100.0
+            with io.BytesIO() as buf:
+                img.save(buf, format="JPEG", quality=quality)
+                buf.seek(0)
+                with Image.open(buf) as img_decoded_raw:
+                    img_decoded = img_decoded_raw.convert("RGB")
+                    arr_decoded = np.array(img_decoded, dtype=np.float32)
+                    return float(np.mean(np.abs(arr_orig - arr_decoded))) / 255.0 * 100.0
         except Exception:
             return 2.0
 
     def _compute_dct_kurtosis(self, gray: np.ndarray) -> float:
         try:
-            h, w = gray.shape
-            block_size = 8
-            all_coeffs = []
-            for i in range(0, min(h, 256) - block_size + 1, block_size):
-                for j in range(0, min(w, 256) - block_size + 1, block_size):
-                    block = gray[i:i+block_size, j:j+block_size]
-                    fft_block = np.fft.fft2(block)
-                    coeffs = np.abs(fft_block.flatten()[1:])
-                    all_coeffs.extend(coeffs.tolist())
-
-            if not all_coeffs:
+            h = min(gray.shape[0], 256)
+            w = min(gray.shape[1], 256)
+            h = h - (h % 8)
+            w = w - (w % 8)
+            if h < 8 or w < 8:
                 return 3.0
 
-            coeffs_arr = np.array(all_coeffs)
-            mean = np.mean(coeffs_arr)
-            std = np.std(coeffs_arr)
+            sub_gray = gray[:h, :w]
+            # Vectorized 4D block FFT transformation
+            blocks = sub_gray.reshape(h // 8, 8, w // 8, 8).swapaxes(1, 2)
+            fft_blocks = np.fft.fft2(blocks)
+            mag = np.abs(fft_blocks)
+            ac_coeffs = mag.reshape(-1, 64)[:, 1:].flatten()
+
+            if ac_coeffs.size == 0:
+                return 3.0
+
+            mean = float(np.mean(ac_coeffs))
+            std = float(np.std(ac_coeffs))
             if std < 1e-6:
                 return 3.0
 
-            kurtosis = float(np.mean(((coeffs_arr - mean) / std) ** 4))
+            kurtosis = float(np.mean(((ac_coeffs - mean) / std) ** 4))
             return min(20.0, max(0.0, kurtosis))
         except Exception:
             return 3.0

@@ -263,14 +263,12 @@ class AudioAnalyzer(BaseAnalyzer):
                     data = np.frombuffer(raw_bytes, dtype=np.int16).astype(np.float32) / 32768.0
                     bit_depth = 16
                 elif sample_width == 3:
-                    # 24-bit PCM
+                    # 24-bit PCM vectorized decoding
                     raw_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-                    data_int = []
-                    for i in range(0, len(raw_arr) - 2, 3):
-                        b = raw_arr[i:i+3]
-                        val = int.from_bytes(b, byteorder='little', signed=True)
-                        data_int.append(val)
-                    data = np.array(data_int, dtype=np.float32) / 8388608.0
+                    valid_len = len(raw_arr) - (len(raw_arr) % 3)
+                    raw_24 = raw_arr[:valid_len].reshape(-1, 3)
+                    data_int = raw_24[:, 0].astype(np.int32) | (raw_24[:, 1].astype(np.int32) << 8) | (raw_24[:, 2].astype(np.int8).astype(np.int32) << 16)
+                    data = data_int.astype(np.float32) / 8388608.0
                     bit_depth = 24
                 elif sample_width == 4:
                     data = np.frombuffer(raw_bytes, dtype=np.int32).astype(np.float32) / 2147483648.0
@@ -279,7 +277,8 @@ class AudioAnalyzer(BaseAnalyzer):
                     return None, metadata
 
                 if n_channels > 1:
-                    data = data.reshape(-1, n_channels)
+                    valid_data_len = len(data) - (len(data) % n_channels)
+                    data = data[:valid_data_len].reshape(-1, n_channels)
                     data = np.mean(data, axis=1)  # downmix to mono for forensic analysis
 
                 duration = float(len(data)) / float(framerate) if framerate > 0 else 0.0

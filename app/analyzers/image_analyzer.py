@@ -533,7 +533,11 @@ class ImageAnalyzer(BaseAnalyzer):
 
             diff = ImageChops.difference(img, resaved_img)
             extrema = diff.getextrema()
-            max_diff = max([ex[1] for ex in extrema])
+            if isinstance(extrema[0], (tuple, list)):
+                max_diff = max(ex[1] for ex in extrema)
+            else:
+                max_diff = extrema[1] if len(extrema) > 1 else extrema[0]
+
             if max_diff == 0:
                 max_diff = 1
             scale = 255.0 / max_diff
@@ -685,7 +689,11 @@ class ImageAnalyzer(BaseAnalyzer):
             q11 = cfa_res[1::2, 1::2]
 
             var_means = [float(np.mean(np.abs(q))) for q in [q00, q01, q10, q11]]
-            grid_disp = float(np.std(var_means) / (np.mean(var_means) + 1e-6))
+            mean_energy = float(np.mean(var_means))
+            if mean_energy < 0.1:
+                return 15.0, {"periodicity_ratio": 0.0, "flat_region": True}
+
+            grid_disp = float(np.std(var_means) / (mean_energy + 1e-6))
 
             # Optical sensor captures display higher demosaicing periodicity variance (> 0.12)
             # Synthetic images have homogeneous interpolation (grid_disp < 0.05)

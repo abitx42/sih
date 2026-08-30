@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Any, Union, Tuple
 from PIL import Image, ImageFilter
 import numpy as np
+from scipy import ndimage
 
 from app.config import STORAGE_DIR
 
@@ -77,10 +78,8 @@ class PRNUBallisticsEngine:
             lum = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
 
             # 1. 2D Wiener-like High-Pass Noise Residual Extraction
-            # Subtract local Gaussian mean from luminance to isolate high-frequency sensor noise
-            img_lum_pil = Image.fromarray(np.uint8(np.clip(lum, 0, 255)))
-            blur = img_lum_pil.filter(ImageFilter.GaussianBlur(radius=1.5))
-            blur_arr = np.array(blur, dtype=np.float32)
+            # Direct float32 Gaussian filtering without 8-bit quantization artifacts
+            blur_arr = ndimage.gaussian_filter(lum, sigma=1.5)
             noise_residual = lum - blur_arr
 
             # 2. Compute PRNU Energy & Sensor Fingerprint Metrics
@@ -108,7 +107,11 @@ class PRNUBallisticsEngine:
 
             # 4. Silicon Defect Pixel Cluster Density (Hot/Dead sensor pixel consistency)
             # Physical sensors have stationary defective pixels; AI images have zero.
-            hot_pixels = np.sum(np.abs(noise_residual) > (3.5 * np.std(noise_residual)))
+            std_res = float(np.std(noise_residual))
+            if std_res > 1e-6:
+                hot_pixels = int(np.sum(np.abs(noise_residual) > (3.5 * std_res)))
+            else:
+                hot_pixels = 0
             hot_pixel_density = float(hot_pixels / (target_w * target_h)) * 1000.0
 
             # 5. Discrimination & Attributability Score

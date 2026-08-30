@@ -93,8 +93,13 @@ class AudioDeepfakeDetector:
             # 3. Neural Vocoder Phase Dispersion Anomaly
             # HiFi-GAN and diffusion vocoders introduce phase incoherence across sub-bands
             phase_spec = np.angle(Zxx)
-            phase_diff = np.diff(phase_spec, axis=1)
-            phase_entropy = float(np.mean(np.abs(np.diff(phase_diff, axis=1))))
+            if Zxx.shape[1] >= 3:
+                phase_diff = np.diff(phase_spec, axis=1)
+                phase_entropy = float(np.mean(np.abs(np.diff(phase_diff, axis=1))))
+                if math.isnan(phase_entropy):
+                    phase_entropy = 1.5
+            else:
+                phase_entropy = 1.5
 
             # 4. Spectral Flatness & Artificial Smoothing (Tone-to-Noise Ratio)
             # Synthesized voices tend to have artificially flat, hyper-regular harmonic peaks

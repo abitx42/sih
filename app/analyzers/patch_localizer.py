@@ -70,7 +70,7 @@ class PatchLocalizer:
         # Adaptive patch size based on image dimensions
         min_dim = min(width, height)
         patch_size = max(8, min(self.target_patch_size, min_dim))
-        stride = max(16, patch_size // 2)
+        stride = max(1, min(16, patch_size // 2))
 
         # Sliding window analysis
         patches: List[Dict[str, Any]] = []
@@ -159,12 +159,15 @@ class PatchLocalizer:
         heatmap = ndimage.gaussian_filter(heatmap, sigma=max(2.0, patch_size / 8.0))
         max_anomaly = float(np.max(heatmap)) if heatmap.size > 0 else 0.0
 
+        orig_w, orig_h = img.size
         # Extract localized high-anomaly bounding boxes
         localized_regions = self._extract_bounding_boxes(
             heatmap=heatmap,
             patches=patches,
             width=width,
             height=height,
+            orig_w=orig_w,
+            orig_h=orig_h,
             max_anomaly=max_anomaly
         )
 
@@ -187,6 +190,8 @@ class PatchLocalizer:
         patches: List[Dict[str, Any]],
         width: int,
         height: int,
+        orig_w: int,
+        orig_h: int,
         max_anomaly: float
     ) -> List[Dict[str, Any]]:
         """
@@ -262,6 +267,9 @@ class PatchLocalizer:
             else:
                 primary_anomaly = "Boundary Resampling Discontinuity"
 
+            inv_scale_x = orig_w / max(1, width)
+            inv_scale_y = orig_h / max(1, height)
+
             regions.append({
                 "region_id": f"ROI-{len(regions) + 1}",
                 "semantic_label": semantic_label,
@@ -273,7 +281,7 @@ class PatchLocalizer:
                     "xmin": round(cx / width, 3),
                     "ymax": round(cy2 / height, 3),
                     "xmax": round(cx2 / width, 3),
-                    "pixel_coords": [int(cx), int(cy), int(cx2), int(cy2)]
+                    "pixel_coords": [int(cx * inv_scale_x), int(cy * inv_scale_y), int(cx2 * inv_scale_x), int(cy2 * inv_scale_y)]
                 }
             })
 
