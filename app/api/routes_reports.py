@@ -1,6 +1,5 @@
-import json
-from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import FileResponse
 from app.database import get_db
 from app.config import REPORTS_DIR
@@ -9,9 +8,21 @@ from app.core.chain_of_custody import ChainOfCustodyLogger
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
+def _extract_officer_name(authorization: Optional[str], default_actor: str = "Lead Forensic Examiner") -> str:
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            from app.core.auth import decode_access_token
+            payload = decode_access_token(authorization.split(" ")[1])
+            if payload and payload.get("name"):
+                return str(payload["name"]).strip()
+        except Exception:
+            pass
+    return str(default_actor).strip() or "Lead Forensic Examiner"
+
 @router.get("/{evidence_id}/download")
 @router.get("/{evidence_id}/pdf")
-def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic Examiner"):
+def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic Examiner", authorization: Optional[str] = Header(None)):
+    officer_name = _extract_officer_name(authorization, actor)
     with get_db() as conn:
         cursor = conn.cursor()
 
@@ -169,11 +180,12 @@ def get_legal_certificate_payload(evidence_id: str):
 
 
 @router.get("/{evidence_id}/certificate-pdf")
-def download_legal_certificate_pdf(evidence_id: str, actor: str = "Lead Forensic Examiner"):
+def download_legal_certificate_pdf(evidence_id: str, actor: str = "Lead Forensic Examiner", authorization: Optional[str] = Header(None)):
     """
     Compiles and downloads official certified Section 65B (BSA 2023) PDF Annexure.
     """
     from app.core.legal_certificate import LegalCertificateGenerator
+    officer_name = _extract_officer_name(authorization, actor)
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM evidence WHERE evidence_id = ?", (evidence_id,))
@@ -193,13 +205,13 @@ def download_legal_certificate_pdf(evidence_id: str, actor: str = "Lead Forensic
         evidence=evidence,
         case=case_info,
         forensic_res=forensic_res,
-        officer_name=actor
+        officer_name=officer_name
     )
 
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="LEGAL_CERTIFICATE_BSA65B_EXPORTED",
-        actor=actor,
+        actor=officer_name,
         recorded_sha256=evidence["sha256_hash"],
         details=f"Official Section 65B (BSA 2023) Court Certificate exported: '{pdf_path.name}'."
     )

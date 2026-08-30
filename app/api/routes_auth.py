@@ -148,6 +148,16 @@ def verify_email(body: VerifyEmailRequest):
         if not stored_code or stored_code != code:
             raise HTTPException(status_code=400, detail="Invalid verification code. Please check and try again.")
 
+        # Check expiration
+        expires_at_str = user.get("verification_code_expires_at")
+        if expires_at_str:
+            try:
+                expires_at = datetime.fromisoformat(expires_at_str.replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > expires_at:
+                    raise HTTPException(status_code=400, detail="Verification code has expired. Please request a new code.")
+            except (ValueError, TypeError):
+                pass
+
         # Mark as verified
         conn.execute(
             "UPDATE users SET email_verified = 1, verification_code = NULL, verification_code_expires_at = NULL WHERE email = ?",

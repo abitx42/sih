@@ -417,11 +417,14 @@ def reconcile_orphaned_jobs() -> int:
             """, (safe_msg, now, ev_id))
             recovered += 1
 
-            event_id = f"COC-{uuid.uuid4().hex[:10].upper()}"
-            cursor.execute("""
-            INSERT INTO chain_of_custody (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (event_id, ev_id, "ANALYSIS_FAILED", "Truth Lens System Recovery", rec["sha256_hash"], f"Job recovery: {safe_msg}", now))
+            from app.core.chain_of_custody import ChainOfCustodyLogger
+            ChainOfCustodyLogger.record_event(
+                evidence_id=ev_id,
+                action="ANALYSIS_FAILED",
+                actor="Truth Lens System Recovery",
+                recorded_sha256=rec["sha256_hash"],
+                details=f"Job recovery: {safe_msg}"
+            )
 
     return recovered
 

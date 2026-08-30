@@ -52,25 +52,33 @@ class ChainOfCustodyLogger:
     ) -> Dict[str, Any]:
         event_id = f"COC-{uuid.uuid4().hex[:10].upper()}"
         timestamp = datetime.utcnow().isoformat() + "Z"
-        previous_event_hash = ChainOfCustodyLogger._get_latest_event_hash(evidence_id)
 
         with get_db() as conn:
             cursor = conn.cursor()
-            # Check if previous_event_hash column exists
-            cursor.execute("PRAGMA table_info(chain_of_custody)")
-            cols = [c["name"] for c in cursor.fetchall()]
-            if "previous_event_hash" in cols:
-                cursor.execute("""
+            # Fetch latest event within the same connection to prevent race conditions
+            cursor.execute("""
+                SELECT event_id, evidence_id, action, timestamp, recorded_sha256
+                FROM chain_of_custody
+                WHERE evidence_id = ?
+                ORDER BY id DESC LIMIT 1
+            """, (evidence_id,))
+            last_row = cursor.fetchone()
+            if last_row:
+                previous_event_hash = ChainOfCustodyLogger._compute_event_hash(
+                    event_id=last_row["event_id"],
+                    evidence_id=last_row["evidence_id"],
+                    action=last_row["action"],
+                    timestamp=last_row["timestamp"],
+                    recorded_sha256=last_row["recorded_sha256"]
+                )
+            else:
+                previous_event_hash = ""
+
+            cursor.execute("""
                 INSERT INTO chain_of_custody
                     (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp, previous_event_hash)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp, previous_event_hash))
-            else:
-                cursor.execute("""
-                INSERT INTO chain_of_custody
-                    (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp))
+            """, (event_id, evidence_id, action, actor, recorded_sha256, details, timestamp, previous_event_hash))
 
         return {
             "event_id": event_id,

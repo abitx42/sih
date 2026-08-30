@@ -126,6 +126,16 @@ def detect_mime_and_modality(file_path: Path, filename: str) -> Tuple[str, str]:
 
     return "application/octet-stream", "DOCUMENT"
 
+def is_unsafe_archive_path(filename: str) -> bool:
+    normalized = filename.replace("\\", "/")
+    norm_path = os.path.normpath(normalized)
+    if norm_path.startswith("..") or norm_path.startswith("/") or norm_path.startswith("\\"):
+        return True
+    if os.path.isabs(norm_path) or re.match(r'^[a-zA-Z]:', norm_path):
+        return True
+    return False
+
+
 def validate_archive_security(archive_path: Path, max_uncompressed_bytes: int = 200 * 1024 * 1024) -> None:
     """
     Guards against Zip Slip (Path Traversal) and Zip Bombs.
@@ -135,9 +145,7 @@ def validate_archive_security(archive_path: Path, max_uncompressed_bytes: int = 
         with zipfile.ZipFile(archive_path, 'r') as zf:
             total_size = 0
             for member in zf.infolist():
-                # Path traversal check
-                target_path = os.path.normpath(member.filename)
-                if target_path.startswith("..") or target_path.startswith("/") or target_path.startswith("\\"):
+                if is_unsafe_archive_path(member.filename):
                     raise HTTPException(status_code=400, detail=f"Security Alert: Zip Slip path traversal attempt detected in '{member.filename}'")
                 
                 total_size += member.file_size
@@ -148,8 +156,7 @@ def validate_archive_security(archive_path: Path, max_uncompressed_bytes: int = 
         with tarfile.open(archive_path, 'r:*') as tf:
             total_size = 0
             for member in tf.getmembers():
-                target_path = os.path.normpath(member.name)
-                if target_path.startswith("..") or target_path.startswith("/") or target_path.startswith("\\"):
+                if is_unsafe_archive_path(member.name):
                     raise HTTPException(status_code=400, detail=f"Security Alert: Tar path traversal attempt detected in '{member.name}'")
                 total_size += member.size
                 if total_size > max_uncompressed_bytes:

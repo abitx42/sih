@@ -18,17 +18,17 @@ DANGEROUS_EXTENSIONS = {
 
 
 def sanitize_filename(filename: str) -> str:
-    """
+    r"""
     Sanitizes untrusted client-supplied filenames:
     - Strips path traversal sequences (../, ..\)
     - Removes null bytes and control characters
-    - Blocks dangerous executable double extensions
+    - Blocks dangerous executable single or double extensions
     """
     if not filename:
         return "unnamed_evidence"
 
     # Normalize backslashes and extract base filename
-    normalized = filename.replace("\\", "/").replace("\\", "/")
+    normalized = filename.replace("\\", "/")
     clean = os.path.basename(normalized)
     
     # Remove null bytes and non-printable characters
@@ -37,10 +37,12 @@ def sanitize_filename(filename: str) -> str:
     # Remove dangerous characters
     clean = re.sub(r'[<>:"/\\|?*]', "", clean).strip(". ")
 
-    # Check for dangerous double extensions (e.g. image.jpg.exe)
-    parts = clean.lower().split(".")
-    if len(parts) > 1 and parts[-1] in DANGEROUS_EXTENSIONS:
-        clean = ".".join(parts[:-1]) + ".blocked"
+    # Check for dangerous extensions (single or multi-extension attacks)
+    parts = clean.split(".")
+    if len(parts) > 1:
+        lower_exts = [p.lower() for p in parts[1:]]
+        if any(ext in DANGEROUS_EXTENSIONS for ext in lower_exts):
+            clean = ".".join(parts[:-1]) + ".blocked"
 
     return clean or "unnamed_evidence"
 
@@ -48,11 +50,11 @@ def sanitize_filename(filename: str) -> str:
 def validate_safe_path(target_path: Path, allowed_base_dir: Path) -> bool:
     """
     Verifies that target_path strictly resides within allowed_base_dir.
-    Prevents path traversal attacks (e.g. ../../etc/passwd or ../storage/evidence_x.db).
+    Prevents path traversal attacks (e.g. ../../etc/passwd or /storage_shadow/file).
     """
     try:
-        resolved_target = target_path.resolve()
-        resolved_base = allowed_base_dir.resolve()
-        return str(resolved_target).startswith(str(resolved_base))
+        resolved_target = Path(target_path).resolve()
+        resolved_base = Path(allowed_base_dir).resolve()
+        return resolved_target.is_relative_to(resolved_base)
     except Exception:
         return False

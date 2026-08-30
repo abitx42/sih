@@ -91,10 +91,15 @@ async def submit_feedback(request: Request):
                 if len(content) > 15 * 1024 * 1024:
                     raise HTTPException(status_code=413, detail="Feedback attachment must be under 15 MB.")
                 clean_name = sanitize_filename(attachment.filename)
-                ext = Path(clean_name).suffix or ".jpg"
+                ext = Path(clean_name).suffix.lower()
+                allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt", ".log", ".json"}
+                if ext not in allowed_exts:
+                    raise HTTPException(status_code=400, detail="Invalid attachment format. Allowed: Images, PDF, TXT, LOG, JSON.")
+                
                 feedback_tmp_id = f"FBK-{uuid.uuid4().hex[:8].upper()}"
                 saved_name = f"{feedback_tmp_id}{ext}"
                 target_path = FEEDBACK_ATTACHMENTS_DIR / saved_name
+                validate_safe_path(target_path, FEEDBACK_ATTACHMENTS_DIR)
                 target_path.write_bytes(content)
                 attachment_path_str = str(target_path)
         except HTTPException:
