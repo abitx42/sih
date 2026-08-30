@@ -403,7 +403,7 @@ def reconcile_orphaned_jobs() -> int:
     import uuid
     now = datetime.utcnow().isoformat() + "Z"
     safe_msg = "Analysis interrupted by server restart. Please retry the upload."
-    recovered = 0
+    recovered_items = []
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT evidence_id, sha256_hash FROM evidence WHERE status = 'ANALYZING' OR pipeline_status = 'ANALYZING'")
@@ -415,18 +415,19 @@ def reconcile_orphaned_jobs() -> int:
             SET status = 'FAILED', pipeline_status = 'FAILED', error_message = ?, analyzed_at = ?
             WHERE evidence_id = ?
             """, (safe_msg, now, ev_id))
-            recovered += 1
+            recovered_items.append((ev_id, rec["sha256_hash"]))
 
-            from app.core.chain_of_custody import ChainOfCustodyLogger
-            ChainOfCustodyLogger.record_event(
-                evidence_id=ev_id,
-                action="ANALYSIS_FAILED",
-                actor="Truth Lens System Recovery",
-                recorded_sha256=rec["sha256_hash"],
-                details=f"Job recovery: {safe_msg}"
-            )
+    from app.core.chain_of_custody import ChainOfCustodyLogger
+    for ev_id, sha256_h in recovered_items:
+        ChainOfCustodyLogger.record_event(
+            evidence_id=ev_id,
+            action="ANALYSIS_FAILED",
+            actor="Truth Lens System Recovery",
+            recorded_sha256=sha256_h,
+            details=f"Job recovery: {safe_msg}"
+        )
 
-    return recovered
+    return len(recovered_items)
 
 if __name__ == "__main__":
     init_db()

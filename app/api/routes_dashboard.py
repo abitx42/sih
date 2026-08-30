@@ -24,9 +24,21 @@ def get_dashboard_stats():
         WHERE risk_category IS NOT NULL 
         GROUP BY risk_category
         """)
-        risk_dist = {r["risk_category"]: r["count"] for r in cursor.fetchall()}
+        risk_dist = {"HIGH RISK": 0, "LOW RISK": 0, "REVIEW REQUIRED": 0}
+        for r in cursor.fetchall():
+            if r["risk_category"]:
+                risk_dist[r["risk_category"]] = r["count"]
 
-        # 4. Processing Status
+        # 4. Modality Distribution
+        cursor.execute("""
+        SELECT modality, COUNT(*) as count 
+        FROM evidence 
+        WHERE modality IS NOT NULL 
+        GROUP BY modality
+        """)
+        modality_dist = {r["modality"]: r["count"] for r in cursor.fetchall()}
+
+        # 5. Processing Status
         cursor.execute("""
         SELECT status, COUNT(*) as count 
         FROM evidence 
@@ -34,7 +46,7 @@ def get_dashboard_stats():
         """)
         processing_status = {r["status"]: r["count"] for r in cursor.fetchall()}
 
-        # 5. Recent Activity
+        # 6. Recent Activity
         cursor.execute("""
         SELECT * FROM evidence 
         ORDER BY uploaded_at DESC 
@@ -46,6 +58,7 @@ def get_dashboard_stats():
         "total_cases": total_cases,
         "total_evidence": total_evidence,
         "risk_distribution": risk_dist,
+        "modality_distribution": modality_dist,
         "processing_status": processing_status,
         "recent_activity": recent_activity
     }

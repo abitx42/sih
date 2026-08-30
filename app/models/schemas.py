@@ -6,7 +6,7 @@ class CaseCreate(BaseModel):
     case_id: Optional[str] = None
     title: str
     description: Optional[str] = None
-    lead_investigator: str = "Lead Forensic Analyst"
+    lead_investigator: Optional[str] = "Lead Forensic Analyst"
 
 class CaseResponse(BaseModel):
     case_id: str

@@ -44,6 +44,12 @@ def compare_evidence(req: EvidenceDiffRequest):
         if not ev_b:
             raise HTTPException(status_code=404, detail=f"Evidence '{req.evidence_id_b}' not found.")
 
+        if ev_a.get("modality") != "IMAGE" or ev_b.get("modality") != "IMAGE":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Visual diff comparison requires both exhibits to be IMAGE modality. Found: '{ev_a.get('modality')}' and '{ev_b.get('modality')}'."
+            )
+
         if ev_a["status"] not in ("COMPLETED",) or ev_b["status"] not in ("COMPLETED",):
             raise HTTPException(
                 status_code=400,

@@ -52,7 +52,8 @@ def get_public_verification_payload(evidence_id: str):
     debate = CourtroomDebateEngine.conduct_debate(evidence_id, ev.get("original_filename", "exhibit.jpg"), fr)
 
     risk_score = float(fr.get("forensic_risk_score", 50.0))
-    ai_ind = float(fr.get("ai_manipulation_indicator") or (risk_score / 100.0))
+    raw_ai_ind = fr.get("ai_manipulation_indicator")
+    ai_ind = float(raw_ai_ind) if raw_ai_ind is not None else float(risk_score / 100.0)
     is_ai = (ai_ind >= 0.50 or risk_score >= 60.0)
 
     return {
