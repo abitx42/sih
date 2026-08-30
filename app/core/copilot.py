@@ -73,9 +73,9 @@ class ForensicCopilot:
                 "signal": str(f.get("signal_name", "Unknown")),
                 "severity": str(f.get("severity", "INFO")),
                 "score": float(f.get("score", 0.0)),
-                "explanation": str(f.get("explanation", ""))
+                "explanation": str(f.get("explanation", ""))[:300]
             }
-            for f in findings
+            for f in findings[:15]
         ]
 
         clean_context = {
