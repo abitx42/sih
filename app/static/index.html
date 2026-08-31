@@ -102,7 +102,7 @@
 
     <div style="display: flex; align-items: center; gap: 0.6rem;">
             <!-- Global Quick Ingest Button -->
-      <button class="btn btn-primary btn-sm" onclick="switchView('upload')" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600;" title="Ingest Digital Evidence">
+      <button class="btn btn-primary btn-sm" onclick="switchView('lab')" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600;" title="Ingest Digital Evidence">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         <span>Ingest</span>
       </button>
@@ -513,47 +513,23 @@
         </div>
       </div>
 
-      <!-- Tab Bar (Section 4.3) -->
+      <!-- Consolidated 4-Tab Forensic Lab Navigation -->
       <div class="lab-tab-bar">
         <button id="tab-btn-overview" class="lab-tab-btn active" onclick="switchLabTab('overview')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          Overview
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Signal Overview &amp; Consensus
         </button>
-        <button id="tab-btn-exhibits" class="lab-tab-btn" onclick="switchLabTab('exhibits')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          Exhibits
+        <button id="tab-btn-microscope" class="lab-tab-btn" onclick="switchLabTab('microscope')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+          Optical Microscope &amp; PRNU Ballistics
         </button>
-        <button id="tab-btn-specialists" class="lab-tab-btn" onclick="switchLabTab('specialists')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
-          Ensemble
-        </button>
-        <button id="tab-btn-localization" class="lab-tab-btn" onclick="switchLabTab('localization')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          Localization
-        </button>
-        <button id="tab-btn-copilot" class="lab-tab-btn" onclick="switchLabTab('copilot')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="2" height="2"></rect><rect x="13" y="9" width="2" height="2"></rect><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-          Copilot
-        </button>
-        <button id="tab-btn-advanced" class="lab-tab-btn" onclick="switchLabTab('advanced')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0-14 0"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6H9v-6z"></path><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"></path></svg>
-          Advanced
-        </button>
-                <button id="tab-btn-provenance" class="lab-tab-btn" onclick="switchLabTab('provenance')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-          Web Provenance & News
-        </button>
-                <button id="tab-btn-microscope" class="lab-tab-btn" onclick="switchLabTab('microscope')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-          Microscope &amp; PRNU
+        <button id="tab-btn-provenance" class="lab-tab-btn" onclick="switchLabTab('provenance')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          C2PA Provenance &amp; Web Lens
         </button>
         <button id="tab-btn-courtroom" class="lab-tab-btn" onclick="switchLabTab('courtroom')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-          Courtroom &amp; Prompt Inverter
-        </button>
-        <button id="tab-btn-custody" class="lab-tab-btn" onclick="switchLabTab('custody')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          Custody
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+          Courtroom Dossier &amp; AI Copilot
         </button>
       </div>
 

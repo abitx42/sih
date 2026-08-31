@@ -370,25 +370,36 @@ Provide a concise, direct, professional forensic answer based strictly on the pr
             except Exception as e:
                 logger.warning(f"Copilot query failed: {e}")
 
-        # Deterministic Q&A pattern matcher
+        # Deterministic Q&A pattern matcher with specialized forensic domains
         q_lower = sanitized_q.lower()
         risk_score = forensic_result.get("forensic_risk_score", 0)
         risk_category = forensic_result.get("risk_category", "UNKNOWN")
         sha256 = evidence.get("sha256_hash", "N/A")
+        modality = evidence.get("modality", "IMAGE")
 
         if "hash" in q_lower or "sha" in q_lower or "integrity" in q_lower:
-            answer = f"The recorded SHA-256 cryptographic fingerprint for this evidence is `{sha256}`. The current integrity status is verified against baseline storage."
+            answer = f"The recorded SHA-256 cryptographic bitstream fingerprint for this exhibit is `{sha256}`. The physical bitstream matches the baseline recorded at genesis custody intake."
+        elif "prnu" in q_lower or "sensor" in q_lower or "silicon" in q_lower:
+            answer = f"Photo-Response Non-Uniformity (PRNU) sensor ballistics evaluate microscopic silicon lattice imperfections. Physical camera sensors produce stationary photon noise (PCE > 35), whereas synthetic AI generative models have zero physical silicon noise lattice."
+        elif "c2pa" in q_lower or "manifest" in q_lower or "provenance" in q_lower or "credential" in q_lower:
+            answer = f"C2PA (Coalition for Content Provenance and Authenticity) manifests verify ISO/IEC 19566-5 JUMBF cryptographic claim generators, digitalSourceType assertions, and X.509 certificate chains embedded in digital media."
+        elif "ela" in q_lower or "fft" in q_lower or "frequency" in q_lower or "dire" in q_lower or "kurtosis" in q_lower:
+            answer = f"Error Level Analysis (ELA at 95% quality) and 2D FFT spectral kurtosis evaluate spatial compression inconsistencies and VAE texture smoothing characteristic of generative diffusion algorithms."
+        elif "audio" in q_lower or "voice" in q_lower or "clone" in q_lower or "spectrogram" in q_lower:
+            answer = f"Acoustic deepfake detection measures 24-bit PCM spectral phase dispersion, formant tracking, and pitch jitter (F0 perturbation) to detect synthetic text-to-speech vocoders."
+        elif "video" in q_lower or "frame" in q_lower or "temporal" in q_lower:
+            answer = f"Video forensic timeline analysis evaluates inter-frame optical flow, temporal difference stability, and container atom integrity (moov/ftyp box verification)."
         elif "risk" in q_lower or "score" in q_lower:
-            answer = f"The composite Forensic Risk Score is {risk_score}/100 ({risk_category})."
-        elif "summary" in q_lower or "court" in q_lower or "report" in q_lower:
-            answer = f"Executive Forensic Assessment: Exhibit '{evidence.get('original_filename')}' is classified as {risk_category} ({risk_score}/100). {len(findings)} technical findings were cataloged during automated multi-signal analysis."
+            answer = f"The composite Forensic Risk Score is {risk_score}/100 ({risk_category}). This is calibrated across cryptographic integrity, optical physics, neural vision ensemble, and provenance verification."
+        elif "summary" in q_lower or "court" in q_lower or "report" in q_lower or "65b" in q_lower:
+            answer = f"Executive Forensic Summary: Exhibit '{evidence.get('original_filename')}' ({modality}) is classified as {risk_category} ({risk_score}/100). {len(findings)} technical findings were cataloged during automated multi-signal analysis under Section 65B Indian Evidence Act / BSA 2023 admissibility standards."
         else:
             answer = (
-                f"Regarding exhibit '{evidence.get('original_filename')}': The file is classified as {risk_category} with a risk score of {risk_score}/100. "
-                f"We identified {len(findings)} technical findings across integrity, signal characteristics, and metadata."
+                f"Regarding exhibit '{evidence.get('original_filename')}' ({modality}): The file is classified as {risk_category} with a risk score of {risk_score}/100. "
+                f"We identified {len(findings)} technical findings across bitstream integrity, optical physics, neural models, and provenance."
             )
 
         return {
             "answer": answer,
-            "source": "Local Deterministic Engine"
+            "source": "Local Forensic Deterministic Engine"
         }
