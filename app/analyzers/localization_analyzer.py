@@ -110,17 +110,17 @@ class LocalizationAnalyzer:
             fft_r   = _resize_array(fft_grid,  h, w)
             patch_r = _resize_array(patch_heatmap, h, w)
 
-            # Signal agreement per cell: count how many heuristic calculations flag an anomaly
-            threshold_ela   = np.percentile(ela_grid,   75)
-            threshold_noise = np.percentile(noise_r,    75)
-            threshold_fft   = np.percentile(fft_r,      75)
-            threshold_patch = np.percentile(patch_r,    75)
+            # Signal agreement per cell: count how many heuristic calculations flag an anomaly above baseline floor
+            threshold_ela   = max(0.15, float(np.percentile(ela_grid,   75)))
+            threshold_noise = max(0.15, float(np.percentile(noise_r,    75)))
+            threshold_fft   = max(0.15, float(np.percentile(fft_r,      75)))
+            threshold_patch = max(0.15, float(np.percentile(patch_r,    75)))
 
             agree_count = (
-                (ela_grid >= threshold_ela).astype(np.float32) +
-                (noise_r  >= threshold_noise).astype(np.float32) +
-                (fft_r    >= threshold_fft).astype(np.float32) +
-                (patch_r  >= threshold_patch).astype(np.float32)
+                ((ela_grid >= threshold_ela) & (ela_grid > 0.08)).astype(np.float32) +
+                ((noise_r  >= threshold_noise) & (noise_r > 0.08)).astype(np.float32) +
+                ((fft_r    >= threshold_fft) & (fft_r > 0.08)).astype(np.float32) +
+                ((patch_r  >= threshold_patch) & (patch_r > 0.08)).astype(np.float32)
             )
             agreement_map_raw = agree_count / 4.0  # 0 to 1 proportion
 

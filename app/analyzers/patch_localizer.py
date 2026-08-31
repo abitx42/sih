@@ -60,7 +60,7 @@ class PatchLocalizer:
         # 1. Compute High-Pass Noise Residual (Sensor Noise Pattern)
         # Low-pass gaussian subtracted from original yields high-frequency residual
         low_pass = ndimage.gaussian_filter(gray, sigma=1.5)
-        noise_residual = np.abs(gray - low_pass)
+        noise_residual = gray - low_pass
 
         # 2. Compute Spatial Gradient Magnitude (Boundary / Resampling traces)
         sobel_h = ndimage.sobel(gray, axis=0)
@@ -119,13 +119,13 @@ class PatchLocalizer:
         g_arr = np.array(grad_disparities, dtype=np.float32)
 
         med_noise = float(np.median(n_arr))
-        mad_noise = max(2.0, float(np.median(np.abs(n_arr - med_noise))))
+        mad_noise = max(2.0, 1.4826 * float(np.median(np.abs(n_arr - med_noise))))
 
         med_ela = float(np.median(e_arr))
-        mad_ela = max(1.5, float(np.median(np.abs(e_arr - med_ela))))
+        mad_ela = max(1.5, 1.4826 * float(np.median(np.abs(e_arr - med_ela))))
 
         med_grad = float(np.median(g_arr))
-        mad_grad = max(1.5, float(np.median(np.abs(g_arr - med_grad))))
+        mad_grad = max(1.5, 1.4826 * float(np.median(np.abs(g_arr - med_grad))))
 
         # Compute normalized anomaly scores per patch and construct 2D heatmap accumulator
         heatmap_accum = np.zeros((height, width), dtype=np.float32)
@@ -299,8 +299,8 @@ class PatchLocalizer:
         """
         try:
             h, w = heatmap.shape
-            # Normalize to 0-255
-            norm_heat = np.clip(heatmap * 255.0, 0, 255).astype(np.uint8)
+            # Direct normalized float array 0.0 - 1.0
+            val = np.clip(heatmap, 0.0, 1.0).astype(np.float32)
 
             # High-contrast forensic color palette
             # Low: Dark Navy/Slate (0, 20, 50)
@@ -308,9 +308,6 @@ class PatchLocalizer:
             # High: Bright Crimson Red (255, 20, 50)
             rgb_heat = np.zeros((h, w, 3), dtype=np.uint8)
 
-            # Vectorized piecewise colormapping
-            val = norm_heat.astype(np.float32) / 255.0
-            
             # Red channel
             rgb_heat[..., 0] = np.clip(
                 np.where(val < 0.5, val * 2.0 * 50.0, 50.0 + (val - 0.5) * 2.0 * 205.0),

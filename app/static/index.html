@@ -79,32 +79,24 @@
 
     <nav class="nav-links">
       <button class="nav-item active" onclick="switchView('dashboard')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
         <span class="nav-label">Dashboard</span>
       </button>
+      <button class="nav-item" onclick="switchView('lab')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0-14 0"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6H9v-6z"></path><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"></path></svg>
+        <span class="nav-label">Evidence Lab</span>
+      </button>
       <button class="nav-item" onclick="switchView('cases')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
         <span class="nav-label">Cases</span>
       </button>
-      <button class="nav-item" onclick="switchView('upload')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-        <span class="nav-label">Ingest</span>
-      </button>
-      <button class="nav-item" onclick="switchView('lab')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h8"></path><path d="M3 22h18"></path><path d="M14 22a7 7 0 1 0-14 0"></path><path d="M9 14h2"></path><path d="M9 12a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v6H9v-6z"></path><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"></path></svg>
-        <span class="nav-label">Lab</span>
-      </button>
-            <button class="nav-item" onclick="switchView('gauntlet')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 12 8"></polygon></svg>
-        <span class="nav-label">Gauntlet</span>
+      <button class="nav-item" onclick="switchView('gauntlet')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"></circle><polygon points="12 8 8 12 12 16 12 8"></polygon></svg>
+        <span class="nav-label">Turing Gauntlet</span>
       </button>
       <button class="nav-item" onclick="switchView('custody')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
         <span class="nav-label">Custody</span>
-      </button>
-      <button class="nav-item" onclick="switchView('training')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 3 6 3 6 3s6 0 6-3v-5"/></svg>
-        <span class="nav-label">Studio</span>
       </button>
     </nav>
 
@@ -181,30 +173,6 @@
         </div>
       </div>
 
-      <!-- Numbered Pipeline Row (01–04) -->
-      <div class="pipeline-steps-row">
-        <div class="pipeline-step">
-          <div class="pipeline-step-num">01</div>
-          <div class="pipeline-step-title">Cryptographic Baseline</div>
-          <div class="pipeline-step-desc">SHA-256 / SHA-512 bitstream fingerprinting & genesis custody log.</div>
-        </div>
-        <div class="pipeline-step">
-          <div class="pipeline-step-num">02</div>
-          <div class="pipeline-step-title">Multi-Signal Heuristics</div>
-          <div class="pipeline-step-desc">ELA (95%), 2D FFT spectral peaks, chromatic dispersion & Bayer CFA.</div>
-        </div>
-        <div class="pipeline-step">
-          <div class="pipeline-step-num">03</div>
-          <div class="pipeline-step-title">Neural Vision Ensemble</div>
-          <div class="pipeline-step-desc">Triple local models (Swin, ViT, SDXL/Flux detector) with weighted fusion.</div>
-        </div>
-        <div class="pipeline-step">
-          <div class="pipeline-step-num">04</div>
-          <div class="pipeline-step-title">Forensic Assessment</div>
-          <div class="pipeline-step-desc">5-tier deterministic taxonomy, tamper-evident PDF dossier & custody chain.</div>
-        </div>
-      </div>
-
       <!-- KPI Instrument Strip -->
       <div class="kpi-instrument-strip">
         <div class="kpi-stat">
@@ -230,7 +198,7 @@
         <div class="card-panel" style="margin-bottom: 0;">
           <div class="panel-header">
             <h3>Recent Evidence Ingestions</h3>
-            <button class="btn btn-primary btn-sm" onclick="switchView('upload')">+ Ingest</button>
+            <button class="btn btn-primary btn-sm" onclick="switchView('lab')">+ Ingest</button>
           </div>
           <div style="overflow-x: auto;">
             <table class="data-table">
@@ -260,168 +228,6 @@
           </div>
         </div>
       </div>
-
-      
-      <!-- Self-Learning Feedback Loop & Active Learning Queue (Phase 4) -->
-      <div class="card-panel" style="margin-top: var(--space-6);">
-        <div class="panel-header" style="flex-wrap: wrap; gap: 0.5rem;">
-          <div>
-            <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-              🧠 Self-Learning Feedback Loop &amp; Active Learning Hub
-            </h3>
-            <p style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">
-              Continuous ground-truth data collection from examiner verdicts and active learning triage for borderline exhibits.
-            </p>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <button class="btn btn-secondary btn-sm" onclick="exportTrainingManifest()" style="font-size: 0.72rem;">
-              📥 Export Dataset Manifest
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="loadSelfLearningStats()" style="font-size: 0.72rem;">
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-
-        <!-- Learning KPI Strip -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
-          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
-            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Verified Training Samples</div>
-            <div id="learn-total-samples" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--brand); margin-top: 0.25rem;">0</div>
-            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.2rem;">Target for LoRA Retrain: 500</div>
-          </div>
-          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
-            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Class Balance (AI / Real)</div>
-            <div id="learn-class-balance" style="font-size: 1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--cream); margin-top: 0.25rem;">0 / 0</div>
-            <div style="font-size: 0.65rem; color: var(--phosphor); margin-top: 0.2rem;" id="learn-balance-sub">Equally weighted</div>
-          </div>
-          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
-            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Active Learning Queue</div>
-            <div id="learn-queue-count" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: #f59e0b; margin-top: 0.25rem;">0</div>
-            <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 0.2rem;">Borderline (0.35–0.65) Samples</div>
-          </div>
-          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 0.75rem;">
-            <div style="font-size: 0.68rem; color: var(--text-secondary); text-transform: uppercase;">Retrain Readiness</div>
-            <div id="learn-readiness-pct" style="font-size: 1.1rem; font-weight: 700; font-family: 'IBM Plex Mono', monospace; color: var(--phosphor); margin-top: 0.25rem;">0%</div>
-            <div style="height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 0.35rem;">
-              <div id="learn-readiness-bar" style="height: 100%; width: 0%; background: var(--phosphor); transition: width 0.4s;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Active Learning Queue Table -->
-        <div>
-          <div style="font-size: 0.78rem; font-weight: 700; color: var(--cream); margin-bottom: 0.5rem; text-transform: uppercase;">
-            🎯 Active Learning Priority Triage (Uncertain Exhibits Awaiting Human Verification)
-          </div>
-          <div style="overflow-x: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Exhibit ID &amp; File</th>
-                  <th>Model Score</th>
-                  <th>Priority Flag</th>
-                  <th>Uncertainty</th>
-                  <th>1-Click Ground Truth Label</th>
-                </tr>
-              </thead>
-              <tbody id="learn-queue-table-body">
-                <tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">Loading active learning queue...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <!-- LoRA Fine-Tuning Controller & Model Versioning (Phase 5) -->
-        <div style="margin-top: 1.5rem; border-top: 1px solid var(--hairline); padding-top: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-            <div>
-              <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--cream); display: flex; align-items: center; gap: 0.4rem;">
-                🚀 LoRA Fine-Tuning &amp; Model Lineage Controller
-              </h4>
-              <p style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">
-                Parameter-Efficient Low-Rank Adaptation for local vision ensemble. Hot-reloads lightweight adapter matrices (~5 MB).
-              </p>
-            </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <button class="btn btn-primary btn-sm" id="btn-trigger-lora" onclick="triggerLoRATraining()" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;">
-                ⚡ Trigger LoRA Adaptation
-              </button>
-            </div>
-          </div>
-
-          <!-- Live Training Progress Bar (Shown during training) -->
-          <div id="lora-training-progress-box" style="display: none; background: rgba(0,0,0,0.5); border: 1px solid var(--brand); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-              <span style="font-size: 0.78rem; font-weight: 700; color: var(--brand);" id="lora-train-status-text">LoRA Optimization in Progress...</span>
-              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; color: var(--cream);" id="lora-train-pct">0%</span>
-            </div>
-            <div style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 0.6rem;">
-              <div id="lora-train-bar" style="height: 100%; width: 0%; background: var(--brand); transition: width 0.3s;"></div>
-            </div>
-            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-secondary); max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.4); padding: 0.4rem 0.6rem; border-radius: 4px;" id="lora-train-logs">
-              Initializing LoRA gradient step...
-            </div>
-          </div>
-
-          <!-- Model Versions Lineage Table -->
-          <div style="overflow-x: auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Model Version ID</th>
-                  <th>Base Architecture</th>
-                  <th>Training Samples</th>
-                  <th>Val Accuracy</th>
-                  <th>Loss</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="model-versions-table-body">
-                <tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">Loading model checkpoints...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-
-      
-          <!-- Multi-Cloud Zero-Cost Model Gateway Monitor -->
-          <div style="background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--hairline); padding-bottom: 0.5rem;">
-              <div>
-                <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--cream); display: flex; align-items: center; gap: 0.4rem;">
-                  ☁️ Multi-Cloud Zero-Cost AI Vision &amp; Reasoning Gateway
-                </h4>
-                <p style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">
-                  Automatic rate-limit failover across Groq, OpenRouter, Gemini, GitHub Models, and Pollinations.ai with cooldown circuit breakers.
-                </p>
-              </div>
-              <div style="display: flex; gap: 0.4rem; align-items: center;">
-                <button class="btn btn-secondary btn-sm" id="btn-cloud-crosscheck" onclick="triggerCloudCrossCheck()" style="font-size: 0.72rem; padding: 0.3rem 0.65rem;">
-                  ⚡ Run Cloud Multi-Model Cross-Check
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="loadCloudProvidersStatus()" style="font-size: 0.72rem; padding: 0.3rem 0.5rem;">
-                  🔄
-                </button>
-              </div>
-            </div>
-
-            <!-- Provider Badges Grid -->
-            <div id="cloud-providers-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; margin-bottom: 0.75rem;">
-              <!-- Dynamically populated -->
-            </div>
-
-            <!-- Cloud Cross-Check Results Card (if run) -->
-            <div id="cloud-crosscheck-results" style="display: none; background: rgba(0,0,0,0.4); border: 1px solid var(--hairline); border-radius: 6px; padding: 0.75rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <span style="font-size: 0.75rem; font-weight: 700; color: var(--brand); text-transform: uppercase;" id="cloud-consensus-title">Cloud Consensus Verdict</span>
-                <span class="badge" id="cloud-consensus-badge" style="font-size: 0.68rem;"></span>
-              </div>
-              <div id="cloud-models-breakdown" style="font-size: 0.72rem; color: var(--cream-dim); line-height: 1.4;"></div>
-            </div>
-          </div>
 
       <!-- Live Chain of Custody Stream -->
       <div class="card-panel" style="margin-top: var(--space-6);">

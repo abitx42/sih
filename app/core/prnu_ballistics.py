@@ -87,8 +87,11 @@ class PRNUBallisticsEngine:
             res_mean = float(np.mean(np.abs(noise_residual)))
 
             # 3. Peak-to-Correlation Energy (PCE) Estimation
-            # Autocorrelation of the high-frequency residual
-            fft2 = np.fft.fft2(noise_residual)
+            # Autocorrelation of the high-frequency residual with 2D windowing
+            win_y = np.hanning(noise_residual.shape[0])
+            win_x = np.hanning(noise_residual.shape[1])
+            window_2d = np.outer(win_y, win_x).astype(np.float32)
+            fft2 = np.fft.fft2(noise_residual * window_2d)
             power_spec = np.abs(fft2) ** 2
             autocorr = np.fft.ifft2(power_spec).real
             autocorr_shifted = np.fft.fftshift(autocorr)
@@ -134,8 +137,13 @@ class PRNUBallisticsEngine:
                 verdict = "INCONCLUSIVE_RECOMPRESSED"
                 status_text = "Borderline Sensor Pattern (Heavy Re-compression or Low Lighting)"
 
-            # 6. Save Visual PRNU Residual Artifact Map
-            prnu_map_vis = np.clip((noise_residual + 15.0) * (255.0 / 30.0), 0, 255).astype(np.uint8)
+            # 6. Save Visual PRNU Residual Artifact Map with dynamic normalization
+            mn_res, mx_res = float(np.min(noise_residual)), float(np.max(noise_residual))
+            if mx_res - mn_res > 1e-6:
+                norm_res = ((noise_residual - mn_res) / (mx_res - mn_res) * 255.0)
+            else:
+                norm_res = np.full_like(noise_residual, 128.0)
+            prnu_map_vis = np.clip(norm_res, 0, 255).astype(np.uint8)
             # Apply golden-cyan forensic colormap
             prnu_vis_img = Image.fromarray(prnu_map_vis).convert("RGB")
             artifact_filename = f"{evidence_id}_prnu_map.png"

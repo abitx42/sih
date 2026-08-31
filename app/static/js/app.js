@@ -185,23 +185,24 @@ function renderUserQuotaBadge(quota) {
 
 // View Navigation Router
 function switchView(viewName) {
+  const effectiveView = (viewName === "upload") ? "lab" : viewName;
+
   document.querySelectorAll(".view-section").forEach(sec => sec.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.remove("active"));
 
-  const targetSec = document.getElementById(`view-${viewName}`);
+  const targetSec = document.getElementById(`view-${effectiveView}`);
   if (targetSec) targetSec.classList.add("active");
 
   const navBtns = document.querySelectorAll(".nav-item");
-  const mapping = { dashboard: 0, cases: 1, upload: 2, lab: 3, gauntlet: 4, custody: 5, training: 6 };
+  const mapping = { dashboard: 0, lab: 1, upload: 1, cases: 2, gauntlet: 3, custody: 4 };
   if (mapping[viewName] !== undefined && navBtns[mapping[viewName]]) {
     navBtns[mapping[viewName]].classList.add("active");
   }
 
-  if (viewName === "dashboard") loadDashboardData();
-  if (viewName === "custody") loadCustodyLedger();
-  if (viewName === "cases") loadCasesList();
-  if (viewName === "gauntlet" && typeof loadGauntletChallenge === "function") loadGauntletChallenge();
-  if (viewName === "training" && typeof loadTrainingStudioData === "function") loadTrainingStudioData();
+  if (effectiveView === "dashboard") loadDashboardData();
+  if (effectiveView === "custody") loadCustodyLedger();
+  if (effectiveView === "cases") loadCasesList();
+  if (effectiveView === "gauntlet" && typeof loadGauntletChallenge === "function") loadGauntletChallenge();
 }
 
 // Lab Sub-Tab Navigation Router

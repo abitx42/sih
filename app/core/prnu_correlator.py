@@ -91,8 +91,12 @@ class PRNUCorrelator:
         cross_corr_shifted = np.fft.fftshift(cross_corr_2d)
 
         peak_val = float(np.max(cross_corr_shifted))
-        mean_floor = float(np.mean(np.abs(cross_corr_shifted)))
-        pce_metric = round(float(peak_val**2 / (mean_floor**2 + 1e-6)) / 1e4, 2)
+        center_y, center_x = cross_corr_shifted.shape[0] // 2, cross_corr_shifted.shape[1] // 2
+        y, x = np.ogrid[:cross_corr_shifted.shape[0], :cross_corr_shifted.shape[1]]
+        dist = np.sqrt((x - center_x)**2 + (y - center_y)**2)
+        mask_floor = (dist >= 10) & (dist <= 30)
+        var_floor = float(np.var(cross_corr_shifted[mask_floor])) if np.any(mask_floor) else float(np.var(cross_corr_shifted))
+        pce_metric = round(min(100.0, float(peak_val**2 / (var_floor + 1e-6)) / 1e4), 2)
         match_confidence = round(min(99.8, max(5.0, (corr_coeff * 75.0) + (pce_metric * 0.4))), 1)
 
         # Defect Coordinate Coincidence Check
@@ -127,8 +131,8 @@ class PRNUCorrelator:
             is_match = False
             ruling = "PRNU cross-correlation is near zero. The exhibits originated from two separate physical cameras or synthetic generative models."
 
-        filename_a = ev_a.get("original_filename", "exhibit_a.jpg") if isinstance(ev_a, dict) else (ev_a["original_filename"] if "original_filename" in ev_a.keys() else "exhibit_a.jpg")
-        filename_b = ev_b.get("original_filename", "exhibit_b.jpg") if isinstance(ev_b, dict) else (ev_b["original_filename"] if "original_filename" in ev_b.keys() else "exhibit_b.jpg")
+        filename_a = ev_a["original_filename"] if (isinstance(ev_a, dict) and "original_filename" in ev_a) else (ev_a["original_filename"] if hasattr(ev_a, "__getitem__") and hasattr(ev_a, "keys") and "original_filename" in ev_a.keys() else "exhibit_a.jpg")
+        filename_b = ev_b["original_filename"] if (isinstance(ev_b, dict) and "original_filename" in ev_b) else (ev_b["original_filename"] if hasattr(ev_b, "__getitem__") and hasattr(ev_b, "keys") and "original_filename" in ev_b.keys() else "exhibit_b.jpg")
 
         return {
             "evidence_id_a": evidence_id_a,

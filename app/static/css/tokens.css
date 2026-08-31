@@ -6,17 +6,17 @@
 
 :root {
   /* ─── 1. Color Palette — Warm Darkroom ────────────────────────────────── */
-  --ink:              #0C0A06;
-  --panel:            #141209;
-  --panel-raised:     #1E1A10;
-  --hairline:         #2D2618;
+  --ink:              #0b0906;
+  --panel:            #13110b;
+  --panel-raised:     #1c1912;
+  --hairline:         #2a2417;
 
   --brand:            #F5A623;
   --brand-dim:        rgba(245, 166, 35, 0.15);
-  --brand-glow:       0 0 20px rgba(245, 166, 35, 0.4), 0 0 40px rgba(245, 166, 35, 0.15);
+  --brand-glow:       0 0 20px rgba(245, 166, 35, 0.35), 0 0 40px rgba(245, 166, 35, 0.12);
 
   --phosphor:         #39D353;
-  --phosphor-glow:    0 0 12px rgba(57, 211, 83, 0.6);
+  --phosphor-glow:    0 0 12px rgba(57, 211, 83, 0.5);
 
   --risk-low:         #39D353;
   --risk-review:      #F5A623;
@@ -27,7 +27,7 @@
 
   --cream:            #E8DFB8;
   --text-primary:     #E8DFB8;
-  --text-secondary:   #8A7A5A;
+  --text-secondary:   #968767;
   --tag-accent:       #F5A623;
 
   /* Compatibility aliases */
@@ -39,11 +39,11 @@
   --border-focus:     var(--brand);
   --text-main:        var(--text-primary);
   --text-muted:       var(--text-secondary);
-  --text-dim:         #5A4E38;
+  --text-dim:         #63563e;
   --accent-cyan:      var(--brand);
   --accent-blue:      var(--brand);
   --risk-medium:      var(--risk-review);
-  --panel-raised-alt: #241F13;
+  --panel-raised-alt: #221d14;
 
   /* ─── 2. Typography ──────────────────────────────────────────────────── */
   --font-display:   'DM Serif Display', 'Georgia', serif;
@@ -59,7 +59,7 @@
   --text-lg:   19px;
   --text-xl:   27px;
   --text-2xl:  40px;
-  --text-hero: 56px;
+  --text-hero: 54px;
 
   /* ─── 3. Spacing ─────────────────────────────────────────────────────── */
   --space-1:  4px;
@@ -71,15 +71,15 @@
   --space-16: 64px;
 
   /* ─── 4. Geometry ────────────────────────────────────────────────────── */
-  --radius-card:  8px;
-  --radius-btn:   4px;
+  --radius-card:  10px;
+  --radius-btn:   6px;
   --radius-pill:  9999px;
   --evidence-tag-notch: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
 
   /* ─── 5. Transitions ─────────────────────────────────────────────────── */
-  --trans-fast:   120ms cubic-bezier(0.16, 1, 0.3, 1);
-  --trans-normal: 200ms ease-out;
-  --trans-reveal: 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  --trans-fast:   140ms cubic-bezier(0.16, 1, 0.3, 1);
+  --trans-normal: 220ms ease-out;
+  --trans-reveal: 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ─── Animations ───────────────────────────────────────────────────────────── */

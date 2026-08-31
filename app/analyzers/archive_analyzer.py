@@ -28,8 +28,17 @@ class ArchiveAnalyzer(BaseAnalyzer):
         total_files = 0
         total_unpacked_size = 0
 
-        is_zip = zipfile.is_zipfile(file_path)
-        is_tar = tarfile.is_tarfile(file_path) if not is_zip else False
+        try:
+            is_zip = zipfile.is_zipfile(file_path)
+        except Exception:
+            is_zip = False
+
+        is_tar = False
+        if not is_zip:
+            try:
+                is_tar = tarfile.is_tarfile(file_path)
+            except Exception:
+                is_tar = False
 
         if not (is_zip or is_tar):
             findings.append(FindingBuilder.create_finding(
@@ -61,10 +70,12 @@ class ArchiveAnalyzer(BaseAnalyzer):
                     total_files += 1
                     total_unpacked_size += member.file_size
                     
-                    # Read member bytes for hash
-                    data = zf.read(member.filename)
-                    h = hashlib.sha256(data).hexdigest()
-                    nested_hashes[member.filename] = h
+                    # Stream member bytes for sha256 to avoid high memory allocation
+                    hasher = hashlib.sha256()
+                    with zf.open(member.filename) as mf:
+                        while chunk := mf.read(65536):
+                            hasher.update(chunk)
+                    nested_hashes[member.filename] = hasher.hexdigest()
 
                     ext = os.path.splitext(member.filename)[1].lower()
                     if ext in suspicious_extensions:
@@ -81,9 +92,10 @@ class ArchiveAnalyzer(BaseAnalyzer):
                     f = tf.extractfile(member)
                     if f:
                         try:
-                            data = f.read()
-                            h = hashlib.sha256(data).hexdigest()
-                            nested_hashes[member.name] = h
+                            hasher = hashlib.sha256()
+                            while chunk := f.read(65536):
+                                hasher.update(chunk)
+                            nested_hashes[member.name] = hasher.hexdigest()
 
                             ext = os.path.splitext(member.name)[1].lower()
                             if ext in suspicious_extensions:

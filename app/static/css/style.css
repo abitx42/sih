@@ -202,13 +202,17 @@ body {
 .card-panel {
   background: var(--panel);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   padding: 1.5rem;
   margin-bottom: 1.25rem;
-  transition: border-color var(--trans-normal);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: border-color var(--trans-normal), box-shadow var(--trans-normal);
 }
 
-.card-panel:hover { border-color: rgba(245, 166, 35, 0.12); }
+.card-panel:hover {
+  border-color: rgba(245, 166, 35, 0.22);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
 
 .panel-header {
   display: flex;
@@ -341,8 +345,8 @@ label {
 
 /* ─── Dropzone ─────────────────────────────────────────────────────────────── */
 .dropzone {
-  border: 1.5px dashed rgba(245, 166, 35, 0.25);
-  border-radius: 12px;
+  border: 1.5px dashed rgba(245, 166, 35, 0.28);
+  border-radius: var(--radius-card);
   padding: 3rem 2rem;
   text-align: center;
   cursor: pointer;
@@ -354,8 +358,8 @@ label {
 
 .dropzone:hover, .dropzone.dragover {
   border-color: var(--brand);
-  background: rgba(245, 166, 35, 0.05);
-  box-shadow: 0 0 60px rgba(245, 166, 35, 0.06) inset;
+  background: rgba(245, 166, 35, 0.06);
+  box-shadow: 0 0 40px rgba(245, 166, 35, 0.08) inset, 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .dropzone-icon { color: var(--brand); margin-bottom: 1rem; opacity: 0.75; }

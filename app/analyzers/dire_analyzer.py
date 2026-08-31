@@ -39,7 +39,8 @@ class DIREAnalyzer:
             else:
                 return self._error_result("Invalid image input type")
 
-            img_resized = img.resize(self._TARGET_SIZE, Image.Resampling.LANCZOS)
+            from PIL import ImageOps
+            img_resized = ImageOps.fit(img, self._TARGET_SIZE, Image.Resampling.LANCZOS)
             arr = np.array(img_resized, dtype=np.float32)
 
             # 1. Multi-scale DCT JPEG round-trip
@@ -48,6 +49,8 @@ class DIREAnalyzer:
                 error = self._dct_roundtrip_error(img_resized, quality)
                 reconstruction_errors.append(round(error, 4))
 
+            if not reconstruction_errors:
+                reconstruction_errors = [2.0]
             mean_error = float(np.mean(reconstruction_errors))
             error_variance = float(np.var(reconstruction_errors))
 
@@ -63,7 +66,7 @@ class DIREAnalyzer:
                 pad_gray[1:-1, :-2] + pad_gray[1:-1, 2:] -
                 4.0 * pad_gray[1:-1, 1:-1]
             )
-            hp_energy = float(np.var(high_pass))
+            hp_energy = max(1e-6, float(np.var(high_pass)))
 
             # 3. DCT Coefficient Kurtosis (anomalous peakiness in generative models)
             dct_kurtosis = self._compute_dct_kurtosis(gray)
@@ -127,11 +130,13 @@ class DIREAnalyzer:
                 return 3.0
 
             sub_gray = gray[:h, :w]
-            # Vectorized 4D block FFT transformation
+            # Vectorized 4D block FFT transformation with 2D Hanning window
             blocks = sub_gray.reshape(h // 8, 8, w // 8, 8).swapaxes(1, 2)
-            fft_blocks = np.fft.fft2(blocks)
+            win2d = np.outer(np.hanning(8), np.hanning(8)).astype(np.float32)
+            windowed_blocks = blocks * win2d
+            fft_blocks = np.fft.fft2(windowed_blocks)
             mag = np.abs(fft_blocks)
-            ac_coeffs = mag.reshape(-1, 64)[:, 1:].flatten()
+            ac_coeffs = mag.reshape(-1, 64)[:, 1:].flatten().astype(np.float64)
 
             if ac_coeffs.size == 0:
                 return 3.0
