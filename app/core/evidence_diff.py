@@ -100,7 +100,7 @@ class EvidenceDiffEngine:
 
         # Resize B to match A for pixel comparison if needed
         if (w_a, h_a) != (w_b, h_b):
-            img_b_resized = img_b.resize((w_a, h_a), Image.LANCZOS)
+            img_b_resized = img_b.resize((w_a, h_a), Image.Resampling.LANCZOS)
         else:
             img_b_resized = img_b
 

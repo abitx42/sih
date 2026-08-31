@@ -57,8 +57,8 @@ class ReferenceComparator:
 
             ev_w,  ev_h  = ev_img.size
             ref_w, ref_h = ref_img.size
-            target_w = min(ev_w, ref_w, 1024)
-            target_h = min(ev_h, ref_h, 1024)
+            target_w = max(64, min(ev_w, ref_w, 1024))
+            target_h = max(64, min(ev_h, ref_h, 1024))
 
             ev_r  = ev_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
             ref_r = ref_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
