@@ -302,10 +302,14 @@ class TuringGauntletEngine:
     @classmethod
     def get_sample_image_path(cls, filename: str) -> Path:
         """Returns absolute path to sample challenge image on disk."""
+        from app.core.security_guard import validate_safe_path, sanitize_filename
+        clean_name = sanitize_filename(filename)
         cls._ensure_sample_images()
-        path = GAUNTLET_STORE_DIR / filename
+        path = GAUNTLET_STORE_DIR / clean_name
+        if not validate_safe_path(path, GAUNTLET_STORE_DIR):
+            raise ValueError("Path traversal attempt detected.")
         if not path.exists():
-            cls._generate_placeholder(path, filename)
+            cls._generate_placeholder(path, clean_name)
         return path
 
     @classmethod

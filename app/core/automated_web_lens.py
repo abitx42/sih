@@ -299,6 +299,13 @@ class AutomatedWebLens:
         and generates a 3-pane composite visualizer.
         """
         try:
+            parsed = urllib.parse.urlparse(candidate_image_url)
+            if parsed.scheme not in ("http", "https"):
+                return None
+            hostname = (parsed.hostname or "").lower()
+            if hostname in ("localhost", "127.0.0.1", "::1", "169.254.169.254") or hostname.startswith("10.") or hostname.startswith("192.168."):
+                return None
+
             req = urllib.request.Request(candidate_image_url, headers={"User-Agent": "TruthLens/1.2.0"})
             with urllib.request.urlopen(req, timeout=6) as resp:
                 cand_bytes = resp.read()

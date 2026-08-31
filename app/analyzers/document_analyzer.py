@@ -31,8 +31,16 @@ class DocumentAnalyzer(BaseAnalyzer):
         meta_score = 0.0
         signal_score = 10.0
 
-        with open(file_path, "rb") as f:
-            pdf_bytes = f.read()
+        if not file_path.exists():
+            return self._analyze_generic_document(file_path, evidence_id)
+
+        try:
+            file_size = file_path.stat().st_size
+            read_limit = min(file_size, 32 * 1024 * 1024)
+            with open(file_path, "rb") as f:
+                pdf_bytes = f.read(read_limit)
+        except Exception as e:
+            return self._analyze_generic_document(file_path, evidence_id)
 
         raw_metrics["size_bytes"] = len(pdf_bytes)
 
@@ -213,5 +221,5 @@ class DocumentAnalyzer(BaseAnalyzer):
                     explanation="Standard plain document processed with baseline cryptographic hashing."
                 )
             ],
-            "raw_metrics": {"size_bytes": file_path.stat().st_size}
+            "raw_metrics": {"size_bytes": file_path.stat().st_size if file_path.exists() else 0}
         }

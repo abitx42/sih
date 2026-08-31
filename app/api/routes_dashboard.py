@@ -46,7 +46,7 @@ def get_dashboard_stats():
         """)
         processing_status = {r["status"]: r["count"] for r in cursor.fetchall()}
 
-        # 6. Recent Activity
+        # 6. Recent Activity & Custody Events
         cursor.execute("""
         SELECT * FROM evidence 
         ORDER BY uploaded_at DESC 
@@ -54,11 +54,20 @@ def get_dashboard_stats():
         """)
         recent_activity = [dict(row) for row in cursor.fetchall()]
 
+        cursor.execute("""
+        SELECT * FROM chain_of_custody 
+        ORDER BY timestamp DESC 
+        LIMIT 10
+        """)
+        recent_custody = [dict(row) for row in cursor.fetchall()]
+
     return {
         "total_cases": total_cases,
         "total_evidence": total_evidence,
         "risk_distribution": risk_dist,
         "modality_distribution": modality_dist,
         "processing_status": processing_status,
-        "recent_activity": recent_activity
+        "recent_activity": recent_activity,
+        "recent_evidence": recent_activity,
+        "recent_custody_events": recent_custody
     }

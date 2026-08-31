@@ -46,13 +46,19 @@ class C2PAManifestInspector:
 
         try:
             file_size = file_path.stat().st_size
-            read_limit = min(file_size, 4 * 1024 * 1024)  # 4MB scan window
-            with open(file_path, "rb") as f:
-                data = f.read(read_limit)
+            if file_size <= 4 * 1024 * 1024:
+                with open(file_path, "rb") as f:
+                    data = f.read()
+            else:
+                with open(file_path, "rb") as f:
+                    header = f.read(2 * 1024 * 1024)
+                    f.seek(file_size - (2 * 1024 * 1024))
+                    trailer = f.read(2 * 1024 * 1024)
+                    data = header + trailer
 
             # 1. JUMBF Box & Manifest Detection
             has_jumbf = (b"jumb" in data or b"c2pa" in data or b"c2ma" in data or b"urn:c2pa" in data)
-            has_credentials = (b"ContentCredentials" in data or b"cr_claim" in data)
+            has_credentials = (b"ContentCredentials" in data or b"cr_claim" in data or b"c2pa.claim" in data)
 
             if not (has_jumbf or has_credentials):
                 # Standard file without C2PA
@@ -79,6 +85,12 @@ class C2PAManifestInspector:
                     claim_gen = gen_match.group(1).decode("utf-8", errors="ignore").strip()
                 except Exception:
                     pass
+            elif b"Midjourney" in data:
+                claim_gen = "Midjourney AI Content Credentials v6"
+            elif b"DALL-E" in data or b"dall-e" in data:
+                claim_gen = "OpenAI DALL-E 3 Provenance Signer"
+            elif b"Stable Diffusion" in data or b"stability" in data:
+                claim_gen = "Stability AI Synthetics Watermark"
             elif b"Adobe" in data:
                 claim_gen = "Adobe Photoshop 2025 / Content Credentials"
             elif b"Truepic" in data:
@@ -95,7 +107,7 @@ class C2PAManifestInspector:
 
             # 4. Action Assertions & Generative AI Tags
             actions = []
-            digital_source = "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia" if (b"trainedAlgorithmicMedia" in data or b"generative" in data.lower()) else "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"
+            digital_source = "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia" if (b"trainedAlgorithmicMedia" in data or b"generative" in data.lower() or b"midjourney" in data.lower() or b"dall-e" in data.lower() or b"stability" in data.lower() or b"synthid" in data.lower()) else "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"
 
             if b"c2pa.created" in data:
                 actions.append({

@@ -49,27 +49,28 @@ class ImageAnalyzer(BaseAnalyzer):
         findings: List[Dict[str, Any]] = []
         raw_metrics: Dict[str, Any] = {}
 
-        raw_pil = Image.open(file_path)
-        if raw_pil.mode in ("RGBA", "LA") or (raw_pil.mode == "P" and "transparency" in raw_pil.info):
-            # Alpha composite onto neutral white background to eliminate edge alpha spike
-            bg = Image.new("RGB", raw_pil.size, (255, 255, 255))
-            raw_rgba = raw_pil.convert("RGBA")
-            bg.paste(raw_rgba, mask=raw_rgba.split()[3])
-            img = bg
-        else:
-            img = raw_pil.convert("RGB")
-        width, height = img.size
-        raw_metrics["dimensions"] = f"{width}x{height}"
-        raw_metrics["aspect_ratio"] = round(width / max(1, height), 3)
+        with Image.open(file_path) as raw_pil:
+            if raw_pil.mode in ("RGBA", "LA") or (raw_pil.mode == "P" and "transparency" in raw_pil.info):
+                # Alpha composite onto neutral white background to eliminate edge alpha spike
+                bg = Image.new("RGB", raw_pil.size, (255, 255, 255))
+                raw_rgba = raw_pil.convert("RGBA")
+                bg.paste(raw_rgba, mask=raw_rgba.split()[3])
+                img = bg
+            else:
+                img = raw_pil.convert("RGB")
+            
+            width, height = img.size
+            raw_metrics["dimensions"] = f"{width}x{height}"
+            raw_metrics["aspect_ratio"] = round(width / max(1, height), 3)
 
-        # -------------------------------------------------------------
-        # 1. HEURISTIC FORENSIC SIGNALS
-        # -------------------------------------------------------------
+            # -------------------------------------------------------------
+            # 1. HEURISTIC FORENSIC SIGNALS
+            # -------------------------------------------------------------
 
-        # A. EXIF Metadata Extraction & Timeline Check
-        exif_findings, meta_score, exif_data = self._analyze_exif(img, file_path, evidence_id)
-        findings.extend(exif_findings)
-        raw_metrics["exif"] = exif_data
+            # A. EXIF Metadata Extraction & Timeline Check (inspect raw_pil directly to preserve EXIF & PNG metadata)
+            exif_findings, meta_score, exif_data = self._analyze_exif(raw_pil, file_path, evidence_id)
+            findings.extend(exif_findings)
+            raw_metrics["exif"] = exif_data
 
         # B. Error Level Analysis (ELA)
         ela_score, ela_path, ela_details, enhanced_diff = self._perform_ela(img, file_path, evidence_id)
@@ -548,7 +549,7 @@ class ImageAnalyzer(BaseAnalyzer):
             enhanced_diff.save(ela_out_path, "JPEG")
 
             diff_arr = np.array(diff, dtype=np.float32)
-            h, w, _ = diff_arr.shape
+            h, w = diff_arr.shape[:2]
             grid_h, grid_w = max(1, h // 4), max(1, w // 4)
             cell_means = []
             for i in range(4):

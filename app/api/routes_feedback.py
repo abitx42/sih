@@ -100,7 +100,8 @@ async def submit_feedback(request: Request):
                 feedback_tmp_id = f"FBK-{uuid.uuid4().hex[:8].upper()}"
                 saved_name = f"{feedback_tmp_id}{ext}"
                 target_path = FEEDBACK_ATTACHMENTS_DIR / saved_name
-                validate_safe_path(target_path, FEEDBACK_ATTACHMENTS_DIR)
+                if not validate_safe_path(target_path, FEEDBACK_ATTACHMENTS_DIR):
+                    raise HTTPException(status_code=400, detail="Security alert: Path traversal attempt detected in attachment.")
                 target_path.write_bytes(content)
                 attachment_path_str = str(target_path)
         except HTTPException:

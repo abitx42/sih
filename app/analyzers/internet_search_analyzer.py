@@ -170,6 +170,7 @@ class InternetSearchAnalyzer:
 
     def _compute_video_keyframes_hashes(self, video_path: Path) -> Dict[str, str]:
         hashes = {}
+        cap = None
         try:
             import cv2
             cap = cv2.VideoCapture(str(video_path))
@@ -189,9 +190,11 @@ class InternetSearchAnalyzer:
                         pil_img = Image.fromarray(rgb_frame)
                         if _IMAGEHASH_AVAILABLE:
                             hashes[f"keyframe_{idx+1}_phash"] = str(imagehash.phash(pil_img))
-            cap.release()
         except Exception as e:
             logger.warning(f"Video keyframe hash error: {e}")
+        finally:
+            if cap is not None:
+                cap.release()
         return hashes
 
     def _find_database_matches(
@@ -216,13 +219,16 @@ class InternetSearchAnalyzer:
                 rows = cursor.fetchall()
 
             for row in rows:
-                target_phash_str = row.get("phash")
+                target_phash_str = row.get("phash") if isinstance(row, dict) else (row["phash"] if "phash" in row.keys() else None)
                 if not target_phash_str:
+                    continue
+                stored_fn = row.get("stored_filename") if isinstance(row, dict) else (row["stored_filename"] if "stored_filename" in row.keys() else None)
+                if not stored_fn:
                     continue
                 try:
                     t_hash = imagehash.hex_to_hash(target_phash_str)
                     dist = q_global - t_hash
-                    ref_path = str(EVIDENCE_DIR / row["stored_filename"])
+                    ref_path = str(EVIDENCE_DIR / stored_fn)
 
                     if dist <= THRESH_EXACT:
                         matches.append({

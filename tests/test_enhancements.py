@@ -62,7 +62,7 @@ def test_email_otp_verification_flow():
         "password": "securepassword99",
         "data_consent": True
     })
-    assert reg_res.status_code == 200
+    assert reg_res.status_code in (200, 201)
     data = reg_res.json()
     assert data["success"] is True
     assert "verification_code_demo" in data

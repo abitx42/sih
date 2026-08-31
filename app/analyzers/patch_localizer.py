@@ -198,8 +198,8 @@ class PatchLocalizer:
         Clusters contiguous anomalous patches into structured bounding box regions.
         """
         # Threshold for localized anomaly flag
-        threshold = max(0.55, min(0.85, max_anomaly * 0.80))
-        if max_anomaly < 0.40:
+        threshold = max(0.35, min(0.85, max_anomaly * 0.75))
+        if max_anomaly < 0.35:
             # Entire image is uniformly low anomaly
             return []
 
@@ -330,11 +330,8 @@ class PatchLocalizer:
             ).astype(np.uint8)
 
             heat_pil = Image.fromarray(rgb_heat).resize(original_img.size, Image.Resampling.BILINEAR)
-            base_pil = original_img.convert("RGBA")
-            heat_rgba = heat_pil.convert("RGBA")
-
-            # Blend with 55% heatmap opacity
-            blended = Image.blend(base_pil.convert("RGB"), heat_pil, alpha=0.55)
+            base_rgb = original_img.convert("RGB")
+            blended = Image.blend(base_rgb, heat_pil, alpha=0.55)
 
             out_dir = FORENSIC_DIR
             out_dir.mkdir(parents=True, exist_ok=True)

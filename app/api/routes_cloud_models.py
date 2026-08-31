@@ -43,6 +43,12 @@ def run_multi_cloud_cross_check(evidence_id: str = FPath(...)):
         if not ev:
             raise HTTPException(status_code=404, detail="Evidence exhibit not found.")
 
+        if ev.get("modality") != "IMAGE":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Multi-cloud vision cross-check is only available for IMAGE modality exhibits (found: {ev.get('modality')})."
+            )
+
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         fr = cursor.fetchone()
 

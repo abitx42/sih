@@ -196,9 +196,9 @@ class EvidenceDiffEngine:
         for r in range(grid_rows):
             for c in range(grid_cols):
                 y0 = r * cell_h
-                y1 = min(height, (r + 1) * cell_h)
+                y1 = height if r == grid_rows - 1 else min(height, (r + 1) * cell_h)
                 x0 = c * cell_w
-                x1 = min(width, (c + 1) * cell_w)
+                x1 = width if c == grid_cols - 1 else min(width, (c + 1) * cell_w)
                 cell = diff_mag[y0:y1, x0:x1]
                 score = float(np.mean(cell > 15))  # fraction of changed pixels
                 if score > 0.15:  # >15% of this quadrant changed

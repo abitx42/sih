@@ -94,7 +94,8 @@ class ConfidenceMatrix:
         except Exception:
             meta_risk = 0.0
 
-        meta_findings = [f for f in findings if f.get("category") in ("METADATA", "PROVENANCE")]
+        safe_findings = findings or []
+        meta_findings = [f for f in safe_findings if f.get("category") in ("METADATA", "PROVENANCE")]
         has_software_tag = any(
             "software" in f.get("signal_name", "").lower() or
             "editing" in f.get("signal_name", "").lower() or
@@ -121,7 +122,7 @@ class ConfidenceMatrix:
             prov_manip = _GREY
             prov_note = "C2PA cryptographic manifest verified"
 
-        elif "DETECTED" in ps and "UNVERIFIED" in ps:
+        elif ("DETECTED" in ps and "UNVERIFIED" in ps) or "UNVALIDATED" in ps or "DETECTED" in ps:
             prov_auth = _AMBER
             prov_manip = _AMBER
             prov_note = "C2PA manifest marker detected — unverified manifest (does NOT prove authenticity)"
@@ -140,7 +141,7 @@ class ConfidenceMatrix:
 
         # -- REGION ANALYSIS AXIS --
         localized_regions = raw.get("localized_regions", [])
-        localized_findings = [f for f in findings if f.get("category") == "LOCALIZED_MANIPULATION"]
+        localized_findings = [f for f in safe_findings if f.get("category") == "LOCALIZED_MANIPULATION"]
         if localized_findings:
             sev = localized_findings[0].get("severity", "INFO")
             if sev in ("CRITICAL", "HIGH"):

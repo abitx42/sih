@@ -98,7 +98,7 @@ class ChainOfCustodyLogger:
             cursor.execute("""
             SELECT * FROM chain_of_custody
             WHERE evidence_id = ?
-            ORDER BY timestamp ASC
+            ORDER BY timestamp ASC, rowid ASC
             """, (evidence_id,))
             return cursor.fetchall()
 
@@ -116,7 +116,7 @@ class ChainOfCustodyLogger:
             has_hash_chain = "previous_event_hash" in cols
 
             cursor.execute(
-                "SELECT * FROM chain_of_custody WHERE evidence_id = ? ORDER BY timestamp ASC",
+                "SELECT * FROM chain_of_custody WHERE evidence_id = ? ORDER BY timestamp ASC, rowid ASC",
                 (evidence_id,)
             )
             events = cursor.fetchall()

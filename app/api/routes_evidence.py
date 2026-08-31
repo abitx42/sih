@@ -779,10 +779,11 @@ def get_pipeline_progress(evidence_id: str):
                 pass
         
         current_stage = "COMPLETED" if row["status"] == "COMPLETED" else ("FAILED" if row["status"] == "FAILED" else "INITIALIZING")
-        for k, v in stages.items():
-            if v.get("status") == "ANALYZING":
-                current_stage = k
-                break
+        if row["status"] not in ("COMPLETED", "FAILED"):
+            for k, v in stages.items():
+                if v.get("status") == "ANALYZING":
+                    current_stage = k
+                    break
 
         return {
             "evidence_id": row["evidence_id"],
@@ -833,6 +834,9 @@ def get_evidence_status(evidence_id: str):
 def get_evidence_frames(evidence_id: str):
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT evidence_id FROM evidence WHERE evidence_id = ?", (evidence_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Evidence not found.")
         cursor.execute("SELECT raw_metrics_json FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         row = cursor.fetchone()
         if not row:
@@ -1392,7 +1396,7 @@ def get_web_provenance_search_results(evidence_id: str):
 
 
 
-@router.post("/{evidence_id}/re-analyze")
+@router.post("/{evidence_id}/re-analyze", status_code=202)
 async def re_analyze_evidence(evidence_id: str, background_tasks: BackgroundTasks):
     """
     Restart the automated forensic analysis pipeline for an existing exhibit

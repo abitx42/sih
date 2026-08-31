@@ -32,7 +32,8 @@ class DIREAnalyzer:
     def analyze(self, image_input: Union[str, Path, Image.Image], evidence_id: str = "EVIDENCE") -> Dict[str, Any]:
         try:
             if isinstance(image_input, (str, Path)):
-                img = Image.open(image_input).convert("RGB")
+                with Image.open(image_input) as raw_img:
+                    img = raw_img.convert("RGB")
             elif isinstance(image_input, Image.Image):
                 img = image_input.convert("RGB")
             else:
@@ -137,10 +138,12 @@ class DIREAnalyzer:
 
             mean = float(np.mean(ac_coeffs))
             std = float(np.std(ac_coeffs))
-            if std < 1e-6:
+            if np.isnan(std) or std < 1e-6:
                 return 3.0
 
             kurtosis = float(np.mean(((ac_coeffs - mean) / std) ** 4))
+            if np.isnan(kurtosis):
+                return 3.0
             return min(20.0, max(0.0, kurtosis))
         except Exception:
             return 3.0

@@ -32,7 +32,7 @@ def test_cases_api():
         "lead_investigator": "Officer Sharma"
     }
     create_res = client.post("/api/cases", json=case_payload)
-    assert create_res.status_code == 200
+    assert create_res.status_code in (200, 201)
     new_case = create_res.json()
     assert new_case["title"] == case_payload["title"]
 

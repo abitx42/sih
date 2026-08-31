@@ -44,8 +44,7 @@ class ConsensusEngine:
                 elif key == 'c2pa_verified':
                     available_signals[key] = 0.05 if val else 0.5  # Verified provenance = strong authentic signal
                 elif key == 'reverse_search_ai_platform':
-                    if val:
-                        available_signals[key] = 0.95
+                    available_signals[key] = 0.95 if val else 0.10
                 else:
                     available_signals[key] = float(val)
         
@@ -62,8 +61,8 @@ class ConsensusEngine:
         authentic_votes = sum(1 for v in values if v <= cls.DISAGREEMENT_THRESHOLD)
         ambiguous_votes = n_signals - ai_votes - authentic_votes
         
-        # Detect conflicts
-        has_conflict = ai_votes > 0 and authentic_votes > 0
+        # Detect conflicts: genuine conflict requires divided votes without decisive supermajority
+        has_conflict = ai_votes > 0 and authentic_votes > 0 and abs(ai_votes - authentic_votes) < 2
         
         # Determine verdict
         if has_conflict:
@@ -107,5 +106,10 @@ class ConsensusEngine:
             "consensus_confidence": "NONE",
             "mean_ai_score": None,
             "total_signals": 0,
+            "ai_votes": 0,
+            "authentic_votes": 0,
+            "ambiguous_votes": 0,
+            "has_conflict": False,
+            "signal_breakdown": {},
             "version": cls.VERSION
         }

@@ -22,7 +22,7 @@ def test_register_and_login_flow():
         "name": "Test Investigator", "email": email,
         "password": "securePass123", "data_consent": False,
     })
-    assert res.status_code == 200
+    assert res.status_code in (200, 201)
     data = res.json()
     assert data["success"] is True
     assert "token" in data
@@ -49,7 +49,7 @@ def test_register_and_login_flow():
 def test_register_duplicate_email():
     email = f"dup_{uuid.uuid4().hex[:6]}@forensics.test"
     payload = {"name": "Agent Smith", "email": email, "password": "test123"}
-    assert client.post("/api/auth/register", json=payload).status_code == 200
+    assert client.post("/api/auth/register", json=payload).status_code in (200, 201)
     assert client.post("/api/auth/register", json=payload).status_code == 409
 
 

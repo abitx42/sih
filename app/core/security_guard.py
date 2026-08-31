@@ -40,9 +40,10 @@ def sanitize_filename(filename: str) -> str:
     # Check for dangerous extensions (single or multi-extension attacks)
     parts = clean.split(".")
     if len(parts) > 1:
-        lower_exts = [p.lower() for p in parts[1:]]
-        if any(ext in DANGEROUS_EXTENSIONS for ext in lower_exts):
-            clean = ".".join(parts[:-1]) + ".blocked"
+        has_dangerous = any(p.lower() in DANGEROUS_EXTENSIONS for p in parts[1:])
+        if has_dangerous:
+            safe_parts = [parts[0]] + [p for p in parts[1:] if p.lower() not in DANGEROUS_EXTENSIONS]
+            clean = ".".join(safe_parts) + ".blocked"
 
     return clean or "unnamed_evidence"
 

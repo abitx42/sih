@@ -28,7 +28,32 @@ class ArchiveAnalyzer(BaseAnalyzer):
         total_files = 0
         total_unpacked_size = 0
 
-        if zipfile.is_zipfile(file_path):
+        is_zip = zipfile.is_zipfile(file_path)
+        is_tar = tarfile.is_tarfile(file_path) if not is_zip else False
+
+        if not (is_zip or is_tar):
+            findings.append(FindingBuilder.create_finding(
+                evidence_id=evidence_id,
+                signal_name="Unrecognized or Corrupted Archive Container",
+                category="SIGNAL_ANALYSIS",
+                severity="MEDIUM",
+                score=50.0,
+                explanation="The file is not a valid ZIP or TAR archive or the container is corrupted."
+            ))
+            return {
+                "ai_model_name": None,
+                "ai_model_version": None,
+                "ai_manipulation_indicator": None,
+                "model_confidence": None,
+                "model_status": "ANALYSIS UNAVAILABLE",
+                "forensic_anomaly_score": 50.0,
+                "signal_anomalies_score": 50.0,
+                "metadata_anomaly_score": 50.0,
+                "findings": findings,
+                "raw_metrics": raw_metrics
+            }
+
+        if is_zip:
             with zipfile.ZipFile(file_path, 'r') as zf:
                 for member in zf.infolist():
                     if member.is_dir():
@@ -45,7 +70,7 @@ class ArchiveAnalyzer(BaseAnalyzer):
                     if ext in suspicious_extensions:
                         suspicious_files_found.append(member.filename)
         
-        elif tarfile.is_tarfile(file_path):
+        elif is_tar:
             with tarfile.open(file_path, 'r:*') as tf:
                 for member in tf.getmembers():
                     if member.isdir():
@@ -55,13 +80,16 @@ class ArchiveAnalyzer(BaseAnalyzer):
                     
                     f = tf.extractfile(member)
                     if f:
-                        data = f.read()
-                        h = hashlib.sha256(data).hexdigest()
-                        nested_hashes[member.name] = h
+                        try:
+                            data = f.read()
+                            h = hashlib.sha256(data).hexdigest()
+                            nested_hashes[member.name] = h
 
-                        ext = os.path.splitext(member.name)[1].lower()
-                        if ext in suspicious_extensions:
-                            suspicious_files_found.append(member.name)
+                            ext = os.path.splitext(member.name)[1].lower()
+                            if ext in suspicious_extensions:
+                                suspicious_files_found.append(member.name)
+                        finally:
+                            f.close()
 
         raw_metrics["total_nested_files"] = total_files
         raw_metrics["total_unpacked_size_bytes"] = total_unpacked_size

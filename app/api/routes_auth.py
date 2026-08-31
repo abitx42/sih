@@ -204,9 +204,8 @@ def login(body: LoginRequest):
         user = conn.execute(
             "SELECT * FROM users WHERE email = ? AND is_active = 1", (email,)
         ).fetchone()
-    if not user or not verify_password(body.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
-    with get_db() as conn:
+        if not user or not verify_password(body.password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
         conn.execute(
             "UPDATE users SET last_login = ? WHERE user_id = ?",
             (datetime.utcnow().isoformat() + "Z", user["user_id"])
@@ -276,7 +275,14 @@ def get_me(authorization: Optional[str] = Header(None)):
             "quota": build_quota_status(actor_key, role=payload.get("role", "INVESTIGATOR"), is_guest=False)
         }
     actor_key = user.get("email") or user["user_id"]
-    return {**user, "is_guest": False, "quota": build_quota_status(actor_key, role=user.get("role", "INVESTIGATOR"), is_guest=False)}
+    return {
+        **user,
+        "tc_accepted": bool(user.get("tc_accepted", 0)),
+        "email_verified": bool(user.get("email_verified", 0)),
+        "data_consent": bool(user.get("data_consent", 0)),
+        "is_guest": False,
+        "quota": build_quota_status(actor_key, role=user.get("role", "INVESTIGATOR"), is_guest=False)
+    }
 
 
 @router.post("/accept-terms")

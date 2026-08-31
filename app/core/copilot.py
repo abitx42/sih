@@ -316,9 +316,9 @@ Provide a valid JSON response containing EXACTLY these keys:
         Interactive Q&A assistant.
         """
         sanitized_q = question.strip().replace("\x00", "")
-        findings = evidence_detail.get("findings", [])
-        forensic_result = evidence_detail.get("forensic_result", {})
-        evidence = evidence_detail.get("evidence", {})
+        findings = evidence_detail.get("findings") or []
+        forensic_result = evidence_detail.get("forensic_result") or {}
+        evidence = evidence_detail.get("evidence") or {}
 
         if settings.LLM_API_KEY and settings.LLM_API_BASE_URL:
             try:

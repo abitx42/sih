@@ -83,7 +83,8 @@ class LocalizationAnalyzer:
         """
         try:
             if img is None:
-                img = Image.open(file_path).convert("RGB")
+                with Image.open(file_path) as raw_img:
+                    img = raw_img.convert("RGB")
             else:
                 img = img.convert("RGB")
 
@@ -177,20 +178,22 @@ class LocalizationAnalyzer:
 
     def _ela_grid(self, img: Image.Image, grid: int = 16):
         try:
-            buf = io.BytesIO()
-            img.save(buf, "JPEG", quality=92)
-            buf.seek(0)
-            resaved = Image.open(buf).convert("RGB")
-            diff = ImageChops.difference(img, resaved)
-            diff_arr = np.array(diff, dtype=np.float32).mean(axis=2)
-            h, w = diff_arr.shape
-            gh, gw = max(1, h // grid), max(1, w // grid)
-            grid_arr = np.zeros((grid, grid), dtype=np.float32)
-            for i in range(grid):
-                for j in range(grid):
-                    cell = diff_arr[i*gh:(i+1)*gh, j*gw:(j+1)*gw]
-                    grid_arr[i, j] = float(np.mean(cell))
-            return _normalize_01(grid_arr), diff
+            with io.BytesIO() as buf:
+                img.save(buf, "JPEG", quality=92)
+                buf.seek(0)
+                with Image.open(buf) as raw_resaved:
+                    resaved = raw_resaved.convert("RGB")
+                    diff = ImageChops.difference(img, resaved)
+                    arr = np.array(diff, dtype=np.float32)
+                    diff_arr = arr.mean(axis=2) if arr.ndim == 3 else arr
+                    h, w = diff_arr.shape[:2]
+                    gh, gw = max(1, h // grid), max(1, w // grid)
+                    grid_arr = np.zeros((grid, grid), dtype=np.float32)
+                    for i in range(grid):
+                        for j in range(grid):
+                            cell = diff_arr[i*gh:(i+1)*gh, j*gw:(j+1)*gw]
+                            grid_arr[i, j] = float(np.mean(cell))
+                    return _normalize_01(grid_arr), diff
         except Exception:
             return np.zeros((grid, grid), dtype=np.float32), None
 

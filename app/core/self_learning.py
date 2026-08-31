@@ -60,7 +60,8 @@ class SelfLearningEngine:
 
         # Determine ground truth label
         confirmed_label = explicit_label
-        ai_indicator = fr.get("ai_manipulation_indicator") or (fr.get("forensic_risk_score", 50.0) / 100.0)
+        raw_ind = fr.get("ai_manipulation_indicator")
+        ai_indicator = float(raw_ind) if raw_ind is not None else (float(fr.get("forensic_risk_score", 50.0)) / 100.0)
         risk_cat = fr.get("risk_category", "REVIEW REQUIRED")
 
         if not confirmed_label:

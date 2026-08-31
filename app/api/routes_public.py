@@ -46,9 +46,16 @@ def get_public_verification_payload(evidence_id: str):
 
     file_path = EVIDENCE_DIR / ev["stored_filename"]
     
-    # Extract Prompt & PRNU
-    pinv = PromptInversionEngine.invert_prompt(file_path, fr, evidence_id) if file_path.exists() else {}
-    prnu = PRNUBallisticsEngine.analyze_prnu(file_path, evidence_id) if file_path.exists() else {}
+    raw_metrics = {}
+    if fr and fr.get("raw_metrics_json"):
+        try:
+            raw_metrics = json.loads(fr["raw_metrics_json"])
+        except Exception:
+            pass
+
+    # Extract Prompt & PRNU from precomputed results or fallback
+    pinv = raw_metrics.get("prompt_inversion") or (PromptInversionEngine.invert_prompt(file_path, fr, evidence_id) if file_path.exists() else {})
+    prnu = raw_metrics.get("prnu_ballistics") or (PRNUBallisticsEngine.analyze_prnu(file_path, evidence_id) if file_path.exists() else {})
     debate = CourtroomDebateEngine.conduct_debate(evidence_id, ev.get("original_filename", "exhibit.jpg"), fr)
 
     risk_score = float(fr.get("forensic_risk_score", 50.0))

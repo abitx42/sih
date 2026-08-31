@@ -601,6 +601,23 @@ class ForensicReportGenerator:
             except Exception:
                 pass
 
+        # 11. Visual Forensic Exhibits & Heatmaps
+        if visual_exhibits:
+            try:
+                from reportlab.platypus import Image as RLImage
+                story.append(Paragraph("10. Visual Forensic Exhibits & Heatmaps", section_style))
+                for ex_title, ex_path in visual_exhibits[:4]:
+                    story.append(Paragraph(f"<b>{ex_title}</b>", body_style))
+                    try:
+                        rl_img = RLImage(ex_path, width=480, height=180)
+                        story.append(rl_img)
+                        story.append(Spacer(1, 4))
+                    except Exception:
+                        pass
+                story.append(Spacer(1, 6))
+            except Exception:
+                pass
+
         # 12. Legal Disclaimer
         disclaimer = (
             "<b>FORENSIC & LEGAL DISCLAIMER:</b> This report was generated automatically by the Truth Lens prototype "

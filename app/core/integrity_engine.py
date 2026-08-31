@@ -11,6 +11,9 @@ def calculate_file_hashes(file_path: Union[Path, str]) -> Dict[str, str]:
     in a memory-efficient chunked stream.
     """
     path_obj = Path(file_path)
+    if not path_obj.exists() or not path_obj.is_file():
+        return {"sha256": "", "sha512": "", "md5": ""}
+
     sha256 = hashlib.sha256()
     sha512 = hashlib.sha512()
     md5 = hashlib.md5()

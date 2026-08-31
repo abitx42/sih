@@ -6,6 +6,7 @@ Discriminates biological human vocal acoustics from synthetic AI voice cloning (
 """
 from __future__ import annotations
 
+import math
 import logging
 from typing import Dict, Any, List, Tuple
 import numpy as np

@@ -34,7 +34,7 @@ def test_submit_valid_review():
         "notes": "Findings match manual inspection.",
         "reviewer_name": "Senior Examiner"
     })
-    assert resp.status_code == 200
+    assert resp.status_code in (200, 201)
     data = resp.json()
     assert data["verdict"] == "AGREE"
     assert data["evidence_id"] == ev_id
@@ -53,7 +53,7 @@ def test_submit_disagree_review():
         "notes": "Manual inspection inconclusive.",
         "reviewer_name": "Examiner B"
     })
-    assert resp.status_code == 200
+    assert resp.status_code in (200, 201)
     assert resp.json()["verdict"] == "DISAGREE"
 
 

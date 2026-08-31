@@ -92,7 +92,7 @@ class WebProvenanceEngine:
                 date = item.get("date", "Recent")
 
                 lower_text = f"{title} {snippet}".lower()
-                is_debunk = any(w in lower_text for w in ["fake", "doctored", "ai", "deepfake", "manipulated", "fact check", "misleading"])
+                is_debunk = bool(re.search(r'\b(fake|doctored|deepfake|manipulated|fact[\s-]check|misleading|synthetic|ai-generated)\b', lower_text))
 
                 articles.append({
                     "title": title,

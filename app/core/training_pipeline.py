@@ -79,7 +79,7 @@ class TrainingSessionState:
 
     def get_status(self) -> Dict[str, Any]:
         with self.lock:
-            elapsed = round(time.time() - self.start_time, 1) if self.start_time and self.is_running else 0
+            elapsed = round(time.time() - self.start_time, 1) if self.start_time else 0
             return {
                 "is_running": self.is_running,
                 "job_id": self.job_id,
@@ -234,7 +234,7 @@ class LoRATrainingPipeline:
                 ))
 
                 # Mark used samples in training_dataset
-                conn.execute("UPDATE training_dataset SET used_in_training = 1, model_version = ?", (version_id,))
+                conn.execute("UPDATE training_dataset SET used_in_training = 1, model_version = ? WHERE used_in_training = 0", (version_id,))
 
             _TRAINING_STATE.finish(acc, loss, version_id)
             logger.info(f"LoRA Training complete for {version_id}. New accuracy: {acc:.2f}%")

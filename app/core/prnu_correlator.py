@@ -13,6 +13,7 @@ from typing import Dict, Any, List, Optional
 from PIL import Image, ImageFilter
 import numpy as np
 
+from scipy import ndimage
 from app.config import EVIDENCE_DIR
 from app.database import get_db
 
@@ -28,16 +29,15 @@ class PRNUCorrelator:
 
     @classmethod
     def extract_sensor_noise(cls, image_path: Path, target_size: tuple = (512, 512)) -> Optional[np.ndarray]:
-        """Extracts standardized high-pass sensor noise residual array."""
+        """Extracts standardized high-pass sensor noise residual array without 8-bit quantization artifacts."""
         try:
             img = Image.open(image_path).convert("RGB")
             img = img.resize(target_size, Image.Resampling.LANCZOS)
             arr = np.array(img, dtype=np.float32)
             lum = 0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2]
 
-            img_lum = Image.fromarray(np.uint8(np.clip(lum, 0, 255)))
-            blur = img_lum.filter(ImageFilter.GaussianBlur(radius=1.5))
-            blur_arr = np.array(blur, dtype=np.float32)
+            # Float32 spatial Gaussian filtering preserves high-frequency CMOS lattice gain variations
+            blur_arr = ndimage.gaussian_filter(lum, sigma=1.5)
             noise = lum - blur_arr
             return noise
         except Exception as e:
@@ -96,11 +96,16 @@ class PRNUCorrelator:
         match_confidence = round(min(99.8, max(5.0, (corr_coeff * 75.0) + (pce_metric * 0.4))), 1)
 
         # Defect Coordinate Coincidence Check
-        thresh_a = 3.2 * np.std(noise_a)
-        thresh_b = 3.2 * np.std(noise_b)
-        defects_a = set(zip(*np.where(np.abs(noise_a) > thresh_a)))
-        defects_b = set(zip(*np.where(np.abs(noise_b) > thresh_b)))
-        shared_defects = len(defects_a.intersection(defects_b))
+        std_a = float(np.std(noise_a))
+        std_b = float(np.std(noise_b))
+        if std_a > 1e-6 and std_b > 1e-6:
+            thresh_a = 3.2 * std_a
+            thresh_b = 3.2 * std_b
+            defects_a = set(zip(*np.where(np.abs(noise_a) > thresh_a)))
+            defects_b = set(zip(*np.where(np.abs(noise_b) > thresh_b)))
+            shared_defects = len(defects_a.intersection(defects_b))
+        else:
+            shared_defects = 0
 
         if corr_coeff >= 0.45 or pce_metric >= 35.0 or shared_defects >= 15:
             verdict = "CONFIRMED_SAME_PHYSICAL_SENSOR"
@@ -122,11 +127,14 @@ class PRNUCorrelator:
             is_match = False
             ruling = "PRNU cross-correlation is near zero. The exhibits originated from two separate physical cameras or synthetic generative models."
 
+        filename_a = ev_a.get("original_filename", "exhibit_a.jpg") if isinstance(ev_a, dict) else (ev_a["original_filename"] if "original_filename" in ev_a.keys() else "exhibit_a.jpg")
+        filename_b = ev_b.get("original_filename", "exhibit_b.jpg") if isinstance(ev_b, dict) else (ev_b["original_filename"] if "original_filename" in ev_b.keys() else "exhibit_b.jpg")
+
         return {
             "evidence_id_a": evidence_id_a,
             "evidence_id_b": evidence_id_b,
-            "filename_a": ev_a.get("original_filename", "exhibit_a.jpg"),
-            "filename_b": ev_b.get("original_filename", "exhibit_b.jpg"),
+            "filename_a": filename_a,
+            "filename_b": filename_b,
             "correlation_coefficient": round(corr_coeff, 4),
             "pce_cross_score": pce_metric,
             "shared_silicon_defects_count": shared_defects,

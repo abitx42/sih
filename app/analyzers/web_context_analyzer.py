@@ -51,8 +51,9 @@ class WebContextAnalyzer:
         if not _IMAGEHASH_AVAILABLE:
             return {"phash": None, "dhash": None, "whash": None, "phash_error": "imagehash not installed"}
         try:
-            img = _PILImage.open(image_path).convert("RGB")
-            return {"phash": str(imagehash.phash(img)), "dhash": str(imagehash.dhash(img)), "whash": str(imagehash.whash(img)), "phash_error": None}
+            with _PILImage.open(image_path) as raw_img:
+                img = raw_img.convert("RGB")
+                return {"phash": str(imagehash.phash(img)), "dhash": str(imagehash.dhash(img)), "whash": str(imagehash.whash(img)), "phash_error": None}
         except Exception as e:
             logger.warning(f"Perceptual hash failed for {image_path}: {e}")
             return {"phash": None, "dhash": None, "whash": None, "phash_error": str(e)}

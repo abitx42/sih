@@ -58,13 +58,17 @@ class PromptInversionEngine:
         """
         try:
             if isinstance(image_input, (str, Path)):
-                img = Image.open(image_input).convert("RGB")
+                with Image.open(image_input) as raw_img:
+                    img = raw_img.convert("RGB")
             elif isinstance(image_input, Image.Image):
                 img = image_input.convert("RGB")
             else:
                 return cls._fallback_result("Invalid image input")
 
             w, h = img.size
+            if w <= 0 or h <= 0:
+                return cls._fallback_result("Image has invalid zero dimensions")
+
             aspect_ratio = f"{w}:{h}"
             if abs(w / h - 1.0) < 0.05:
                 ar_tag = "--ar 1:1"
@@ -110,7 +114,9 @@ class PromptInversionEngine:
             if isinstance(forensic_context, (float, int)):
                 ai_indicator = float(forensic_context) / 100.0 if float(forensic_context) > 1.0 else float(forensic_context)
             else:
-                ai_indicator = ctx.get("ai_manipulation_indicator", 0.8) if isinstance(ctx, dict) else 0.8
+                raw_ind = ctx.get("ai_manipulation_indicator") if isinstance(ctx, dict) else 0.8
+                ai_indicator = float(raw_ind) if raw_ind is not None else 0.8
+
             if discovered_platform:
                 model_family = discovered_platform
             elif ai_indicator > 0.90:

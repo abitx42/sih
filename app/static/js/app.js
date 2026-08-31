@@ -1409,9 +1409,34 @@ async function reverifyIntegrity() {
 }
 
 // 5. Download Forensic Report (PDF)
-function downloadForensicReport() {
+async function downloadForensicReport() {
   if (!currentEvidenceId) return;
-  window.open(`/api/reports/${currentEvidenceId}/download`, '_blank');
+  const token = localStorage.getItem('tl_token') || window.TL_TOKEN;
+  if (!token) {
+    window.open(`/api/reports/${currentEvidenceId}/download`, '_blank');
+    return;
+  }
+  try {
+    const res = await fetch(`/api/reports/${currentEvidenceId}/download`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      window.open(`/api/reports/${currentEvidenceId}/download`, '_blank');
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `truth_lens_report_${currentEvidenceId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    if (typeof showToast === 'function') showToast("PDF report downloaded successfully.", "success");
+  } catch (err) {
+    window.open(`/api/reports/${currentEvidenceId}/download`, '_blank');
+  }
 }
 
 // 6. Forensic Copilot Interactive Chat
@@ -1849,9 +1874,35 @@ function applyCaseFilters() {
   }
 }
 
-function downloadCurrentCaseReport() {
+async function downloadCurrentCaseReport() {
   if (!currentCaseId) return;
-  window.open(`/api/reports/cases/${encodeURIComponent(currentCaseId)}/download`, '_blank');
+  const token = localStorage.getItem('tl_token') || window.TL_TOKEN;
+  const reportUrl = `/api/reports/cases/${encodeURIComponent(currentCaseId)}/download`;
+  if (!token) {
+    window.open(reportUrl, '_blank');
+    return;
+  }
+  try {
+    const res = await fetch(reportUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      window.open(reportUrl, '_blank');
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `truth_lens_case_${currentCaseId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    if (typeof showToast === 'function') showToast("Case summary PDF report downloaded.", "success");
+  } catch (err) {
+    window.open(reportUrl, '_blank');
+  }
 }
 
 function quickIngestToCurrentCase() {

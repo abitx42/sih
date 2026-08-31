@@ -212,5 +212,7 @@ class DashboardStatsResponse(BaseModel):
     total_evidence: int
     risk_distribution: Dict[str, int]
     modality_distribution: Dict[str, int]
-    recent_evidence: List[EvidenceBase]
-    recent_custody_events: List[CustodyEventResponse]
+    processing_status: Optional[Dict[str, int]] = None
+    recent_activity: Optional[List[Dict[str, Any]]] = None
+    recent_evidence: Optional[List[Dict[str, Any]]] = None
+    recent_custody_events: Optional[List[Dict[str, Any]]] = None

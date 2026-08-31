@@ -76,18 +76,19 @@ class ReverseImageSearch:
             }
 
         except requests.exceptions.Timeout:
-            return cls._unavailable_result("Reverse image search timed out")
+            return cls._unavailable_result("Reverse image search timed out", evidence_id)
         except requests.exceptions.ConnectionError:
-            return cls._unavailable_result("Could not connect to reverse image search API")
+            return cls._unavailable_result("Could not connect to reverse image search API", evidence_id)
         except Exception as e:
             logger.error(f"Reverse image search error for {evidence_id}: {e}")
-            return cls._unavailable_result(str(e))
+            return cls._unavailable_result(str(e), evidence_id)
     
     @classmethod
-    def _unavailable_result(cls, reason: str) -> Dict[str, Any]:
+    def _unavailable_result(cls, reason: str, evidence_id: str = "") -> Dict[str, Any]:
         return {
             "source": "Reverse Image Search",
             "available": False,
+            "evidence_id": evidence_id,
             "web_entities": [],
             "matching_pages": [],
             "visually_similar_images": [],

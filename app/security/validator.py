@@ -30,19 +30,10 @@ MAGIC_SIGNATURES = {
 def sanitize_filename(filename: str) -> str:
     """
     Sanitize uploaded filename to prevent Path Traversal, Null Byte injection,
-    and forbidden OS characters.
+    executable extensions, and forbidden OS characters.
     """
-    # Remove directory paths
-    filename = os.path.basename(filename)
-    # Strip null bytes and control chars
-    filename = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', filename)
-    # Remove any traversal patterns
-    filename = filename.replace("..", "").replace("/", "").replace("\\", "")
-    # Keep only safe alphanumeric, dots, underscores, dashes
-    filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
-    if not filename or filename == ".":
-        filename = "unnamed_evidence.bin"
-    return filename
+    from app.core.security_guard import sanitize_filename as _secure_sanitize
+    return _secure_sanitize(filename)
 
 def detect_mime_and_modality(file_path: Path, filename: str) -> Tuple[str, str]:
     """

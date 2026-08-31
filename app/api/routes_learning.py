@@ -91,4 +91,10 @@ def submit_quick_learning_review(evidence_id: str, body: QuickReviewRequest):
     )
     if not res:
         raise HTTPException(status_code=404, detail="Evidence exhibit or forensic result not found.")
-    return {"success": True, "message": "Review recorded in training dataset.", "evidence_id": evidence_id}
+    return {
+        "success": True,
+        "message": "Review recorded in training dataset.",
+        "evidence_id": evidence_id,
+        "sample": res,
+        "stats": SelfLearningEngine.get_dataset_statistics()
+    }

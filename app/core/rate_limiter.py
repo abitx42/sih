@@ -15,33 +15,37 @@ from starlette.responses import JSONResponse, Response
 logger = logging.getLogger(__name__)
 
 
+import threading
+
 class SlidingWindowRateLimiter:
-    """Tracks request timestamps per IP and enforces sliding-window quotas."""
+    """Tracks request timestamps per IP and enforces sliding-window quotas in a thread-safe manner."""
     def __init__(self):
         # ip -> list of timestamps
         self.requests: Dict[str, List[float]] = defaultdict(list)
+        self.lock = threading.Lock()
 
     def is_allowed(self, ip: str, limit: int, window_seconds: float = 60.0) -> Tuple[bool, int, float]:
         now = time.time()
         cutoff = now - window_seconds
 
-        # Prune older timestamps
-        self.requests[ip] = [t for t in self.requests[ip] if t > cutoff]
+        with self.lock:
+            # Prune older timestamps
+            self.requests[ip] = [t for t in self.requests[ip] if t > cutoff]
 
-        
-        # Memory safety: prune empty IP records periodically
-        if len(self.requests) > 5000:
-            inactive_ips = [k for k, v in self.requests.items() if not v or v[-1] < cutoff]
-            for k in inactive_ips[:1000]:
-                del self.requests[k]
-        current_count = len(self.requests[ip])
-        if current_count >= limit:
-            oldest = self.requests[ip][0]
-            retry_after = round(window_seconds - (now - oldest), 1)
-            return False, current_count, max(1.0, retry_after)
+            # Memory safety: prune empty IP records periodically snapshotting items
+            if len(self.requests) > 5000:
+                inactive_ips = [k for k, v in list(self.requests.items()) if not v or v[-1] < cutoff]
+                for k in inactive_ips[:1000]:
+                    self.requests.pop(k, None)
 
-        self.requests[ip].append(now)
-        return True, current_count + 1, 0.0
+            current_count = len(self.requests[ip])
+            if current_count >= limit:
+                oldest = self.requests[ip][0]
+                retry_after = round(window_seconds - (now - oldest), 1)
+                return False, current_count, max(1.0, retry_after)
+
+            self.requests[ip].append(now)
+            return True, current_count + 1, 0.0
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):

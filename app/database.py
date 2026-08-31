@@ -16,10 +16,11 @@ def dict_factory(cursor, row):
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0, check_same_thread=False)
     conn.row_factory = dict_factory
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     try:
         yield conn
         conn.commit()
@@ -332,7 +333,8 @@ def init_db():
             evidence_id TEXT,
             rating INTEGER NOT NULL DEFAULT 5,
             attachment_path TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            submitted_at TEXT
         )
         """)
 

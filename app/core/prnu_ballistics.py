@@ -117,7 +117,11 @@ class PRNUBallisticsEngine:
             # 5. Discrimination & Attributability Score
             # High PCE (>35) + authentic hot pixel distribution -> Physical Camera Sensor (Score < 20% AI)
             # Low PCE (<15) + unnatural Gaussian/VAE noise -> AI Synthetic Generation (Score > 80% AI)
-            if pce_score < 18.0 and res_var < 15.0:
+            if res_var < 0.01:
+                prnu_ai_indicator = 0.50
+                verdict = "INCONCLUSIVE_FLAT_SIGNAL"
+                status_text = "Uniform / Flat Image Signal (Zero Noise Residual Variance)"
+            elif pce_score < 18.0 and res_var < 15.0:
                 prnu_ai_indicator = round(min(0.99, 0.85 + (18.0 - pce_score) * 0.008), 3)
                 verdict = "ZERO_SILICON_SIGNATURE_SYNTHETIC_AI"
                 status_text = "Zero Physical Silicon PRNU Fingerprint (Synthetic Generative Diffusion)"

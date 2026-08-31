@@ -113,7 +113,10 @@ def serve_login():
     login_file = STATIC_DIR / "login.html"
     if login_file.exists():
         return FileResponse(str(login_file))
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"message": "Truth Lens Authentication UI initializing."}
 
 @app.get("/health")
 @app.get("/api/health")

@@ -213,32 +213,33 @@ class VideoAnalyzer(BaseAnalyzer):
 
         try:
             with open(file_path, "rb") as f:
-                header = f.read(512 * 1024)
-                if size_bytes > 512 * 1024:
-                    f.seek(max(0, size_bytes - 512 * 1024))
-                    trailer = f.read(512 * 1024)
+                if size_bytes <= 1024 * 1024:
+                    container_bytes = f.read()
                 else:
-                    trailer = b""
-                container_bytes = header + trailer
+                    header = f.read(512 * 1024)
+                    f.seek(size_bytes - 512 * 1024)
+                    trailer = f.read(512 * 1024)
+                    container_bytes = header + trailer
             
             if b"ftyp" in container_bytes:
                 info["has_ftyp"] = True
             if b"moov" in container_bytes or b"mdat" in container_bytes:
                 info["has_moov"] = True
             
-            for sw in [b"Adobe Premiere", b"CapCut", b"DaVinci Resolve", b"InShot", b"ffmpeg", b"HandBrake", b"DeepFaceLab"]:
+            generative_tags = ["DeepFaceLab", "Sora", "Runway", "Pika", "Kling", "Luma", "Hailuo", "AnimateDiff", "Stable Video"]
+            for sw in [b"Adobe Premiere", b"CapCut", b"DaVinci Resolve", b"InShot", b"ffmpeg", b"HandBrake", b"DeepFaceLab", b"Sora", b"Runway", b"Pika", b"Kling", b"Luma", b"Hailuo", b"AnimateDiff", b"Stable Video"]:
                 if sw.lower() in container_bytes.lower():
                     sw_name = sw.decode(errors='ignore')
                     info["encoder"] = sw_name
-                    if sw_name == "DeepFaceLab":
+                    if sw_name in generative_tags:
                         meta_score = 95.0
                         findings.append(FindingBuilder.create_finding(
                             evidence_id=evidence_id,
-                            signal_name="DeepFaceLab Pipeline Tag Detected",
+                            signal_name="Generative Video AI Pipeline Tag Detected",
                             category="METADATA",
                             severity="CRITICAL",
                             score=98.0,
-                            explanation="Video metadata atom explicitly references 'DeepFaceLab' generation pipeline."
+                            explanation=f"Video metadata atom explicitly references '{sw_name}' neural generation pipeline."
                         ))
                     else:
                         meta_score = 40.0
@@ -303,7 +304,14 @@ class VideoAnalyzer(BaseAnalyzer):
                         ret, frame = cap.read()
                         if not ret or frame is None:
                             break
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] == 1):
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+                        elif frame.ndim == 3 and frame.shape[2] == 4:
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+                        elif frame.ndim == 3 and frame.shape[2] == 3:
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        else:
+                            continue
                         seq_frames.append(Image.fromarray(rgb_frame))
                         metadata["sampled_frame_indices"].append(count)
                         metadata["frame_timestamps"].append(round(count / fps, 3))
@@ -322,7 +330,14 @@ class VideoAnalyzer(BaseAnalyzer):
                     cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
                     ret, frame = cap.read()
                     if ret and frame is not None:
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        if frame.ndim == 2 or (frame.ndim == 3 and frame.shape[2] == 1):
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+                        elif frame.ndim == 3 and frame.shape[2] == 4:
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+                        elif frame.ndim == 3 and frame.shape[2] == 3:
+                            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        else:
+                            continue
                         frames.append(Image.fromarray(rgb_frame))
                         metadata["sampled_frame_indices"].append(int(idx))
                         metadata["frame_timestamps"].append(round(float(idx) / fps, 3))
@@ -365,7 +380,12 @@ class VideoAnalyzer(BaseAnalyzer):
             d = float(np.mean(np.abs(gray_arrays[i] - gray_arrays[i+1])))
             frame_diffs.append(d)
         
-        inter_inconsistency = round(min(100.0, max(5.0, float(np.std(frame_diffs)) * 3.0)), 1)
+        if len(frame_diffs) > 1:
+            inter_inconsistency = round(min(100.0, max(5.0, float(np.std(frame_diffs)) * 3.0)), 1)
+        elif len(frame_diffs) == 1:
+            inter_inconsistency = round(min(100.0, max(5.0, frame_diffs[0] * 1.5)), 1)
+        else:
+            inter_inconsistency = 10.0
 
         metrics = {
             "temporal_luminance_variation_score": luminance_variation_score,

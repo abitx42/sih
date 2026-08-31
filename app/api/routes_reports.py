@@ -11,8 +11,8 @@ router = APIRouter(prefix="/api/reports", tags=["Reports"])
 def _extract_officer_name(authorization: Optional[str], default_actor: str = "Lead Forensic Examiner") -> str:
     if authorization and authorization.startswith("Bearer "):
         try:
-            from app.core.auth import decode_access_token
-            payload = decode_access_token(authorization.split(" ")[1])
+            from app.core.auth import decode_token
+            payload = decode_token(authorization.split(" ")[1])
             if payload and payload.get("name"):
                 return str(payload["name"]).strip()
         except Exception:
@@ -63,7 +63,7 @@ def generate_and_download_report(evidence_id: str, actor: str = "Lead Forensic E
     ChainOfCustodyLogger.record_event(
         evidence_id=evidence_id,
         action="FORENSIC_REPORT_EXPORTED",
-        actor=actor,
+        actor=officer_name,
         recorded_sha256=evidence["sha256_hash"],
         details=f"Truth Lens forensic assessment PDF report generated: '{pdf_path.name}'."
     )
@@ -131,12 +131,12 @@ def generate_and_download_case_report(case_id: str, actor: str = "Lead Forensic 
         custody_events=custody_events
     )
 
-    if evidence_items:
+    for ev_item in evidence_items:
         ChainOfCustodyLogger.record_event(
-            evidence_id=evidence_items[0]["evidence_id"],
+            evidence_id=ev_item["evidence_id"],
             action="CASE_REPORT_EXPORTED",
             actor=actor,
-            recorded_sha256=evidence_items[0]["sha256_hash"],
+            recorded_sha256=ev_item["sha256_hash"],
             details=f"Truth Lens Case investigation summary PDF report exported for case '{case_id}' ({len(evidence_items)} exhibits)."
         )
 

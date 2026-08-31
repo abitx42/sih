@@ -88,7 +88,10 @@ def compare_evidence(req: EvidenceDiffRequest):
 @router.get("/{evidence_id_a}/{evidence_id_b}/heatmap")
 def get_diff_heatmap(evidence_id_a: str, evidence_id_b: str):
     """Serve the pre-computed diff heatmap PNG image."""
+    from app.core.security_guard import validate_safe_path
     heatmap_path = FORENSIC_DIR / f"diff_{evidence_id_a}_{evidence_id_b}.png"
+    if not validate_safe_path(heatmap_path, FORENSIC_DIR):
+        raise HTTPException(status_code=400, detail="Invalid exhibit identifiers.")
     if not heatmap_path.exists():
         raise HTTPException(status_code=404, detail="Diff heatmap not available. Run a comparison first.")
     return FileResponse(path=str(heatmap_path), media_type="image/png")

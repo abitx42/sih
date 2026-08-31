@@ -74,6 +74,13 @@ class LegalCertificateGenerator:
 
         verify_url = f"https://truthlens.local/verify/{ev_id}?cert={cert_id}&hash={sha256[:16]}"
 
+        if risk_cat == "HIGH RISK" or risk_score >= 70.0:
+            classification = "PROVEN SYNTHETIC GENERATIVE ASSET"
+        elif risk_cat == "LOW RISK" and risk_score <= 30.0:
+            classification = "CERTIFIED AUTHENTIC OPTICAL CAPTURE"
+        else:
+            classification = "INCONCLUSIVE / PENDING FURTHER FORENSIC REVIEW"
+
         return {
             "certificate_id": cert_id,
             "statutory_act": "Section 63 of Bharatiya Sakshya Adhiniyam (BSA, 2023) / Section 65B(4) of Indian Evidence Act, 1872",
@@ -107,7 +114,7 @@ class LegalCertificateGenerator:
             "forensic_verdict": {
                 "risk_score": risk_score,
                 "risk_category": risk_cat,
-                "classification": "PROVEN SYNTHETIC GENERATIVE ASSET" if is_ai else "CERTIFIED AUTHENTIC OPTICAL CAPTURE",
+                "classification": classification,
                 "admissibility": magistrate.get("admissibility_status", "ADMISSIBLE UNDER BSA 2023"),
                 "standard_of_proof": magistrate.get("burden_of_proof", "BEYOND REASONABLE FORENSIC DOUBT"),
                 "judicial_decree": magistrate.get("judicial_decree", "")
@@ -223,7 +230,7 @@ class LegalCertificateGenerator:
             [Paragraph("<b>Case Reference:</b>", body_style), Paragraph(f"{payload['case_id']} - {payload['case_title']}", body_style),
              Paragraph("<b>Evidence ID:</b>", body_style), Paragraph(payload["evidence_id"], mono_style)],
             [Paragraph("<b>Original Exhibit:</b>", body_style), Paragraph(payload["original_filename"], body_style),
-             Paragraph("<b>File Size:</b>", body_style), Paragraph(f"{payload['file_size_bytes']/1024:.1f} KB", body_style)],
+             Paragraph("<b>File Size:</b>", body_style), Paragraph(f"{(payload.get('file_size_bytes') or 0)/1024:.1f} KB", body_style)],
         ]
         t_meta = Table(meta_data, colWidths=[85, 175, 85, 175])
         t_meta.setStyle(TableStyle([

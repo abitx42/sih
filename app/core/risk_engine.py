@@ -167,11 +167,19 @@ class RiskEngine:
             is_ml_available = True
         else:
             ai_risk = None
-            final_score = (
-                (heuristic_risk * 0.55) +
-                (meta_risk * 0.25) +
-                (provenance_risk * 0.20)
-            )
+            total_non_ml_weight = w_heur + w_meta + w_prov
+            if total_non_ml_weight > 0:
+                final_score = (
+                    (heuristic_risk * (w_heur / total_non_ml_weight)) +
+                    (meta_risk * (w_meta / total_non_ml_weight)) +
+                    (provenance_risk * (w_prov / total_non_ml_weight))
+                )
+            else:
+                final_score = (
+                    (heuristic_risk * 0.55) +
+                    (meta_risk * 0.25) +
+                    (provenance_risk * 0.20)
+                )
             is_ml_available = False
 
         # If file tampering detected on disk, override score to maximum
@@ -208,8 +216,12 @@ class RiskEngine:
             final_score = max(35.0, min(65.0, final_score))
             base_confidence = 0.68
         elif not is_ml_available:
+            is_authentic_press = bool(web_lens_result and web_lens_result.get("web_verdict") == "CONFIRMED_AUTHENTIC_PRESS" and heuristic_risk <= 35.0)
             if final_score >= RISK_THRESHOLD_HIGH or critical_count > 0 or high_count >= 2 or integrity_status == "MISMATCH":
                 risk_category = "HIGH RISK"
+            elif is_authentic_press:
+                risk_category = "LOW RISK"
+                final_score = min(final_score, 8.5)
             else:
                 risk_category = "REVIEW REQUIRED"
                 final_score = max(35.0, final_score)

@@ -102,6 +102,8 @@ class SingleModelRunner:
         Matches common synthetic vs real synonyms using strict word boundaries to avoid false positives.
         """
         clean = str(raw_label).strip().lower()
+        if any(neg in clean for neg in ["not fake", "not_fake", "non_manipulated", "non-manipulated", "un-synthetic", "not artificial"]):
+            return "UNMANIPULATED"
         clean_words = set(re.findall(r'\b[a-z0-9_]+\b', clean))
         manipulated_exact = {"artificial", "fake", "manipulated", "synthetic", "generated", "deepfake", "ai_generated", "ai", "synth"}
         if any(w in manipulated_exact for w in clean_words) or any(phrase in clean for phrase in ["ai_generated", "deepfake", "synthetic", "ai-generated"]):
@@ -415,6 +417,8 @@ class HFImageDetector:
 
         # Step 2: Re-normalize weights for available models
         total_w = sum(cv[1] for cv in calibrated_values)
+        if total_w <= 0:
+            total_w = 1.0
         normalized = [(cv[0], cv[1] / total_w, cv[2]) for cv in calibrated_values]
 
         # Step 3: Weighted mean of calibrated values

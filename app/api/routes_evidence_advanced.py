@@ -62,6 +62,12 @@ def get_prnu_analysis(evidence_id: str):
         if not ev:
             raise HTTPException(status_code=404, detail="Evidence not found.")
 
+    if ev.get("modality") not in ("IMAGE", "VIDEO"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"PRNU sensor ballistics analysis is only supported for visual exhibits (IMAGE/VIDEO). Found: {ev.get('modality')}."
+        )
+
     file_path = EVIDENCE_DIR / ev["stored_filename"]
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Evidence file missing.")
@@ -152,6 +158,12 @@ def get_audio_acoustic_analysis(evidence_id: str):
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         fr = cursor.fetchone()
 
+    if ev.get("modality") != "AUDIO":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Audio acoustic analysis is only supported for AUDIO modality exhibits (found: {ev.get('modality')})."
+        )
+
     fp = EVIDENCE_DIR / ev["stored_filename"]
     if not fp.exists():
         raise HTTPException(status_code=404, detail="Evidence file missing.")
@@ -175,6 +187,12 @@ def get_video_timeline_analysis(evidence_id: str):
         ev = cursor.fetchone()
         if not ev:
             raise HTTPException(status_code=404, detail="Evidence not found.")
+
+        if ev.get("modality") != "VIDEO":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Video timeline analysis requires VIDEO modality evidence (found: {ev.get('modality')})."
+            )
 
         cursor.execute("SELECT * FROM forensic_results WHERE evidence_id = ?", (evidence_id,))
         fr = cursor.fetchone() or {}

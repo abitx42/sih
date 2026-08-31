@@ -267,7 +267,9 @@ class AudioAnalyzer(BaseAnalyzer):
                     raw_arr = np.frombuffer(raw_bytes, dtype=np.uint8)
                     valid_len = len(raw_arr) - (len(raw_arr) % 3)
                     raw_24 = raw_arr[:valid_len].reshape(-1, 3)
-                    data_int = raw_24[:, 0].astype(np.int32) | (raw_24[:, 1].astype(np.int32) << 8) | (raw_24[:, 2].astype(np.int8).astype(np.int32) << 16)
+                    data_int = raw_24[:, 0].astype(np.int32) | (raw_24[:, 1].astype(np.int32) << 8) | (raw_24[:, 2].astype(np.int32) << 16)
+                    # Correct two's complement sign extension for 24-bit integer values
+                    data_int = np.where(data_int >= 0x800000, data_int - 0x1000000, data_int)
                     data = data_int.astype(np.float32) / 8388608.0
                     bit_depth = 24
                 elif sample_width == 4:
@@ -377,16 +379,20 @@ class AudioAnalyzer(BaseAnalyzer):
             log_Sxx = 10.0 * np.log10(Sxx + 1e-10)
 
             # Detect abrupt spectral cuts / splice points across time slices
-            time_deltas = np.diff(log_Sxx, axis=1)
-            mean_step_diff = np.mean(np.abs(time_deltas), axis=0)
-            threshold = np.mean(mean_step_diff) + (2.5 * np.std(mean_step_diff) + 1e-5)
-            cut_mask = mean_step_diff > threshold
-            cut_count = int(np.sum(cut_mask))
+            if log_Sxx.shape[1] > 1:
+                time_deltas = np.diff(log_Sxx, axis=1)
+                mean_step_diff = np.mean(np.abs(time_deltas), axis=0)
+                threshold = float(np.mean(mean_step_diff)) + (2.5 * float(np.std(mean_step_diff)) + 1e-5)
+                cut_mask = mean_step_diff > threshold
+                cut_count = int(np.sum(cut_mask))
 
-            cut_timestamps = []
-            for idx in np.where(cut_mask)[0]:
-                if idx < len(t):
-                    cut_timestamps.append(round(float(t[idx]), 3))
+                cut_timestamps = []
+                for idx in np.where(cut_mask)[0]:
+                    if idx < len(t):
+                        cut_timestamps.append(round(float(t[idx]), 3))
+            else:
+                cut_count = 0
+                cut_timestamps = []
 
             # Normalize to 0-255 grayscale / false-color
             norm_spec = (log_Sxx - np.min(log_Sxx)) / (np.max(log_Sxx) - np.min(log_Sxx) + 1e-6) * 255.0
@@ -465,6 +471,12 @@ class AudioAnalyzer(BaseAnalyzer):
             metrics["silence_regions_count"] = 0
 
         # 3. Frequency Spectrum Analysis (FFT)
+        if len(data) < 2 or sample_rate <= 0:
+            metrics["spectral_centroid_hz"] = 0.0
+            metrics["spectral_rolloff_hz"] = 0.0
+            metrics["high_freq_energy_ratio"] = 0.0
+            return metrics
+
         fft_len = min(len(data), sample_rate * 3)  # First 3 seconds
         fft_vals = np.abs(np.fft.rfft(data[:fft_len]))
         freqs = np.fft.rfftfreq(fft_len, 1.0 / sample_rate)
@@ -478,7 +490,7 @@ class AudioAnalyzer(BaseAnalyzer):
         # Spectral Roll-off (85% energy point)
         cum_energy = np.cumsum(fft_vals)
         roll_idx = np.searchsorted(cum_energy, 0.85 * total_energy)
-        roll_off = float(freqs[min(roll_idx, len(freqs) - 1)])
+        roll_off = float(freqs[min(roll_idx, len(freqs) - 1)]) if len(freqs) > 0 else 0.0
         metrics["spectral_rolloff_hz"] = round(roll_off, 1)
 
         # High-Frequency Energy Ratio (> 4000 Hz)

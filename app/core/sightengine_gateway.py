@@ -73,19 +73,20 @@ class SightEngineGateway:
             }
             
         except requests.exceptions.Timeout:
-            return cls._unavailable_result("SightEngine API request timed out")
+            return cls._unavailable_result("SightEngine request timed out", evidence_id)
         except requests.exceptions.ConnectionError:
-            return cls._unavailable_result("Could not connect to SightEngine API")
+            return cls._unavailable_result("Could not connect to SightEngine API", evidence_id)
         except Exception as e:
             logger.error(f"SightEngine analysis error for {evidence_id}: {e}")
-            return cls._unavailable_result(str(e))
+            return cls._unavailable_result(str(e), evidence_id)
     
     @classmethod
-    def _unavailable_result(cls, reason: str) -> Dict[str, Any]:
+    def _unavailable_result(cls, reason: str, evidence_id: str = "") -> Dict[str, Any]:
         return {
             "source": "SightEngine External API",
             "version": cls.VERSION,
             "available": False,
+            "evidence_id": evidence_id,
             "ai_generated_score": None,
             "ai_indicator": None,
             "verdict": "EXTERNAL_UNAVAILABLE",
